@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vis-agent-bench.local/schemas/run-spec.schema.json",
+  "title": "Vis Agent Bench Run Profile",
+  "type": "object",
+  "required": ["schema_version", "name", "case_id", "engine", "isolation", "permissions", "budget", "scenario", "evidence"],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "name": { "type": "string", "minLength": 1 },
+    "case_id": { "type": "string", "minLength": 1 },
+    "engine": {
+      "type": "object",
+      "required": ["adapter", "executable", "configured_model", "provider", "credential_ref"],
+      "properties": {
+        "adapter": { "enum": ["codex", "kimi", "claude", "codex-cli", "kimi-code-cli", "claude-code-cli"] },
+        "executable": { "type": "string", "minLength": 1 },
+        "configured_model": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "credential_ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://" }
+      },
+      "additionalProperties": false
+    },
+    "isolation": {
+      "type": "object",
+      "required": ["mode", "leaderboard_eligible", "network", "block_internal_network", "inherited_home_for_auth", "answer_leakage_scan", "workspace_root"],
+      "properties": {
+        "mode": { "enum": ["file-isolated-development", "container", "dedicated-user"] },
+        "leaderboard_eligible": { "type": "boolean" },
+        "network": { "type": ["boolean", "string"], "enum": [true, false, "enabled", "disabled"] },
+        "block_internal_network": { "type": "boolean" },
+        "inherited_home_for_auth": { "type": "boolean" },
+        "answer_leakage_scan": { "type": "boolean" },
+        "workspace_root": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "permissions": {
+      "type": "object",
+      "required": ["read_internal_source", "read_answer_repository", "hidden_evaluator_visible", "allowed_tools"],
+      "properties": {
+        "read_internal_source": { "const": false },
+        "read_answer_repository": { "const": false },
+        "hidden_evaluator_visible": { "const": false },
+        "allowed_tools": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      },
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "required": ["wall_time_minutes", "max_retries", "max_tokens", "max_cost_usd"],
+      "properties": {
+        "wall_time_minutes": { "type": "number", "exclusiveMinimum": 0 },
+        "max_retries": { "type": "integer", "minimum": 0 },
+        "max_tokens": { "type": ["integer", "null"], "minimum": 1 },
+        "max_cost_usd": { "type": ["number", "null"], "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "scenario": {
+      "type": "object",
+      "required": ["mode", "baseline_type", "session_continuity_required"],
+      "properties": {
+        "mode": { "const": "progressive-disclosure" },
+        "baseline_type": { "type": "string", "minLength": 1 },
+        "session_continuity_required": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["raw_stdout", "raw_stderr", "normalized_events", "file_snapshots", "git_diff", "screenshots", "redact_secrets", "human_review_required"],
+      "properties": {
+        "raw_stdout": { "type": "boolean" },
+        "raw_stderr": { "type": "boolean" },
+        "normalized_events": { "type": "boolean" },
+        "file_snapshots": { "type": "boolean" },
+        "git_diff": { "type": "boolean" },
+        "screenshots": { "type": "boolean" },
+        "redact_secrets": { "const": true },
+        "human_review_required": { "const": true }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
