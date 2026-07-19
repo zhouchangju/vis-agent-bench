@@ -29,7 +29,7 @@ tasks:
   - id: VAB-T01
     title: CLI Adapter 协议与遥测
     wave: 1
-    status: ready
+    status: accepted
     branch: codex/vab-t01-runner-telemetry
     depends_on: [VAB-T00]
     prompt: prompts/VAB-T01-RUNNER-TELEMETRY.md
@@ -43,7 +43,7 @@ tasks:
   - id: VAB-T02
     title: Fixture Builder 与隔离框架
     wave: 1
-    status: ready
+    status: accepted
     branch: codex/vab-t02-fixture-framework
     depends_on: [VAB-T00]
     prompt: prompts/VAB-T02-FIXTURE-FRAMEWORK.md
@@ -58,7 +58,7 @@ tasks:
   - id: VAB-T03
     title: 股权关系脱敏 Fixture
     wave: 2
-    status: planned
+    status: ready
     branch: codex/vab-t03-equity-fixture
     depends_on: [VAB-T02]
     prompt: prompts/VAB-T03-EQUITY-FIXTURE.md
@@ -71,7 +71,7 @@ tasks:
   - id: VAB-T04
     title: Evaluator Core
     wave: 1
-    status: ready
+    status: accepted
     branch: codex/vab-t04-evaluator-core
     depends_on: [VAB-T00]
     prompt: prompts/VAB-T04-EVALUATOR-CORE.md
@@ -97,7 +97,7 @@ tasks:
   - id: VAB-T06
     title: 浏览器证据与人工评审
     wave: 1
-    status: ready
+    status: blocked
     branch: codex/vab-t06-browser-review
     depends_on: [VAB-T00]
     prompt: prompts/VAB-T06-BROWSER-REVIEW.md
@@ -114,7 +114,7 @@ tasks:
   - id: VAB-T07
     title: 报告生成器
     wave: 1
-    status: ready
+    status: accepted
     branch: codex/vab-t07-reporting
     depends_on: [VAB-T00]
     prompt: prompts/VAB-T07-REPORTING.md
