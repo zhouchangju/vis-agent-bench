@@ -7,6 +7,8 @@ Generated leadership reports live here after `scripts/generate-report.mjs` has b
 - **Manually curated reference reports** that captured a real decision moment (e.g., a model evaluation round, a gate review).
 - **Named subdirectories** (e.g., `2026-07-kimi-vs-baseline/`) so multiple evaluation rounds can coexist.
 - **At most one summary file per round** that leadership can open directly.
+- **领导汇报草案**可在明确标记为“框架/假设”、且不冒充真实运行结果时保留；例如
+  `2026-07-20-可视化AI人效评估-领导汇报草案.md`。
 
 ## What does NOT go here
 
