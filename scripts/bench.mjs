@@ -307,25 +307,44 @@ function baselinePackageGate(workspace) {
   };
 }
 
-function baselinePackageGateFromGit(workspace) {
-  const packageResult = spawnSync('git', ['show', 'HEAD:package.json'], {
+function baselinePackageGateFromGit(workspace, baselineCommit) {
+  if (!/^[0-9a-f]{40}$/.test(baselineCommit || '')) {
+    throw new Error('Trusted package gate is unavailable: missing immutable baseline commit.');
+  }
+  const object = spawnSync('git', ['cat-file', '-e', `${baselineCommit}^{commit}`], {
     cwd: workspace,
     encoding: 'utf8',
     shell: false,
   });
-  if (packageResult.status !== 0) return { scripts: {}, protected_files: [] };
+  if (object.status !== 0) {
+    throw new Error('Trusted package gate is unavailable: baseline commit cannot be verified.');
+  }
+  const packageResult = spawnSync('git', ['show', `${baselineCommit}:package.json`], {
+    cwd: workspace,
+    encoding: 'utf8',
+    shell: false,
+  });
+  if (packageResult.status !== 0) {
+    throw new Error('Trusted package gate is unavailable: baseline package.json cannot be read.');
+  }
   const pkg = JSON.parse(packageResult.stdout);
-  const tree = spawnSync('git', ['ls-tree', '-r', '--name-only', 'HEAD', '--', 'scripts'], {
+  const tree = spawnSync('git', ['ls-tree', '-r', '--name-only', baselineCommit, '--', 'scripts'], {
     cwd: workspace,
     encoding: 'utf8',
     shell: false,
   });
+  if (tree.status !== 0) {
+    throw new Error('Trusted package gate is unavailable: baseline scripts cannot be read.');
+  }
   const protectedFiles = (tree.stdout || '').split(/\r?\n/).filter(Boolean).map(path => {
-    const content = spawnSync('git', ['show', `HEAD:${path}`], {
+    const content = spawnSync('git', ['show', `${baselineCommit}:${path}`], {
       cwd: workspace,
       encoding: null,
       shell: false,
     });
+    if (content.status !== 0) {
+      throw new Error(`Trusted package gate is unavailable: baseline ${path} cannot be read.`);
+    }
     return { path, sha256: createHash('sha256').update(content.stdout || Buffer.alloc(0)).digest('hex') };
   });
   return {
@@ -528,17 +547,30 @@ function prepare(args, emit = true) {
   };
 
   writeFileSync(join(runDir, 'run-spec.json'), JSON.stringify(spec, null, 2));
+  spawnSync('git', ['init', '-q'], { cwd: join(runDir, 'workspace'), shell: false });
+  spawnSync('git', ['add', '.'], { cwd: join(runDir, 'workspace'), shell: false });
+  const baselineCommit = spawnSync('git', ['-c', 'user.name=vis-agent-bench', '-c', 'user.email=bench@local', 'commit', '-qm', 'benchmark baseline'], {
+    cwd: join(runDir, 'workspace'),
+    encoding: 'utf8',
+    shell: false,
+  });
+  if (baselineCommit.status !== 0) {
+    throw new Error(`Unable to create benchmark baseline commit: ${baselineCommit.stderr || baselineCommit.stdout}`);
+  }
+  const baselineRevision = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: join(runDir, 'workspace'),
+    encoding: 'utf8',
+    shell: false,
+  });
+  if (baselineRevision.status !== 0 || !/^[0-9a-f]{40}$/.test(baselineRevision.stdout.trim())) {
+    throw new Error('Unable to record immutable benchmark baseline commit.');
+  }
+  state.baseline_commit = baselineRevision.stdout.trim();
   writeFileSync(join(runDir, 'run-state.json'), JSON.stringify(state, null, 2));
   writeFileSync(
     join(runDir, 'logs', 'files-before.json'),
     JSON.stringify(listFiles(join(runDir, 'workspace')), null, 2),
   );
-  spawnSync('git', ['init', '-q'], { cwd: join(runDir, 'workspace'), shell: false });
-  spawnSync('git', ['add', '.'], { cwd: join(runDir, 'workspace'), shell: false });
-  spawnSync('git', ['-c', 'user.name=vis-agent-bench', '-c', 'user.email=bench@local', 'commit', '-qm', 'benchmark baseline'], {
-    cwd: join(runDir, 'workspace'),
-    shell: false,
-  });
 
   const payload = {
     status: 'success',
@@ -736,7 +768,7 @@ async function run(args) {
             VIS_AGENT_BENCH_STAGE_ID: stage.id,
             VIS_AGENT_BENCH_ISOLATION: 'file-isolated-development',
           }),
-          state.package_gate || baselinePackageGateFromGit(join(runDir, 'workspace')),
+          state.package_gate || baselinePackageGateFromGit(join(runDir, 'workspace'), state.baseline_commit),
         );
       } catch (error) {
         effectiveResult = {

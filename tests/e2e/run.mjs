@@ -381,9 +381,10 @@ try {
       '#!/usr/bin/env node',
       'import fs from "node:fs";',
       'import path from "node:path";',
+      'import { spawnSync } from "node:child_process";',
       'if (process.argv.includes("--version")) { process.stdout.write("script-deleting-codex 1.0.0\\n"); process.exit(0); }',
       ...checkpointWriterLines(),
-      `if (stage === "S5") { const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); for (const name of ["build", "typecheck", "test"]) pkg.scripts[name] = ${JSON.stringify('node -e "process.exit(0)"')}; fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2)); }`,
+      `if (stage === "S5") { const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); for (const name of ["build", "typecheck", "test"]) pkg.scripts[name] = ${JSON.stringify('node -e "process.exit(0)"')}; fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2)); spawnSync("git", ["add", "package.json"]); spawnSync("git", ["-c", "user.name=fake", "-c", "user.email=fake@local", "commit", "-qm", "replace package gates"]); }`,
       'process.stdout.write(JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "status: success" }, session_id: "delete-session-000001" }) + "\\n");',
       '',
     ].join('\n'));
