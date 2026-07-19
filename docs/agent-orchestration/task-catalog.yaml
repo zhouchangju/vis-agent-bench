@@ -132,7 +132,7 @@ tasks:
     wave: 6
     status: planned
     branch: codex/vab-t08-integration
-    depends_on: [VAB-T01, VAB-T03, VAB-T05, VAB-T06, VAB-T07, VAB-T09, VAB-T10, VAB-T11, VAB-T12, VAB-T13]
+    depends_on: [VAB-T01, VAB-T03, VAB-T05, VAB-T06, VAB-T07, VAB-T09, VAB-T10, VAB-T11, VAB-T12, VAB-T13, VAB-T15, VAB-T16]
     prompt: prompts/VAB-T08-INTEGRATION.md
     allowed_paths:
       - scripts/bench.mjs
@@ -188,7 +188,7 @@ tasks:
   - id: VAB-T12
     title: Macro Map 3D 确定性 Evaluator
     wave: 5
-    status: running
+    status: accepted
     branch: codex/vab-t12-macro-3d-evaluator
     depends_on: [VAB-T04, VAB-T09, VAB-T11]
     prompt: prompts/VAB-T12-MACRO-3D-EVALUATOR.md
@@ -201,7 +201,7 @@ tasks:
   - id: VAB-T13
     title: AInvest Heatmap 确定性 Evaluator
     wave: 5
-    status: running
+    status: accepted
     branch: codex/vab-t13-heatmap-evaluator
     depends_on: [VAB-T04, VAB-T10, VAB-T11]
     prompt: prompts/VAB-T13-HEATMAP-EVALUATOR.md
@@ -223,3 +223,38 @@ tasks:
       - runs/pilots/**
       - docs/reports/pilots/**
       - docs/agent-orchestration/evidence/VAB-T14.md
+
+  - id: VAB-T15
+    title: Playwright Driver 安全与可靠性加固
+    wave: 5
+    status: running
+    branch: codex/vab-t15-browser-hardening
+    depends_on: [VAB-T11]
+    prompt: prompts/VAB-T15-BROWSER-HARDENING.md
+    allowed_paths:
+      - src/browser-evidence/drivers/**
+      - scripts/capture-playwright-evidence.mjs
+      - tests/browser-evidence/playwright/**
+      - docs/architecture/BROWSER_EVIDENCE_PROTOCOL.md
+      - docs/agent-orchestration/evidence/VAB-T15.md
+
+  - id: VAB-T16
+    title: Evaluator 证据信任边界加固
+    wave: 5
+    status: running
+    branch: codex/vab-t16-evaluator-hardening
+    depends_on: [VAB-T05, VAB-T12, VAB-T13]
+    prompt: prompts/VAB-T16-EVALUATOR-HARDENING.md
+    allowed_paths:
+      - src/evaluators/control/**
+      - src/evaluators/cases/narrative-equity/**
+      - src/evaluators/cases/macro-map-3d/**
+      - src/evaluators/cases/ainvest-heatmap/**
+      - tests/evaluators/narrative-equity/**
+      - tests/evaluators/macro-map-3d/**
+      - tests/evaluators/ainvest-heatmap/**
+      - cases/narrative-equity-relationship/evaluator/**
+      - cases/macro-map-3d-greenfield/evaluator/**
+      - cases/ainvest-market-heatmap-rebuild/evaluator/**
+      - docs/architecture/EVALUATOR_PROTOCOL.md
+      - docs/agent-orchestration/evidence/VAB-T16.md
