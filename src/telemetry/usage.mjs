@@ -102,13 +102,16 @@ export function extractUsage(event) {
   const cachedTokens = pickFirstFinite([
     usageObj.cached_tokens,
     usageObj.cachedTokens,
+    usageObj.cached_input_tokens,
     usageObj.cache_read_input_tokens,
   ]);
+  const cachedIncludedInInput = isFiniteNonNegativeNumber(usageObj.cached_input_tokens);
   const totalTokens = pickFirstFinite([
     usageObj.total_tokens,
     usageObj.totalTokens,
   ]) ?? ((inputTokens != null || outputTokens != null)
-    ? ((inputTokens ?? 0) + (outputTokens ?? 0) + (cachedTokens ?? 0) || null)
+    ? ((inputTokens ?? 0) + (outputTokens ?? 0)
+      + (cachedIncludedInInput ? 0 : (cachedTokens ?? 0)) || null)
     : null);
 
   const costUsd = pickFirstFinite([
@@ -141,6 +144,7 @@ export function extractUsage(event) {
       output: outputTokens,
       cached: cachedTokens,
       total: totalTokens,
+      cached_in_input: cachedIncludedInInput,
     },
     cost_usd: costUsd,
     provenance,
@@ -167,6 +171,7 @@ export function aggregateUsage(events, options = {}) {
   let input = 0;
   let output = 0;
   let cached = 0;
+  let total = 0;
   let cost = 0;
   let sawAny = false;
   let sawCost = false;
@@ -186,6 +191,7 @@ export function aggregateUsage(events, options = {}) {
     if (extracted.tokens.input != null) input += extracted.tokens.input;
     if (extracted.tokens.output != null) output += extracted.tokens.output;
     if (extracted.tokens.cached != null) cached += extracted.tokens.cached;
+    if (extracted.tokens.total != null) total += extracted.tokens.total;
     if (extracted.cost_usd != null) {
       cost += extracted.cost_usd;
       sawCost = true;
@@ -194,7 +200,6 @@ export function aggregateUsage(events, options = {}) {
   }
 
   if (sawAny) {
-    const total = input + output + cached;
     return {
       input_tokens: input || null,
       output_tokens: output || null,

@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -83,25 +84,42 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
 }
 
-function readProgress(runDir) {
+function stageAttemptPaths(stagesDir, stageId, filename) {
+  const stageDir = join(stagesDir, stageId);
+  const direct = join(stageDir, filename);
+  const paths = existsSync(direct) ? [direct] : [];
+  if (!existsSync(stageDir)) return paths;
+  for (const entry of readdirSync(stageDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !/^attempt-\d+$/.test(entry.name)) continue;
+    const path = join(stageDir, entry.name, filename);
+    if (existsSync(path)) paths.push(path);
+  }
+  return paths.sort();
+}
+
+export function readProgress(runDir) {
+  const specPath = join(runDir, 'run-spec.json');
   const statePath = join(runDir, 'run-state.json');
-  if (!existsSync(statePath)) return null;
+  if (!existsSync(specPath) && !existsSync(statePath)) return null;
   try {
-    const state = JSON.parse(readFileSync(statePath, 'utf8'));
-    const stageId = state.scenario?.current_stage;
-    const attempt = state.scenario?.attempts?.[stageId] || 0;
-    const stageLogDir = stageId && attempt
-      ? join(runDir, 'logs', 'stages', stageId, `attempt-${String(attempt).padStart(2, '0')}`)
+    const spec = existsSync(specPath)
+      ? JSON.parse(readFileSync(specPath, 'utf8'))
       : null;
-    const stdoutPath = stageLogDir ? join(stageLogDir, 'stdout.raw') : null;
-    const stderrPath = stageLogDir ? join(stageLogDir, 'stderr.raw') : null;
+    const state = existsSync(statePath)
+      ? JSON.parse(readFileSync(statePath, 'utf8'))
+      : null;
+    const scenario = state?.scenario || spec.scenario || {};
+    const stageId = scenario.current_stage || null;
+    const stagesDir = join(runDir, 'logs', 'stages');
+    const stdoutPaths = stageId ? stageAttemptPaths(stagesDir, stageId, 'stdout.raw') : [];
+    const stderrPaths = stageId ? stageAttemptPaths(stagesDir, stageId, 'stderr.raw') : [];
     return {
-      status: state.status,
+      status: state?.status || spec?.status || 'unknown',
       stage_id: stageId,
-      completed: state.scenario?.completed_stages?.length || 0,
-      total: state.scenario?.stage_ids?.length || 0,
-      stdout_bytes: stdoutPath && existsSync(stdoutPath) ? statSync(stdoutPath).size : 0,
-      stderr_bytes: stderrPath && existsSync(stderrPath) ? statSync(stderrPath).size : 0,
+      completed: scenario.completed_stages?.length || 0,
+      total: scenario.stage_ids?.length || spec?.scenario?.stage_ids?.length || 0,
+      stdout_bytes: stdoutPaths.reduce((sum, path) => sum + statSync(path).size, 0),
+      stderr_bytes: stderrPaths.reduce((sum, path) => sum + statSync(path).size, 0),
     };
   } catch {
     return null;
@@ -271,13 +289,14 @@ function createMachineEvidence(runDir, runEnvelope, caseDir, isDevelopmentSmoke)
   return { flowPassed, businessAccepted: isDevelopmentSmoke ? flowPassed : null };
 }
 
-function collectReportedUsage(runDir, caseDir) {
+export function collectReportedUsage(runDir, caseDir) {
   const stagesDir = join(runDir, 'logs', 'stages');
   const totals = {
-    input_tokens: 0,
-    output_tokens: 0,
-    cached_tokens: 0,
-    cost_usd: 0,
+    input_tokens: null,
+    output_tokens: null,
+    cached_tokens: null,
+    cost_usd: null,
+    cost_availability: 'unavailable',
     availability: 'unavailable',
     observed_models: [],
     stage_reports: [],
@@ -286,44 +305,78 @@ function collectReportedUsage(runDir, caseDir) {
 
   const scenario = parseYaml(readFileSync(join(caseDir, 'scenario', 'stages.yaml'), 'utf8'));
   const observedModels = new Set();
+  let attempts = 0;
   let reports = 0;
+  let costReports = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let cachedTokens = 0;
+  let costUsd = 0;
   for (const stage of scenario.stages) {
-    const stdoutPath = join(stagesDir, stage.id, 'stdout.raw');
-    if (!existsSync(stdoutPath)) continue;
-    const lines = readFileSync(stdoutPath, 'utf8').split(/\r?\n/).filter(Boolean);
-    const events = [];
-    for (const line of lines) {
-      try {
-        const event = JSON.parse(line);
-        events.push(event);
-        if (typeof event.model === 'string') observedModels.add(event.model);
-        for (const model of Object.keys(event.modelUsage || {})) observedModels.add(model);
-      } catch {
-        // Raw non-JSON output remains available in stdout.raw.
+    for (const stdoutPath of stageAttemptPaths(stagesDir, stage.id, 'stdout.raw')) {
+      attempts += 1;
+      const lines = readFileSync(stdoutPath, 'utf8').split(/\r?\n/).filter(Boolean);
+      const events = [];
+      for (const line of lines) {
+        try {
+          const event = JSON.parse(line);
+          events.push(event);
+          if (typeof event.model === 'string') observedModels.add(event.model);
+          for (const model of Object.keys(event.modelUsage || {})) observedModels.add(model);
+        } catch {
+          // Raw non-JSON output remains available in stdout.raw.
+        }
       }
+      // Prefer terminal usage events so providers that repeat cumulative usage
+      // on intermediate messages are not double-counted.
+      const terminalUsageEvents = events.filter(event =>
+        event.type === 'result' || event.type === 'turn.completed' || event.event === 'message.end');
+      const usage = aggregateUsage(terminalUsageEvents.length ? terminalUsageEvents : events);
+      if (usage.provenance === 'unavailable') {
+        totals.stage_reports.push({
+          stage_id: stage.id,
+          attempt: stdoutPath.match(/attempt-(\d+)/)?.[1] || 'legacy',
+          provenance: 'unavailable',
+          cost_usd: null,
+          input_tokens: null,
+          output_tokens: null,
+          cached_tokens: null,
+        });
+        continue;
+      }
+      reports += 1;
+      inputTokens += Number(usage.input_tokens || 0);
+      outputTokens += Number(usage.output_tokens || 0);
+      cachedTokens += Number(usage.cached_tokens || 0);
+      if (typeof usage.cost_usd === 'number') {
+        costUsd += usage.cost_usd;
+        costReports += 1;
+      }
+      totals.stage_reports.push({
+        stage_id: stage.id,
+        attempt: stdoutPath.match(/attempt-(\d+)/)?.[1] || 'legacy',
+        provenance: usage.provenance,
+        cost_usd: usage.cost_usd,
+        input_tokens: usage.input_tokens ?? null,
+        output_tokens: usage.output_tokens ?? null,
+        cached_tokens: usage.cached_tokens ?? null,
+      });
     }
-    // Prefer terminal usage events so providers that repeat cumulative usage
-    // on intermediate messages are not double-counted.
-    const terminalUsageEvents = events.filter(event =>
-      event.type === 'result' || event.event === 'message.end');
-    const usage = aggregateUsage(terminalUsageEvents.length ? terminalUsageEvents : events);
-    if (usage.provenance === 'unavailable') continue;
-    reports += 1;
-    totals.input_tokens += Number(usage.input_tokens || 0);
-    totals.output_tokens += Number(usage.output_tokens || 0);
-    totals.cached_tokens += Number(usage.cached_tokens || 0);
-    totals.cost_usd += Number(usage.cost_usd || 0);
-    totals.stage_reports.push({
-      stage_id: stage.id,
-      provenance: usage.provenance,
-      cost_usd: usage.cost_usd,
-      input_tokens: usage.input_tokens ?? null,
-      output_tokens: usage.output_tokens ?? null,
-      cached_tokens: usage.cached_tokens ?? null,
-    });
   }
-  totals.cost_usd = Number(totals.cost_usd.toFixed(6));
-  totals.availability = reports > 0 ? 'reported' : 'unavailable';
+  if (attempts > 0 && reports === attempts) {
+    totals.input_tokens = inputTokens;
+    totals.output_tokens = outputTokens;
+    totals.cached_tokens = cachedTokens;
+  }
+  totals.cost_usd = attempts > 0 && costReports === attempts
+    ? Number(costUsd.toFixed(6))
+    : null;
+  totals.cost_availability = attempts > 0 && costReports === attempts
+    ? 'reported'
+    : (costReports > 0 ? 'partial' : 'unavailable');
+  totals.availability = attempts > 0 && reports === attempts
+    ? 'reported'
+    : (reports > 0 ? 'partial' : 'unavailable');
   totals.observed_models = [...observedModels].sort();
   writeJson(join(runDir, 'logs', 'real-smoke-usage.json'), totals);
 
@@ -405,6 +458,17 @@ function printQuickViewArtifacts(items) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    process.stdout.write(`${JSON.stringify({
+      status: 'success',
+      summary: '真实模型评测入口参数。',
+      next_actions: [
+        'node scripts/real-model-smoke-flow.mjs --case <id> --engine <codex|kimi|claude|pi> --model <id> [--dry-run]',
+      ],
+      artifacts: [],
+    }, null, 2)}\n`);
+    return;
+  }
   if (!['codex', 'claude', 'kimi', 'pi'].includes(args.engine)) {
     throw new Error('当前真实模型统一入口支持 --engine codex、--engine claude、--engine kimi 或 --engine pi。');
   }
@@ -584,7 +648,7 @@ async function main() {
   if (!outcome.flowPassed) process.exitCode = 2;
 }
 
-main().catch(error => {
+if (process.argv[1] === fileURLToPath(import.meta.url)) main().catch(error => {
   process.stdout.write(`${JSON.stringify({
     status: 'error',
     summary: error.message,

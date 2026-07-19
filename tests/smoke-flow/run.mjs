@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { collectReportedUsage, readProgress } from '../../scripts/real-model-smoke-flow.mjs';
 
 const repoRoot = join(import.meta.dirname, '..', '..');
 const outDir = mkdtempSync(join(tmpdir(), 'vab-smoke-flow-'));
@@ -121,6 +122,78 @@ try {
   assert.equal(piEnvelope.resolved_config.provider, 'pi-direct-api');
   assert.equal(piEnvelope.resolved_config.cost_cap_enforcement, 'unavailable');
   assert.equal(piEnvelope.resolved_config.permission_mode, 'approve-restricted-tools');
+
+  const help = spawnSync(
+    process.execPath,
+    ['scripts/real-model-smoke-flow.mjs', '--help'],
+    { cwd: repoRoot, encoding: 'utf8', shell: false },
+  );
+  assert.equal(help.status, 0, help.stderr || help.stdout);
+  assert.equal(JSON.parse(help.stdout).status, 'success');
+
+  const observedRun = join(outDir, 'observed-run');
+  const observedCase = join(outDir, 'observed-case');
+  mkdirSync(join(observedRun, 'logs', 'stages', 'S0', 'attempt-01'), { recursive: true });
+  mkdirSync(join(observedCase, 'scenario'), { recursive: true });
+  writeFileSync(join(observedRun, 'run-spec.json'), JSON.stringify({
+    status: 'prepared',
+    scenario: { stage_ids: ['S0'] },
+  }));
+  writeFileSync(join(observedRun, 'run-state.json'), JSON.stringify({
+    status: 'running',
+    scenario: { current_stage: 'S0', completed_stages: [], attempts: { S0: 1 } },
+  }));
+  writeFileSync(join(observedRun, 'result.json'), JSON.stringify({
+    engine: { observed_models: [] },
+    stages: [],
+  }));
+  writeFileSync(join(observedCase, 'scenario', 'stages.yaml'), 'stages:\n  - id: S0\n');
+  writeFileSync(
+    join(observedRun, 'logs', 'stages', 'S0', 'attempt-01', 'stdout.raw'),
+    `${JSON.stringify({
+      type: 'turn.completed',
+      usage: { input_tokens: 100, cached_input_tokens: 80, output_tokens: 10 },
+    })}\n`,
+  );
+  const progress = readProgress(observedRun);
+  assert.equal(progress.status, 'running');
+  assert.equal(progress.stage_id, 'S0');
+  assert.ok(progress.stdout_bytes > 0);
+  const usage = collectReportedUsage(observedRun, observedCase);
+  assert.equal(usage.input_tokens, 100);
+  assert.equal(usage.output_tokens, 10);
+  assert.equal(usage.cached_tokens, 80);
+  assert.equal(usage.cost_usd, null);
+  assert.equal(usage.cost_availability, 'unavailable');
+  assert.equal(usage.availability, 'reported');
+  assert.equal(JSON.parse(readFileSync(join(observedRun, 'result.json'), 'utf8')).usage.input_tokens, 100);
+
+  mkdirSync(join(observedRun, 'logs', 'stages', 'S0', 'attempt-02'), { recursive: true });
+  writeFileSync(
+    join(observedRun, 'logs', 'stages', 'S0', 'attempt-02', 'stdout.raw'),
+    `${JSON.stringify({
+      type: 'result',
+      usage: { input_tokens: 50, output_tokens: 5 },
+      total_cost_usd: 0.25,
+    })}\n`,
+  );
+  const partialCostUsage = collectReportedUsage(observedRun, observedCase);
+  assert.equal(partialCostUsage.input_tokens, 150);
+  assert.equal(partialCostUsage.output_tokens, 15);
+  assert.equal(partialCostUsage.cost_usd, null);
+  assert.equal(partialCostUsage.cost_availability, 'partial');
+
+  mkdirSync(join(observedRun, 'logs', 'stages', 'S0', 'attempt-03'), { recursive: true });
+  writeFileSync(
+    join(observedRun, 'logs', 'stages', 'S0', 'attempt-03', 'stdout.raw'),
+    `${JSON.stringify({ type: 'error', message: 'failed before usage' })}\n`,
+  );
+  const missingAttemptUsage = collectReportedUsage(observedRun, observedCase);
+  assert.equal(missingAttemptUsage.input_tokens, null);
+  assert.equal(missingAttemptUsage.output_tokens, null);
+  assert.equal(missingAttemptUsage.cost_usd, null);
+  assert.equal(missingAttemptUsage.availability, 'partial');
+  assert.equal(missingAttemptUsage.cost_availability, 'partial');
 
   process.stdout.write('development smoke flow passed\n');
 } finally {

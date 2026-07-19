@@ -391,6 +391,17 @@ check('extractUsage reads Codex top-level usage + cost as provider_api', () => {
   assert.equal(u.provenance, USAGE_PROVENANCE.PROVIDER_API);
 });
 
+check('extractUsage reads Codex cached_input_tokens from turn.completed usage', () => {
+  const usage = extractUsage({
+    type: 'turn.completed',
+    usage: { input_tokens: 100, cached_input_tokens: 80, output_tokens: 10 },
+  });
+  assert.equal(usage.tokens.input, 100);
+  assert.equal(usage.tokens.cached, 80);
+  assert.equal(usage.tokens.output, 10);
+  assert.equal(usage.tokens.total, 110);
+});
+
 check('extractUsage reads Claude nested message.usage without forcing cost', () => {
   const u = extractUsage({ message: { usage: { input_tokens: 50, output_tokens: 10 } } });
   assert.equal(u.tokens.input, 50);
