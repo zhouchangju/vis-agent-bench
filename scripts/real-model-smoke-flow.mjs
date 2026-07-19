@@ -200,7 +200,24 @@ function runNodeWithProgress(args, { runDir, timeout }) {
 function evaluateCheckpoints(runDir, caseDir) {
   const scenario = parseYaml(readFileSync(join(caseDir, 'scenario', 'stages.yaml'), 'utf8'));
   const workspace = join(runDir, 'workspace');
+  const runnerResultPath = join(runDir, 'result.json');
+  const runnerStages = existsSync(runnerResultPath)
+    ? new Map((readJson(runnerResultPath).stages || []).map(stage => [stage.stage_id, stage]))
+    : new Map();
   const checks = scenario.stages.map(stage => {
+    const runnerStage = runnerStages.get(stage.id);
+    // 主 Runner 已验证符号型 checkpoint 对应的 manifest 与其引用文件。后处理器不能再把
+    // runnable-poc 之类的符号名误当成 workspace 下的同名物理文件，否则会产生假阴性。
+    if (runnerStage?.status === 'success' && runnerStage.checkpoint_gate?.status === 'success') {
+      return {
+        id: `checkpoint-${stage.id}`,
+        stage_id: stage.id,
+        status: 'pass',
+        expected: stage.checkpoint,
+        missing: [],
+        evidence: ['result.json', runnerStage.checkpoint_gate.gate_path],
+      };
+    }
     const missing = stage.checkpoint.filter(path => !existsSync(join(workspace, path)));
     return {
       id: `checkpoint-${stage.id}`,
@@ -208,6 +225,7 @@ function evaluateCheckpoints(runDir, caseDir) {
       status: missing.length ? 'fail' : 'pass',
       expected: stage.checkpoint,
       missing,
+      ...(runnerStage?.error ? { runner_error: runnerStage.error } : {}),
     };
   });
   return { checks, passed: checks.every(check => check.status === 'pass') };
@@ -542,15 +560,56 @@ async function resumeExistingRun(args) {
   }, null, 2)}\n`);
 }
 
+async function finalizeExistingRun(args) {
+  const runDir = resolveResumeRun(String(args.finalize_run));
+  const resultPath = join(runDir, 'result.json');
+  const specPath = join(runDir, 'run-spec.json');
+  if (!existsSync(resultPath) || !existsSync(specPath)) {
+    throw new Error('待归档 Run 必须同时包含 result.json 和 run-spec.json。');
+  }
+  const storedResult = readJson(resultPath);
+  const storedSpec = readJson(specPath);
+  const caseId = storedSpec.case_id || storedResult.case_id;
+  const caseDir = join(projectRoot, 'cases', caseId || '');
+  const caseMetaPath = join(caseDir, 'case.yaml');
+  if (!caseId || !existsSync(caseMetaPath)) throw new Error(`待归档 Run 的 Case 不存在：${caseId || 'unknown'}`);
+  const caseMeta = parseYaml(readFileSync(caseMetaPath, 'utf8'));
+  const isDevelopmentSmoke = caseMeta.task_type === 'development-smoke';
+  const outcome = createMachineEvidence(runDir, { status: storedResult.status }, caseDir, isDevelopmentSmoke);
+  const usage = collectReportedUsage(runDir, caseDir);
+  const report = generateReport(runDir, caseMeta, outcome);
+  const quickView = collectQuickViewArtifacts(runDir, report.artifacts);
+  printQuickViewArtifacts(quickView);
+  process.stdout.write(`${JSON.stringify({
+    status: outcome.flowPassed ? 'success' : 'warning',
+    summary: outcome.flowPassed
+      ? `${caseMeta.title} 已根据既有 Runner 证据重新归档；未重新调用模型。`
+      : `${caseMeta.title} 重新归档后仍有未通过的流程门禁。`,
+    next_actions: outcome.flowPassed
+      ? ['进入浏览器评审并补录人工评分、修改时间和最终验收结论。']
+      : ['检查 result.json 中失败阶段与 checkpoint gate 的根因。'],
+    artifacts: [...report.artifacts, ...quickView.map(item => item.path), join(runDir, 'logs', 'real-smoke-checkpoints.json')],
+    quick_view: quickView,
+    run_id: storedResult.run_id || storedSpec.run_id || basename(runDir),
+    run_dir: runDir,
+    finalized_without_model_call: true,
+    reported_cost_usd: usage.cost_usd,
+    reported_tokens: { input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cached_tokens: usage.cached_tokens },
+    business_acceptance: isDevelopmentSmoke && outcome.businessAccepted ? 'accepted' : 'pending-human-review',
+  }, null, 2)}\n`);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.resume_run) return resumeExistingRun(args);
+  if (args.finalize_run) return finalizeExistingRun(args);
   if (args.help) {
     process.stdout.write(`${JSON.stringify({
       status: 'success',
       summary: '真实模型评测入口参数。',
       next_actions: [
         'node scripts/real-model-smoke-flow.mjs --case <id> --engine <codex|kimi|claude|pi> --model <id> [--dry-run]',
+        'node scripts/real-model-smoke-flow.mjs --finalize-run <run-id|run-dir>  # 只重建后处理证据与报告，不调用模型',
       ],
       artifacts: [],
     }, null, 2)}\n`);

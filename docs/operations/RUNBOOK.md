@@ -400,6 +400,14 @@ node scripts/generate-report.mjs \
 加入人工评审文件后再次执行同一命令，即可更新管理结论、人工介入时间、可验收交付率和有效
 提效倍数。
 
+如果历史 Run 的 `result.json` 已显示各阶段 checkpoint gate 成功、但旧版后处理器误报“符号型
+checkpoint 缺失”，可只重新归档机器证据与报告，不调用模型：
+
+```bash
+npm run bench:case -- \
+  --finalize-run <run-id 或绝对 Run 目录>
+```
+
 ## 适配器边界
 
 底层 `bench prepare/run` 与 `bench:case` 均已接入 Codex、Kimi、Claude 和 Pi。各 Adapter 的
