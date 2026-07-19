@@ -1,0 +1,5 @@
+{"event":"message.start","session_id":"sess-kimi-4242abcd"}
+{"event":"message.delta","text":"adding nodes"}
+{"event":"tool.ended","tool":"file_write","output":"ok"}
+{"event":"message.end","usage":{"input_tokens":900,"output_tokens":300,"cached_tokens":50}}
+{"event":"experimental.telemetry","note":"proprietary event not in the dictionary"}

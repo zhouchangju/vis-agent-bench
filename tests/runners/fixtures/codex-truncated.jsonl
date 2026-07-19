@@ -1,0 +1,5 @@
+{"type":"assistant.message","message":"Working on the chart."}
+{"type":"tool.started","tool":"shell","command":"npm test"}
+{"type":"tool.ended","tool":"shell","output":"passing","duration_ms":80}
+{"type":"weird.event","note":"something unknown"}
+{"type":"usage.report","usage":{"input_tokens":100,"output_tokens":20

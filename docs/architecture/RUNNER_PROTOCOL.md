@@ -201,6 +201,98 @@ result.json
 
 `command.json` 和 `environment.json` 必须脱敏，永远不记录 Secret 值。
 
+## 遥测与归一化契约（VAB-T01）
+
+三种 Adapter 的命令构建、版本探测、Session 连续性和输出解析统一在
+`src/runners/adapters.mjs` 与 `src/telemetry/*` 中实现。协议约束：
+
+### Adapter 统一接口
+
+每个 Adapter 必须暴露同一组纯函数字段：
+
+| 字段 | 用途 |
+|---|---|
+| `id` | 与 `RunSpec.engine.adapter` 对齐的稳定标识（`codex` / `kimi` / `claude`）。 |
+| `executable` | 默认可执行路径，可被 `RunSpec.engine.executable` 覆盖。 |
+| `versionArgs` | 探测版本所用的参数，默认 `['--version']`。 |
+| `parseVersion(stdout\|stderr)` | 从版本输出中解析 semver 字符串，找不到时返回 `null`。 |
+| `session_continuity` | `native` / `native-working-directory` / `synthetic`。 |
+| `build(spec, runDir, stageId, session)` | 兼容 `scripts/bench.mjs` 的入口；返回 `{ executable, args, stdin, format }`。 |
+| `buildCommand(ctx)` | 纯函数命令构建；输入仅依赖 `ctx` 字段，便于快照测试。 |
+
+命令构造不能凭空假设 RunSpec 字段；所有可变参数（model、cost 上限、空 Skill 目录）通过
+`ctx` 显式传入。`build` 仍然读 `input/stage-<id>.md` 文件，是为了与 `bench.mjs` 的现有
+工作目录布局兼容；越界修改 `bench.mjs` 的工作由 VAB-T08 负责。
+
+### 命令脱敏
+
+写入 `command.json` / `environment.json` 前必须调用 `redactCommand(command, ctx)`，
+把 prompt 替换为 `<PROMPT>`、stdin 替换为 `<STDIN>` 或 `<PROMPT>`。
+Adapter 命令本身不携带凭据值——凭据通过 Secret 引用注入环境变量，并由 Worker 控制。
+
+### 归一化事件
+
+`src/telemetry/events.mjs` 的 `normalizeStdout(text, options)` 把任意 stdout（jsonl 或 plain
+text）转为 `RUN_LOG_SPEC` 定义的事件流。必须容忍以下故障模式，且不抛异常：
+
+- 截断的 JSONL 行（最后一行不完整）→ `status='recovered'`，原始文本保留在 `data.text` 与
+  `stats.truncated_lines`；
+- 未知事件类型 → 原样保留 `type`，并加入 `stats.unknown_types`；
+- 混合输出（JSONL 与非 JSON 文本交错）→ 非 JSON 行记为 `process.output`；
+- 完全空输出 → `empty=true`，事件数组为空；
+- 非零退出但仍有部分输出 → 仍然归一化已收集的事件，恢复判定交给 `recovery.mjs`。
+
+每个事件至少包含：`ts / run_id / stage_id / seq / source / type / status / summary / data / raw_ref`。
+
+CLI 私有事件名通过别名表映射回标准字典，例如 Claude 的 `assistant → assistant.message`、
+`tool_use → tool.started`、`tool_result → tool.ended`、`result → usage.report`。
+
+### Token 与费用 provenance
+
+`src/telemetry/usage.mjs` 的 `aggregateUsage(events, options)` 按以下规则归并：
+
+| provenance | 触发条件 |
+|---|---|
+| `native_cli` | CLI 输出了 token，但没有显式 cost 字段。 |
+| `provider_api` | 事件中显式出现 `cost_usd` / `costUsd` / `total_cost_usd`。 |
+| `estimated` | 调用方显式 `allowEstimate=true` 且提供估算 token。**默认禁用**。 |
+| `unavailable` | 没有任何 usage 事件，且未开启估算。 |
+
+禁止根据输出文本长度伪造 token；拿不到时必须记录 `unavailable` + `reason`。
+已知 token、未知单价时记录 token 并把 cost 标为 `unavailable`。
+
+### 时间口径
+
+`src/telemetry/timings.mjs` 区分：
+
+- `wall_ms`：CLI 进程自然时间（start → close/kill）；
+- `first_byte_ms` / `last_byte_ms` / `stream_ms`：基于观察到的首/末事件时间；
+- `cpu_ms`：可观察到 CPU 时间，否则 `null`；
+- `exit_code` / `signal` / `timed_out`：进程结束事实；
+- `status`：`success` / `error` / `timeout` / `recovered`。
+
+`aggregateRunTiming` 汇总 Run 级 wall time、阶段成功数、失败数（含超时）和空输出标记。
+所有时间为整数毫秒，时间源记为 `time_source`（当前实现：`harness_clock`）。
+
+### 恢复行为
+
+`src/telemetry/recovery.mjs` 综合归一化 stats、timing 和 exit code，输出：
+
+```text
+status: ok | recovered | unrecovered
+codes: [timeout, killed, non_zero_exit, truncated_output, unknown_events, empty_output]
+root_cause_hint / safe_retry / stop_condition
+evidence_preserved: true
+```
+
+恢复判定：
+
+- 截断 / 未知事件但 `exit 0` 且未超时 → `recovered`，原始证据保留；
+- 非零 exit / 超时 / 空输出 → `uncovered`，禁止删除已收集的 stdout/stderr。
+
+`toRecoveryEnvelope(input)` 输出可直接嵌入 `result.error` 块的
+`root_cause_hint / safe_retry / stop_condition` 字段（与 `CONTROL_PROTOCOL` 第 5 节一致）。
+
 ## 停止条件
 
 - CLI 正常退出；

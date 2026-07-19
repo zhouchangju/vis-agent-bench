@@ -1,0 +1,4 @@
+This is a plain text line that the CLI printed before JSON.
+{"type":"assistant.message","message":"hi"}
+{"type":"process.output","text":"done"}
+Another non-JSON line.

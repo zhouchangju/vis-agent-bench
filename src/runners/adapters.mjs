@@ -1,115 +1,230 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+/**
+ * CLI Adapter 协议（VAB-T01）。
+ *
+ * 每个 Adapter 暴露同一组纯函数字段，不依赖进程 IO，便于在 fixture 日志上做快照测试：
+ *
+ *   id                —— 与 RunSpec.engine.adapter 对齐的稳定标识。
+ *   executable        —— 默认可执行路径（可被 RunSpec.engine.executable 覆盖）。
+ *   versionArgs       —— 探测版本用的参数。
+ *   parseVersion(stdout|stderr) —— 从 --version 输出解析版本字符串，找不到时返回 null。
+ *   session_continuity —— native | native-working-directory | synthetic 的会话连续性声明
+ *                          （沿用 scripts/bench.mjs 读取的字段名，不在本任务内改名）。
+ *   build(spec, runDir, stageId, session) —— 兼容 scripts/bench.mjs 的现有入口，
+ *                                            返回 { executable, args, stdin, format }。
+ *   buildCommand(ctx) —— 纯函数命令构建，输入仅依赖 ctx 字段，便于快照测试。
+ *   redactCommand(command, ctx) —— 把 prompt/敏感值替换为占位符，写入日志前调用。
+ */
+
 const defaultExecutables = {
   codex: 'codex',
   kimi: '/Users/leozhou/.kimi-code/bin/kimi',
   claude: 'claude',
 };
 
+/**
+ * 默认 Skill 目录，便于测试时注入空目录而不依赖真实 Run 目录。
+ */
+const defaultEmptySkillsDir = '/run/empty-skills';
+
 function readPrompt(runDir, stageId) {
   return readFileSync(join(runDir, 'input', `stage-${stageId}.md`), 'utf8');
 }
 
-export function getAdapter(engine) {
-  const adapters = {
-    codex: {
-      id: 'codex',
-      executable: defaultExecutables.codex,
-      versionArgs: ['--version'],
-      session_continuity: 'native',
-      build(spec, runDir, stageId, session) {
-        const outputDir = join(runDir, 'artifacts');
-        const prompt = readPrompt(runDir, stageId);
-        if (session?.id) {
-          return {
-            executable: spec.engine.executable || defaultExecutables.codex,
-            args: [
-              'exec', 'resume',
-              '--model', spec.engine.model,
-              '--ignore-user-config',
-              '--ignore-rules',
-              '--json',
-              '--output-last-message', join(outputDir, `final-message-${stageId}.md`),
-              session.id,
-              '-',
-            ],
-            stdin: prompt,
-            format: 'jsonl',
-          };
-        }
-        return {
-          executable: spec.engine.executable || defaultExecutables.codex,
-          args: [
-            'exec',
-            '--cd', join(runDir, 'workspace'),
-            '--model', spec.engine.model,
-            '--sandbox', 'workspace-write',
-            '--ask-for-approval', 'never',
-            '--ignore-user-config',
-            '--ignore-rules',
-            '--json',
-            '--output-last-message', join(outputDir, `final-message-${stageId}.md`),
-            '-',
-          ],
-          stdin: prompt,
-          format: 'jsonl',
-        };
-      },
-    },
-    kimi: {
-      id: 'kimi',
-      executable: defaultExecutables.kimi,
-      versionArgs: ['--version'],
-      session_continuity: 'native-working-directory',
-      build(spec, runDir, stageId, session) {
-        const args = [
-          '--auto',
-          '--model', spec.engine.model,
-          '--prompt', readPrompt(runDir, stageId),
-          '--output-format', 'stream-json',
-          '--skills-dir', join(runDir, '.empty-skills'),
-        ];
-        if (session?.started) args.unshift('--continue');
-        return {
-          executable: spec.engine.executable || defaultExecutables.kimi,
-          args,
-          stdin: null,
-          format: 'jsonl',
-        };
-      },
-    },
-    claude: {
-      id: 'claude',
-      executable: defaultExecutables.claude,
-      versionArgs: ['--version'],
-      session_continuity: 'native',
-      build(spec, runDir, stageId, session) {
-        const args = [
-          '--print',
-          '--safe-mode',
-          '--strict-mcp-config',
-          '--no-chrome',
-          '--model', spec.engine.model,
-          '--permission-mode', 'auto',
-          '--output-format', 'stream-json',
-          '--include-hook-events',
-        ];
-        if (session?.started) args.push('--resume', session.id);
-        else args.push('--session-id', session.id);
-        if (spec.budget.max_cost_usd != null) {
-          args.push('--max-budget-usd', String(spec.budget.max_cost_usd));
-        }
-        return {
-          executable: spec.engine.executable || defaultExecutables.claude,
-          args,
-          stdin: readPrompt(runDir, stageId),
-          format: 'jsonl',
-        };
-      },
-    },
-  };
+/**
+ * 提取版本号中第一段看起来像 semver 的内容。
+ * 对 "codex-cli 0.144.6"、"2.1.177"、"0.27.0" 都生效。
+ */
+export function parseSemverVersion(text) {
+  if (typeof text !== 'string') return null;
+  const match = text.match(/(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)/);
+  return match ? match[1] : null;
+}
 
+/**
+ * 构造命令时使用的输入上下文。所有字段都显式声明，避免隐式依赖 RunSpec。
+ *
+ * @typedef {Object} AdapterCommandContext
+ * @property {string} adapter                Adapter id。
+ * @property {string} executable             实际可执行路径（已合并 RunSpec 覆盖）。
+ * @property {string} model                  模型标识。
+ * @property {string} workspace              工作目录绝对路径。
+ * @property {string} outputDir              产物目录绝对路径。
+ * @property {string} stageId                当前阶段 id。
+ * @property {string} prompt                 当前阶段 prompt 文本（脱敏前）。
+ * @property {{ id: string|null, started: boolean, resumeFrom?: string|null }} session
+ *           会话状态：{ id, started, resumeFrom }。
+ * @property {number|null} maxCostUsd        可选费用上限。
+ * @property {string} emptySkillsDir         Kimi 的空 Skill 目录。
+ * @property {boolean} ephemeral             Codex 净化开关，默认 true。
+ */
+
+function buildCodexCommand(ctx) {
+  const args = ['exec'];
+  const session = ctx.session || {};
+  if (session.started && (session.id || session.resumeFrom)) {
+    args.push(
+      'resume',
+      '--model', ctx.model,
+      '--ignore-user-config',
+      '--ignore-rules',
+      '--json',
+      '--output-last-message', join(ctx.outputDir, `final-message-${ctx.stageId}.md`),
+      session.id || session.resumeFrom,
+      '-',
+    );
+  } else {
+    args.push(
+      '--cd', ctx.workspace,
+      '--model', ctx.model,
+      '--sandbox', 'workspace-write',
+      '--ask-for-approval', 'never',
+      '--ignore-user-config',
+      '--ignore-rules',
+      '--json',
+      '--output-last-message', join(ctx.outputDir, `final-message-${ctx.stageId}.md`),
+      '-',
+    );
+    if (ctx.ephemeral !== false) args.push('--ephemeral');
+  }
+  return {
+    executable: ctx.executable,
+    args,
+    stdin: ctx.prompt,
+    format: 'jsonl',
+  };
+}
+
+function buildKimiCommand(ctx) {
+  const args = ['--auto', '--model', ctx.model];
+  const session = ctx.session || {};
+  if (session.started) args.unshift('--continue');
+  args.push(
+    '--prompt', ctx.prompt,
+    '--output-format', 'stream-json',
+    '--skills-dir', ctx.emptySkillsDir || defaultEmptySkillsDir,
+  );
+  return {
+    executable: ctx.executable,
+    args,
+    stdin: null,
+    format: 'jsonl',
+  };
+}
+
+function buildClaudeCommand(ctx) {
+  const session = ctx.session || {};
+  const args = [
+    '--print',
+    '--bare',
+    '--strict-mcp-config',
+    '--no-chrome',
+    '--model', ctx.model,
+    '--permission-mode', 'dontAsk',
+    '--output-format', 'stream-json',
+    '--include-hook-events',
+    '--no-session-persistence',
+  ];
+  if (session.started && (session.id || session.resumeFrom)) {
+    args.push('--resume', session.id || session.resumeFrom);
+  } else if (session.id) {
+    args.push('--session-id', session.id);
+  }
+  if (ctx.maxCostUsd != null) args.push('--max-budget-usd', String(ctx.maxCostUsd));
+  return {
+    executable: ctx.executable,
+    args,
+    stdin: ctx.prompt,
+    format: 'jsonl',
+  };
+}
+
+/**
+ * 把 ctx.executable 默认化，便于 buildCommand 在测试时不依赖 spec。
+ */
+function resolveExecutable(adapter, executableOverride) {
+  return executableOverride || defaultExecutables[adapter];
+}
+
+const adapters = {
+  codex: {
+    id: 'codex',
+    executable: defaultExecutables.codex,
+    versionArgs: ['--version'],
+    session_continuity: 'native',
+    parseVersion(output) {
+      return parseSemverVersion(output || '');
+    },
+    build(spec, runDir, stageId, session) {
+      const outputDir = join(runDir, 'artifacts');
+      const prompt = readPrompt(runDir, stageId);
+      return buildCodexCommand({
+        adapter: 'codex',
+        executable: resolveExecutable('codex', spec.engine.executable),
+        model: spec.engine.model,
+        workspace: join(runDir, 'workspace'),
+        outputDir,
+        stageId,
+        prompt,
+        session: session || {},
+        ephemeral: true,
+      });
+    },
+    buildCommand: buildCodexCommand,
+  },
+  kimi: {
+    id: 'kimi',
+    executable: defaultExecutables.kimi,
+    versionArgs: ['--version'],
+    session_continuity: 'native-working-directory',
+    parseVersion(output) {
+      return parseSemverVersion(output || '');
+    },
+    build(spec, runDir, stageId, session) {
+      const prompt = readPrompt(runDir, stageId);
+      return buildKimiCommand({
+        adapter: 'kimi',
+        executable: resolveExecutable('kimi', spec.engine.executable),
+        model: spec.engine.model,
+        workspace: join(runDir, 'workspace'),
+        outputDir: join(runDir, 'artifacts'),
+        stageId,
+        prompt,
+        session: session || {},
+        emptySkillsDir: join(runDir, '.empty-skills'),
+      });
+    },
+    buildCommand: buildKimiCommand,
+  },
+  claude: {
+    id: 'claude',
+    executable: defaultExecutables.claude,
+    versionArgs: ['--version'],
+    session_continuity: 'native',
+    parseVersion(output) {
+      return parseSemverVersion(output || '');
+    },
+    build(spec, runDir, stageId, session) {
+      const prompt = readPrompt(runDir, stageId);
+      return buildClaudeCommand({
+        adapter: 'claude',
+        executable: resolveExecutable('claude', spec.engine.executable),
+        model: spec.engine.model,
+        workspace: join(runDir, 'workspace'),
+        outputDir: join(runDir, 'artifacts'),
+        stageId,
+        prompt,
+        session: session || {},
+        maxCostUsd: spec.budget?.max_cost_usd ?? null,
+      });
+    },
+    buildCommand: buildClaudeCommand,
+  },
+};
+
+export function getAdapter(engine) {
   const adapter = adapters[engine];
   if (!adapter) throw new Error(`Unsupported engine: ${engine}`);
   return adapter;
@@ -117,4 +232,25 @@ export function getAdapter(engine) {
 
 export function listAdapters() {
   return ['codex', 'kimi', 'claude'].map(getAdapter);
+}
+
+/**
+ * 把命令脱敏为可写入 command.json 的形式。
+ * prompt 是模型可见输入，但可能很长且包含 fixture 文本，统一替换为占位符。
+ * 不读取凭据，也不需要额外屏蔽 —— Adapter 的命令里不携带凭据值（凭据通过 Secret 引用注入环境变量）。
+ */
+export function redactCommand(command, ctx = {}) {
+  const prompt = ctx.prompt;
+  const seenPrompt = typeof prompt === 'string' && prompt.length > 0;
+  const args = (command.args || []).map(arg => {
+    if (seenPrompt && arg === prompt) return '<PROMPT>';
+    if (seenPrompt && typeof arg === 'string' && arg.length > 64 && arg.includes(prompt)) return '<PROMPT>';
+    return arg;
+  });
+  return {
+    executable: command.executable,
+    args,
+    stdin: command.stdin == null ? null : (seenPrompt && command.stdin === prompt ? '<PROMPT>' : '<STDIN>'),
+    format: command.format || null,
+  };
 }

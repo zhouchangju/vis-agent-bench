@@ -1,0 +1,45 @@
+# VAB-T01 Evidence
+
+- Status: DONE
+- Baseline: `3492a47` (`chore: mark VAB-T00 accepted`)
+- Branch: `codex/vab-t01-runner-telemetry`
+- Changed paths:
+  - `src/runners/adapters.mjs` — unified adapter contract; pure `buildCommand` / `redactCommand` / `parseVersion`; backward-compatible `build()` for `scripts/bench.mjs`
+  - `src/telemetry/events.mjs` — JSONL/plain normalization with truncated/unknown/empty recovery
+  - `src/telemetry/usage.mjs` — token/cost provenance taxonomy (`native_cli` / `provider_api` / `estimated` / `unavailable`); `estimated` default disabled
+  - `src/telemetry/timings.mjs` — wall/process/stage time + exit + timeout deterministic recording
+  - `src/telemetry/recovery.mjs` — diagnosis and CONTROL_PROTOCOL-compatible recovery envelope
+  - `src/telemetry/index.mjs` — re-export surface
+  - `tests/runners/run.mjs` — 38 deterministic checks covering adapters, normalization, usage, timings, recovery
+  - `tests/runners/fixtures/` — 6 fixture logs (Codex, Claude, Kimi; truncated; mixed plain; empty) for reproducible testing
+  - `docs/architecture/RUNNER_PROTOCOL.md` — added "遥测与归一化契约" section documenting the telemetry contract
+  - this evidence file
+- Acceptance commands and results:
+  - `npm test` → PASS (exit 0; 8/8 contract checks + structure + adapters syntax check).
+  - `node tests/runners/run.mjs` → PASS (38/38 runner + telemetry checks).
+  - `git diff --check` → PASS.
+- Produced artifacts:
+  - unified Adapter contract with deterministic command snapshots for all three engines;
+  - pure-function event normalizer that handles truncated JSONL, unknown types, mixed plain text, and empty output without throwing;
+  - token/cost provenance system that distinguishes `native_cli` from `provider_api`, rejects unverifiable tokens, and keeps `estimated` disabled by default;
+  - deterministic timing records that separate wall time, stage time, exit code, signal, and timeout;
+  - recovery diagnosis that maps stream integrity + exit code to `ok | recovered | unrecovered` with actionable `root_cause_hint / safe_retry / stop_condition`.
+- Not proven:
+  - The new telemetry modules are tested with fixture logs only; they are NOT yet wired into `scripts/bench.mjs` or `src/core/process-runner.mjs`. That wiring is VAB-T08's responsibility.
+  - `tests/runners/run.mjs` is NOT part of `npm test` because `package.json` is outside VAB-T01's allowed paths. Adding it requires VAB-T08 integration.
+  - No real CLI calls were made; all event parsing was verified against realistic fixture logs.
+  - `parseVersion` returns `null` on pure prose output; this is correct but untested against real CLI multi-line version banners.
+- Remaining risks:
+  - `redactCommand` currently uses simple string comparison; if the prompt contains identical substrings that collide with other args（unlikely given unique prompt content）, the redaction boundary could be too aggressive.
+  - The `TYPE_ALIASES` map covers common Codex/Claude/Kimi events but may need expansion when new CLI versions introduce unknown normalized types.
+  - `build()` in adapters still calls `readFileSync` because it must stay compatible with `bench.mjs`; VAB-T08 should migrate to the pure `buildCommand` + `readPrompt` pattern.
+- Integration notes:
+  - VAB-T08 should add `node tests/runners/run.mjs` to `package.json`'s `test` script.
+  - VAB-T08 should wire `src/telemetry/*` into `scripts/bench.mjs` (or a new `src/core/process-runner.mjs` that calls telemetry before/after each stage). The wiring points:
+    - After `runCommand` in `scripts/bench.mjs` (~line 270): call `buildStageTiming` + `diagnoseRecovery` and merge into `stageResults`.
+    - At the end of `run()` (~line 290): call `aggregateRunTiming` + `toRecoveryEnvelope` on the aggregated result.
+    - Replace the inline `findSessionId` in `scripts/bench.mjs` with the exported version from `src/telemetry/events.mjs`.
+  - The current `command.json` logging in `scripts/bench.mjs` (~line 253-256) performs inline redaction; VAB-T08 should replace it with `redactCommand`.
+  - Three adapters now accept the `--ephemeral` flag (Codex, default on) and `--no-session-persistence` (Claude, always), ensuring runs are clean even when the CLI discovers user config outside the workspace.
+- Rollback:
+  - Revert the single VAB-T01 commit; it only adds telemetry modules and re-scopes the adapter file within its historical allowed-path boundary. No other tasks depend on VAB-T01 yet (depends_on for VAB-T08).

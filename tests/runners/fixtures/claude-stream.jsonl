@@ -1,0 +1,5 @@
+{"type":"system","subtype":"init","session_id":"sess-claude-9988776655","cwd":"/workspace"}
+{"type":"assistant","message":{"id":"msg-1","content":[{"type":"text","text":"Drafting the two-way tree."}]}}
+{"type":"tool_use","name":"Write","input":{"file_path":"src/TwoWayTree.ts"}}
+{"type":"tool_result","content":"written"}
+{"type":"result","subtype":"success","total_cost_usd":0.0123,"usage":{"input_tokens":1500,"output_tokens":500,"cache_read_input_tokens":200}}

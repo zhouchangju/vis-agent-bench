@@ -1,0 +1,6 @@
+{"type":"session.info","session_id":"sess-codex-abcdef0123","created_at":"2026-07-19T10:00:00.000Z"}
+{"type":"assistant.message","message":"Reading the brief and writing a POC."}
+{"type":"tool.started","tool":"shell","command":"ls"}
+{"type":"tool.ended","tool":"shell","output":"README.md","duration_ms":120}
+{"type":"file.changed","path":"src/index.ts","action":"create"}
+{"type":"usage.report","usage":{"input_tokens":1200,"output_tokens":430,"cached_tokens":0},"cost_usd":0.00234}
