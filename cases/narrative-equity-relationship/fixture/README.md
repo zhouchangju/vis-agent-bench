@@ -1,22 +1,31 @@
-# Fixture 计划
+# VAB-T03 fixture
 
-正式运行只提供脱敏起始工程和输入，不复制 `narrative-graph` 的实现、Git 历史、文档或
-专用类名。
+`starter/` is the only model-visible source tree. It is a dependency-free
+TypeScript browser shell: it can build, typecheck, test, and serve, but it
+contains no graph layout, playback, animation, or evaluator solution.
 
-Fixture 需要包含：
+## Build a worker fixture
 
-- 一个最小 TypeScript 可视化组件脚手架；
-- 脱敏 DSL：约 20-30 个总览节点、4 个章节、每章 3-5 个 step；
-- 三类节点、三种关系方向、长中英文名称、长百分比关系标签；
-- fade、scale、opacity、grow、replace、group、group_grow、ungroup 的覆盖样本；
-- 有音频、无音频、失效音频、链接和截图素材样本；
-- 组织/人物/数据节点的通用素材，不带真实业务名称；
-- 固定视口截图目标状态和隐藏边界样本。
+```sh
+node scripts/build-fixture.mjs \
+  --case narrative-equity-relationship \
+  --source-root cases/narrative-equity-relationship/fixture/starter \
+  --export-root /tmp/vab-t03-fixture
+```
 
-禁止复制：
+The generated `/tmp/vab-t03-fixture/.fixture/manifest.json` records file
+hashes, declared provenance, the asset-generation command, baseline results,
+and the exact worker-visible file list.
 
-- `/Users/leozhou/git/narrative-graph/packages/equity-relationship/src`；
-- 原始类名、工具名和提交历史；
-- 真实业务实体、内部 URL、原始音频和未脱敏素材；
-- 内部验收器及完整需求真相。
+## Visibility boundary
 
+- `starter/data/public/` is worker-visible: valid graph input plus a safe
+  boundary sample.
+- `control/` is evaluator/control-plane input only and is never passed as the
+  builder's `--source-root`.
+- The fixture deliberately has no reference screenshot, coordinates, expected
+  DOM, implementation classes, source snapshots, or source history.
+
+All art in `starter/public/assets/` is hand-authored SVG. The short WAV tone is
+generated deterministically by `starter/scripts/generate-assets.mjs`; it has no
+recorded speech or third-party material.

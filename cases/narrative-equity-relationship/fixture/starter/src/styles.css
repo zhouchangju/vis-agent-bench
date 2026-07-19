@@ -1,0 +1,4 @@
+:root { color: #18202c; background: #f5f7fa; font-family: Inter, system-ui, sans-serif; }
+body { margin: 0; min-width: 320px; }
+#app { display: grid; min-height: 100vh; place-items: center; padding: 24px; }
+.starter-message { max-width: 520px; padding: 20px 24px; border: 1px dashed #94a3b8; border-radius: 12px; background: white; }

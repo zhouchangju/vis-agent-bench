@@ -1,0 +1,19 @@
+{
+  "title": "Boundary-only public sample",
+  "overview": {
+    "nodes": [
+      { "id": "one", "kind": "organization", "name": "A name deliberately long enough to require measurement in a compact viewport" },
+      { "id": "two", "kind": "metric", "name": "0% / null / negative boundary", "value": 0 }
+    ],
+    "edges": [
+      { "id": "edge-one-two", "source": "one", "target": "two", "direction": "mutual", "style": "dashed", "label": "100.000% conditional relationship with a very long explanatory label" }
+    ]
+  },
+  "chapters": [
+    { "id": "edge", "title": "边界", "ref_ids": ["one", "edge-one-two"], "timeline": [
+      { "id": "edge-1", "caption": "Missing artwork must fall back safely.", "material": "assets/missing-card.svg", "animations": [{ "type": "fade", "targets": ["one"] }] },
+      { "id": "edge-2", "caption": "Unknown references should be diagnosed safely.", "animations": [{ "type": "opacity", "targets": ["not-present"] }] },
+      { "id": "edge-3", "caption": "No audio is also valid.", "animations": [{ "type": "grow", "targets": ["edge-one-two"] }] }
+    ] }
+  ]
+}

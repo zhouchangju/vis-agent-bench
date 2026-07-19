@@ -1,0 +1,8 @@
+{
+  "title": "Control-only invalid sample",
+  "overview": {
+    "nodes": [{ "id": "duplicate", "kind": "organization", "name": "First" }, { "id": "duplicate", "kind": "person", "name": "Second" }],
+    "edges": [{ "id": "orphan-edge", "source": "duplicate", "target": "missing-node", "direction": "sideways", "label": "invalid direction and absent endpoint" }]
+  },
+  "chapters": [{ "id": "bad", "title": "Bad", "ref_ids": ["missing-node"], "timeline": [] }]
+}

@@ -1,0 +1,77 @@
+{
+  "title": "Northstar 产业协作关系叙事样例 / Northstar Narrative",
+  "overview": {
+    "nodes": [
+      { "id": "org-atlas", "kind": "organization", "name": "Atlas Harbor Holdings" },
+      { "id": "org-boreal", "kind": "organization", "name": "北辰清洁能源协作平台" },
+      { "id": "org-cinder", "kind": "organization", "name": "Cinder Materials Laboratory" },
+      { "id": "org-delta", "kind": "organization", "name": "德尔塔区域物流与储能服务中心（试点）" },
+      { "id": "org-ember", "kind": "organization", "name": "Ember Circular Systems" },
+      { "id": "org-fjord", "kind": "organization", "name": "Fjord Analytics Cooperative" },
+      { "id": "org-grove", "kind": "organization", "name": "Grove Public Benefit Trust" },
+      { "id": "org-horizon", "kind": "organization", "name": "Horizon New Ventures" },
+      { "id": "org-island", "kind": "organization", "name": "Island Research Exchange" },
+      { "id": "org-juniper", "kind": "organization", "name": "Juniper Manufacturing Unit" },
+      { "id": "org-kite", "kind": "organization", "name": "Kite Infrastructure Partners" },
+      { "id": "org-lumen", "kind": "organization", "name": "Lumen Community Network" },
+      { "id": "person-ada", "kind": "person", "name": "Ada Lin", "role": "board observer" },
+      { "id": "person-bo", "kind": "person", "name": "博闻·陈 / Bowen Chen", "role": "advisor" },
+      { "id": "person-cam", "kind": "person", "name": "Cameron Reyes", "role": "operator" },
+      { "id": "person-devi", "kind": "person", "name": "Devi Nair", "role": "research lead" },
+      { "id": "person-eli", "kind": "person", "name": "Eli Park", "role": "trustee" },
+      { "id": "person-faye", "kind": "person", "name": "Faye Wu", "role": "founder" },
+      { "id": "metric-growth", "kind": "metric", "name": "增长指数 +18.7%", "value": 18.7 },
+      { "id": "metric-risk", "kind": "metric", "name": "风险敞口 0.0–100", "value": 42 },
+      { "id": "metric-yield", "kind": "metric", "name": "示例收益 1,234,567.89", "value": 1234567.89 },
+      { "id": "metric-time", "kind": "metric", "name": "协作周期 2022–2028", "value": 6 },
+      { "id": "metric-gap", "kind": "metric", "name": "未映射样本 / Unmapped sample", "value": null },
+      { "id": "metric-contrast", "kind": "metric", "name": "对比值 −3.2%", "value": -3.2 }
+    ],
+    "edges": [
+      { "id": "edge-a-b", "source": "org-atlas", "target": "org-boreal", "direction": "forward", "style": "solid", "label": "协作份额 51.25%（含两年观察期与条件调整）" },
+      { "id": "edge-b-c", "source": "org-boreal", "target": "org-cinder", "direction": "bidirectional", "style": "solid", "label": "技术与治理双向反馈 / reciprocal review" },
+      { "id": "edge-c-d", "source": "org-cinder", "target": "org-delta", "direction": "mutual", "style": "dashed", "label": "相向材料流：42.0% / 58.0%" },
+      { "id": "edge-d-e", "source": "org-delta", "target": "org-ember", "direction": "forward", "style": "solid", "label": "试点转运授权" },
+      { "id": "edge-e-f", "source": "org-ember", "target": "org-fjord", "direction": "forward", "style": "dashed", "label": "匿名化运营指标" },
+      { "id": "edge-f-g", "source": "org-fjord", "target": "org-grove", "direction": "bidirectional", "style": "solid", "label": "研究资助与公开审阅" },
+      { "id": "edge-g-h", "source": "org-grove", "target": "org-horizon", "direction": "forward", "style": "solid", "label": "孵化建议（非承诺）" },
+      { "id": "edge-h-i", "source": "org-horizon", "target": "org-island", "direction": "mutual", "style": "dashed", "label": "对向许可说明" },
+      { "id": "edge-i-j", "source": "org-island", "target": "org-juniper", "direction": "forward", "style": "solid", "label": "公开研究转化" },
+      { "id": "edge-j-k", "source": "org-juniper", "target": "org-kite", "direction": "bidirectional", "style": "solid", "label": "制造与基础设施协调" },
+      { "id": "edge-k-l", "source": "org-kite", "target": "org-lumen", "direction": "forward", "style": "dashed", "label": "社区影响说明" },
+      { "id": "edge-ada-a", "source": "person-ada", "target": "org-atlas", "direction": "forward", "style": "solid", "label": "观察席位" },
+      { "id": "edge-bo-b", "source": "person-bo", "target": "org-boreal", "direction": "forward", "style": "solid", "label": "独立建议" },
+      { "id": "edge-cam-d", "source": "person-cam", "target": "org-delta", "direction": "forward", "style": "solid", "label": "运营协调" },
+      { "id": "edge-devi-c", "source": "person-devi", "target": "org-cinder", "direction": "forward", "style": "dashed", "label": "研究负责人" },
+      { "id": "edge-eli-g", "source": "person-eli", "target": "org-grove", "direction": "forward", "style": "solid", "label": "受托监督" },
+      { "id": "edge-faye-h", "source": "person-faye", "target": "org-horizon", "direction": "forward", "style": "solid", "label": "发起人" },
+      { "id": "edge-growth-b", "source": "metric-growth", "target": "org-boreal", "direction": "forward", "style": "dashed", "label": "季度趋势" },
+      { "id": "edge-risk-d", "source": "metric-risk", "target": "org-delta", "direction": "forward", "style": "dashed", "label": "风险监测" },
+      { "id": "edge-yield-j", "source": "metric-yield", "target": "org-juniper", "direction": "forward", "style": "dashed", "label": "公开样例值" },
+      { "id": "edge-time-l", "source": "metric-time", "target": "org-lumen", "direction": "forward", "style": "dashed", "label": "时段标记" }
+    ]
+  },
+  "chapters": [
+    { "id": "chapter-origin", "title": "起点 / Origin", "ref_ids": ["org-atlas", "org-boreal", "edge-a-b"], "timeline": [
+      { "id": "origin-1", "caption": "从协作起点进入。", "animations": [{ "type": "fade", "targets": ["org-atlas", "org-boreal"] }] },
+      { "id": "origin-2", "caption": "强调初始关系。", "animations": [{ "type": "scale", "targets": ["org-boreal"] }, { "type": "grow", "targets": ["edge-a-b"] }] },
+      { "id": "origin-3", "caption": "保留背景层级。", "audio": "assets/generated-tone.wav", "animations": [{ "type": "opacity", "targets": ["org-cinder"] }] }
+    ] },
+    { "id": "chapter-exchange", "title": "交换 / Exchange", "ref_ids": ["org-cinder", "org-delta", "edge-b-c", "edge-c-d"], "timeline": [
+      { "id": "exchange-1", "caption": "双向与对向关系并存。", "animations": [{ "type": "move", "targets": ["edge-b-c"] }] },
+      { "id": "exchange-2", "caption": "替换叙事对象。", "animations": [{ "type": "replace", "targets": ["person-devi", "metric-risk"] }] },
+      { "id": "exchange-3", "caption": "查看公开材料占位。", "material": "assets/generated-card.svg", "animations": [{ "type": "fade", "targets": ["metric-risk"] }] }
+    ] },
+    { "id": "chapter-cluster", "title": "聚合 / Cluster", "ref_ids": ["org-ember", "org-fjord", "org-grove", "edge-e-f"], "timeline": [
+      { "id": "cluster-1", "caption": "形成临时协作组。", "animations": [{ "type": "group", "targets": ["org-ember", "org-fjord"], "group_id": "group-circulation" }] },
+      { "id": "cluster-2", "caption": "关系指向协作组。", "animations": [{ "type": "group_grow", "targets": ["edge-f-g"], "group_id": "group-circulation" }] },
+      { "id": "cluster-3", "caption": "长标签保持可读。", "link": "https://example.invalid/brief", "animations": [{ "type": "opacity", "targets": ["org-grove"] }] },
+      { "id": "cluster-4", "caption": "结束聚合状态。", "animations": [{ "type": "ungroup", "targets": ["group-circulation"] }] }
+    ] },
+    { "id": "chapter-horizon", "title": "延展 / Horizon", "ref_ids": ["org-horizon", "org-island", "org-juniper", "edge-h-i"], "timeline": [
+      { "id": "horizon-1", "caption": "进入后续章节。", "animations": [{ "type": "fade", "targets": ["org-horizon", "org-island"] }] },
+      { "id": "horizon-2", "caption": "沿关系移动标记。", "audio": "assets/missing-audio.wav", "animations": [{ "type": "move", "targets": ["edge-h-i"] }, { "type": "grow", "targets": ["edge-i-j"] }] },
+      { "id": "horizon-3", "caption": "恢复为可拆分元素。", "animations": [{ "type": "scale", "targets": ["org-juniper"] }] }
+    ] }
+  ]
+}

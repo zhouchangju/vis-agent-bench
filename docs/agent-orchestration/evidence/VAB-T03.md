@@ -1,0 +1,32 @@
+# VAB-T03 Evidence
+
+- Status: DONE
+- Baseline: `54b53a6` (task start)
+- Branch: `codex/vab-t03-equity-fixture` (recommended; branch creation was not performed by this task)
+- Changed paths:
+  - `cases/narrative-equity-relationship/fixture/**`
+  - `scripts/fixtures/equity/verify-fixture.mjs`
+  - `tests/cases/narrative-equity/run.mjs`
+  - this evidence file
+- Acceptance commands and results:
+  - `node scripts/fixtures/equity/verify-fixture.mjs` → PASS.
+  - `node tests/cases/narrative-equity/run.mjs` → PASS; verifies a temporary Builder export.
+  - `npm run build && npm run typecheck && npm test` in `fixture/starter` → PASS.
+  - Fixture Builder command with `fixture/starter` source → PASS: build/typecheck/test baseline passed; path/content/canary leakage counts were all `0`.
+  - Repository `npm test` → PASS (contracts, Fixture Framework, structure, and syntax checks).
+  - `git diff --check` → PASS.
+- Produced artifacts:
+  - Dependency-free browser/TypeScript starter with a generic shell and empty component API.
+  - Synthetic public input with 24 overview nodes, four chapters, and 3–4 steps per chapter.
+  - Separate public boundary and control-only invalid inputs.
+  - Hand-authored SVG node/material placeholders and a deterministic WAV generator.
+- Not proven:
+  - Visual quality, layout quality, animation quality, and runtime interaction quality are intentionally not proven by a starter fixture.
+  - The worker-side implementation is deliberately absent.
+- Remaining risks:
+  - The source repository was not opened or modified during this task; it was not changed. Its non-modification is asserted from task scope and no source write commands, not independently audited by filesystem snapshot.
+- Integration notes:
+  - Invoke the Fixture Builder with `fixture/starter` as `--source-root`; do not export `fixture/control`.
+  - Generated manifests contain the hashed worker-visible file list, provenance source types, and the declared deterministic asset generator command.
+- Rollback:
+  - Revert only the VAB-T03 paths above.

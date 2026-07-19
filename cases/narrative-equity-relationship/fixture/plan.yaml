@@ -1,0 +1,50 @@
+source:
+  label: "Synthetic narrative graph starter generated for VAB-T03"
+  type: synthetic
+
+# The builder receives only starter/. Control samples and author notes remain
+# outside that source root and therefore never enter a worker fixture.
+exclusion:
+  paths:
+    - "data/private/**"
+    - "**/*.answer.*"
+
+leakage:
+  path:
+    - id: source-package-path
+      pattern: "packages[\\\\/]equity-relationship"
+      recovery: "Remove source-package paths; this fixture must remain synthetic."
+  content:
+    - id: source-package-import
+      pattern: "@narrative-visual[\\\\/]equity-relationship"
+      recovery: "Remove source implementation imports from the starter."
+    - id: source-controller-name
+      pattern: "ChapterTransitionCoordinator|NodeLayoutResolver|AnimationEngine"
+      recovery: "Remove source-specific implementation identifiers."
+
+baseline:
+  build:
+    command: ["npm", "run", "build"]
+    required: true
+  typecheck:
+    command: ["npm", "run", "typecheck"]
+    required: true
+  test:
+    command: ["npm", "test"]
+    required: true
+
+provenance:
+  - kind: manual
+    label: "Requirements distilled from approved source analysis; no source files copied"
+    source_type: observed
+    modified: false
+  - kind: generated
+    label: "Synthetic names, graph data, SVG placeholders, screenshot card, and WAV tone"
+    ref: "scripts/generate-assets.mjs"
+    source_type: synthetic
+    modified: false
+
+notes:
+  - "Allowed worker-visible files are exactly the exported starter tree listed by the generated manifest."
+  - "Fixture data is synthetic and deliberately contains no expected layout coordinates or answer screenshots."
+  - "Control-only invalid and boundary samples are excluded because source_root is fixture/starter."
