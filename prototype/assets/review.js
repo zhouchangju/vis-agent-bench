@@ -8,16 +8,37 @@ const storageKey = "vis-agent-bench-human-review-v2";
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
+// ── Machine evidence state ──────────────────────────────────
+let machineEvidence = null;
+let machineEvidenceRef = null;
+
+const ADAPTER_TOKENS = ['codex', 'kimi', 'claude'];
+function looksLikeModelIdentifier(value) {
+  if (typeof value !== 'string' || !value) return false;
+  const lower = value.toLowerCase();
+  return ADAPTER_TOKENS.some(token => lower.includes(token));
+}
+
 function scoreOptions() {
   return '<option value="">未评</option>' +
     [1, 2, 3, 4, 5].map(value => `<option value="${value}">${value} / 5</option>`).join("");
 }
 
 function caseTemplate(item) {
+  let machineHint = item.machine;
+  if (machineEvidence) {
+    const bk = machineEvidence;
+    machineHint = [
+      bk.status === 'success' ? '✓ 采集成功' : '⚠ 采集有问题',
+      bk.screenshots?.length ? `${bk.screenshots.length} 截图` : '',
+      bk.dom_snapshots?.length ? `${bk.dom_snapshots.length} DOM 快照` : '',
+    ].filter(Boolean).join(' · ');
+    if (!machineHint) machineHint = '机器证据已加载';
+  }
   return `
     <article class="review-case" data-case="${item.id}">
       <header class="review-case-head">
-        <div><h2>${item.title}</h2><p>${item.id} · ${item.machine}</p></div>
+        <div><h2>${item.title}</h2><p>${item.id} · ${machineHint}</p></div>
         <span class="status warn case-review-status">pending</span>
       </header>
       <div class="review-form">
@@ -73,6 +94,9 @@ function readCase(article) {
     complete: Boolean(complete),
     decision: value("decision") || null,
     scores: Object.fromEntries(scores.map(key => [key, integer(key) || null])),
+    machine_evidence: machineEvidence
+      ? { run_id: machineEvidence.run_id, capture_id: machineEvidence.capture_id, captured_at: machineEvidence.captured_at }
+      : null,
     human_time: {
       clarification_minutes: integer("clarification_minutes"),
       context_prep_minutes: integer("context_prep_minutes"),
@@ -98,15 +122,56 @@ function readCase(article) {
   };
 }
 
+function isBlindReview() {
+  return $("#blind-toggle")?.checked === true;
+}
+
 function packageData() {
+  const blind = isBlindReview();
+  let runId = $("#run-id").value;
+  let reviewer = $("#reviewer").value;
+  if (blind) {
+    if (looksLikeModelIdentifier(runId)) runId = "[blind:run_id]";
+    reviewer = "[blind:reviewer]";
+  }
   return {
     schema_version: 2,
-    run_id: $("#run-id").value,
-    reviewer: $("#reviewer").value,
+    run_id: runId,
+    reviewer: reviewer,
     isolation: "file-isolated-development",
+    machine_evidence_ref: machineEvidenceRef,
+    blind_review: blind,
     reviews: $$(".review-case").map(readCase),
     reviewed_at: new Date().toISOString()
   };
+}
+
+function refreshEvidenceSummary() {
+  const $status = $("#evidence-status");
+  const $summary = $("#evidence-summary");
+  if (!machineEvidence) {
+    $status.textContent = "未加载";
+    $status.className = "status info";
+    $summary.textContent = "尚未加载机器证据。选择 .local/runs/<id>/review/browser-evidence.json 开始。";
+    return;
+  }
+  const bk = machineEvidence;
+  $status.textContent = bk.status === "success" ? "证据就绪" : "证据有问题";
+  $status.className = `status ${bk.status === "success" ? "good" : "warn"}`;
+  $summary.textContent = JSON.stringify({
+    capture_id: bk.capture_id,
+    run_id: isBlindReview() && looksLikeModelIdentifier(bk.run_id) ? "[blind:run_id]" : bk.run_id,
+    case_id: bk.case_id,
+    driver: isBlindReview() ? "[blind:review]" : bk.driver,
+    status: bk.status,
+    screenshot_count: bk.screenshots?.length ?? 0,
+    dom_snapshot_count: bk.dom_snapshots?.length ?? 0,
+    console_error_count: bk.console_errors?.length ?? 0,
+    page_error_count: bk.page_errors?.length ?? 0,
+    network_failure_count: (bk.network_events ?? []).filter(e => e.failed).length,
+    failure_codes: (bk.failures ?? []).map(f => f.code),
+    canvas_webgl_proven: bk.canvas_webgl_proven ?? false,
+  }, null, 2);
 }
 
 function refresh() {
@@ -122,6 +187,7 @@ function refresh() {
   $("#review-progress").textContent = `${completed} / ${cases.length} reviewed`;
   $("#review-progress").className = `status ${completed === cases.length ? "good" : "warn"}`;
   $("#review-preview").textContent = JSON.stringify(data, null, 2);
+  refreshEvidenceSummary();
   return data;
 }
 
@@ -131,6 +197,9 @@ function restore() {
   const data = JSON.parse(saved);
   $("#run-id").value = data.run_id || "";
   $("#reviewer").value = data.reviewer || "";
+  if (data.blind_review != null && $("#blind-toggle")) {
+    $("#blind-toggle").checked = data.blind_review === true;
+  }
   for (const review of data.reviews || []) {
     const article = document.querySelector(`[data-case="${review.case_id}"]`);
     if (!article) continue;
@@ -157,8 +226,54 @@ function toast(message) {
   window.setTimeout(() => element.classList.remove("show"), 2400);
 }
 
+// ── Machine evidence loader ─────────────────────────────────
+function handleEvidenceFile(event) {
+  const file = event.target?.files?.[0];
+  if (!file) return;
+  machineEvidenceRef = file.name;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      if (!parsed || typeof parsed !== 'object' || !parsed.capture_id) {
+        toast("文件不是有效的浏览器证据 JSON（缺少 capture_id）。");
+        return;
+      }
+      machineEvidence = parsed;
+      $("#evidence-loader").value = "";
+      // Rebuild case cards so they reflect updated machine hints.
+      $("#review-cases").innerHTML = cases.map(caseTemplate).join("");
+      restore();
+      refresh();
+      toast(`已加载机器证据：${parsed.screenshots?.length ?? 0} 截图、${parsed.dom_snapshots?.length ?? 0} DOM 快照。`);
+    } catch (error) {
+      toast(`无法解析证据 JSON：${error.message}`);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function toggleBlindReview() {
+  const blind = isBlindReview();
+  if (blind) {
+    toast("盲审已开启：评审人、模型标识字段将在导出时隐藏。");
+  } else {
+    toast("盲审已关闭：可看到 run_id 和 reviewer 的原始值。");
+  }
+  refresh();
+}
+
+// ── Event wiring ────────────────────────────────────────────
 document.addEventListener("input", refresh);
 document.addEventListener("change", refresh);
+
+if ($("#evidence-loader")) {
+  $("#evidence-loader").addEventListener("change", handleEvidenceFile);
+}
+
+if ($("#blind-toggle")) {
+  $("#blind-toggle").addEventListener("change", toggleBlindReview);
+}
 
 $("#save-review").addEventListener("click", () => {
   const data = refresh();
@@ -169,11 +284,16 @@ $("#save-review").addEventListener("click", () => {
 
 $("#clear-review").addEventListener("click", () => {
   localStorage.removeItem(storageKey);
+  machineEvidence = null;
+  machineEvidenceRef = null;
   location.reload();
 });
 
 $("#export-review").addEventListener("click", () => {
   const data = refresh();
+  // Quick pre-export validation warning.
+  const missingScores = data.reviews.filter(r => !r.complete).map(r => r.case_id);
+  if (missingScores.length && !confirm(`${missingScores.length} 个评审尚未完成（${missingScores.join(', ')}），导出的评审将标记为 incomplete。继续？`)) return;
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

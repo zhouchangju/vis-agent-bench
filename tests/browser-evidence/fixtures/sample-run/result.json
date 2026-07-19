@@ -1,0 +1,18 @@
+{
+  "status": "success",
+  "duration_ms": 4320000,
+  "run_id": "smoke-sample-run",
+  "case_id": "macro-map-3d-greenfield",
+  "engine": {
+    "adapter": "codex",
+    "executable": "codex",
+    "model": "gpt-5-example",
+    "provider": "openai"
+  },
+  "isolation": {
+    "mode": "file-isolated-development",
+    "leaderboard_eligible": false
+  },
+  "human_review_status": "pending",
+  "completed_at": "2026-07-19T08:00:00.000Z"
+}

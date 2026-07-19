@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Static Fixture · Dashboard</title>
+</head>
+<body>
+  <header id="topbar">
+    <h1>Macro Dashboard</h1>
+    <button class="cta" id="refresh">Refresh</button>
+  </header>
+  <main>
+    <section id="chart">
+      <h2>Region growth</h2>
+      <canvas id="chart-canvas" width="640" height="320"></canvas>
+    </section>
+    <section id="table-wrapper">
+      <table id="data-table">
+        <thead><tr><th>Region</th><th>YoY</th></tr></thead>
+        <tbody>
+          <tr><td>Asia</td><td>4.2%</td></tr>
+          <tr><td>EMEA</td><td>1.8%</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+  <script type="application/json" data-static-events>
+    {
+      "dom": {
+        "selectors": ["#chart", "#refresh", "button.cta", "#data-table"],
+        "texts": { "#chart h2": "Region growth" },
+        "snapshot_label": "after-load",
+        "canvas_webgl": { "canvas_count": 1, "webgl_supported": null }
+      },
+      "console_errors": [],
+      "page_errors": [],
+      "network": [],
+      "steps": {
+        "after-refresh": {
+          "dom": {
+            "selectors": ["#chart", "#refresh", "button.cta", "#data-table"],
+            "texts": { "#chart h2": "Region growth (refreshed)" },
+            "snapshot_label": "after-refresh"
+          },
+          "console_errors": ["warn: stale data"]
+        }
+      }
+    }
+  </script>
+</body>
+</html>

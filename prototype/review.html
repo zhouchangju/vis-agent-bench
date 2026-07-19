@@ -29,6 +29,20 @@
       <span class="status warn" id="review-progress">0 / 3 reviewed</span>
     </section>
 
+    <section class="section" id="machine-evidence-section">
+      <header class="section-head">
+        <div><span class="section-index">MACHINE EVIDENCE</span><h2>机器证据加载</h2><p>点击空白处或选择浏览器证据 JSON 文件；如果没有可用的机器证据，也可以直接评审。</p></div>
+        <span class="status info" id="evidence-status">未加载</span>
+      </header>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="field"><label for="evidence-loader">加载机器证据</label><input type="file" id="evidence-loader" accept=".json,application/json"></div>
+          <div class="field"><label class="switch-label"><input type="checkbox" id="blind-toggle"> 盲审（隐藏模型身份）</label></div>
+        </div>
+        <pre class="review-preview" id="evidence-summary">尚未加载机器证据。选择 .local/runs/&lt;id&gt;/review/browser-evidence.json 开始。</pre>
+      </div>
+    </section>
+
     <section id="review-cases"></section>
 
     <section class="section" style="margin-top:18px">

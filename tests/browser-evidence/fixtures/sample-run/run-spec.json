@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "run_id": "smoke-sample-run",
+  "case_id": "macro-map-3d-greenfield",
+  "status": "awaiting-human-review",
+  "scenario": {
+    "mode": "progressive-disclosure",
+    "stage_ids": ["S0", "S1", "S2"],
+    "current_stage": null,
+    "completed_stages": ["S0", "S1", "S2"]
+  },
+  "isolation": {
+    "mode": "file-isolated-development",
+    "leaderboard_eligible": false,
+    "workspace_source": "dashboard-scaffold",
+    "inherited_home_for_auth": true
+  },
+  "engine": {
+    "adapter": "codex",
+    "executable": "codex",
+    "model": "gpt-5-example",
+    "provider": "openai"
+  },
+  "budget": {
+    "wall_time_minutes": 60,
+    "max_cost_usd": null
+  },
+  "evidence": {
+    "raw_logs": true,
+    "normalized_events": true,
+    "file_snapshots": true,
+    "git_diff": true,
+    "human_review_required": true
+  }
+}

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Static Fixture · Broken</title>
+</head>
+<body>
+  <header><h1>Broken Page</h1></header>
+  <main>
+    <p>This fixture simulates a page that loads but raises console and network errors.</p>
+  </main>
+  <script type="application/json" data-static-events>
+    {
+      "dom": { "selectors": ["#missing-chart"] },
+      "console_errors": ["ReferenceError: chart is not defined"],
+      "page_errors": [{ "message": "Uncaught ReferenceError: chart is not defined" }],
+      "network": [
+        { "url": "https://example.local/api/v1/growth", "method": "GET", "status": 0, "failed": true }
+      ]
+    }
+  </script>
+</body>
+</html>

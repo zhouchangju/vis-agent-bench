@@ -1,0 +1,26 @@
+{
+  "capture_id": "dashboard-smoke",
+  "run_id": "smoke-dashboard",
+  "case_id": "macro-map-3d-greenfield",
+  "fixture_dir": "dashboard",
+  "fixture_index": "index.html",
+  "viewport": { "width": 1280, "height": 800 },
+  "user_agent": "vis-agent-bench/static-fixture",
+  "wait": { "kind": "load" },
+  "actions": [
+    { "kind": "screenshot", "label": "initial" },
+    { "kind": "domSnapshot", "label": "initial-dom" },
+    { "kind": "click", "selector": "#refresh", "label": "refresh-click", "note": "static-events:after-refresh" },
+    { "kind": "wait", "label": "post-refresh", "wait": { "kind": "selector", "selector": "#chart" } },
+    { "kind": "screenshot", "label": "after-refresh" },
+    { "kind": "assert", "label": "chart-present", "expression": "selector \"#chart\"" }
+  ],
+  "screenshot_format": "png",
+  "capture_dom_summary": true,
+  "capture_console_errors": true,
+  "capture_page_errors": true,
+  "capture_network_failures": true,
+  "default_action_timeout_ms": 5000,
+  "default_wait_timeout_ms": 15000,
+  "blind_review_excludes": true
+}

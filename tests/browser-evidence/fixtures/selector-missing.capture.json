@@ -1,0 +1,9 @@
+{
+  "capture_id": "selector-missing-smoke",
+  "run_id": "smoke-selector-missing",
+  "case_id": "macro-map-3d-greenfield",
+  "fixture_dir": "dashboard",
+  "fixture_index": "index.html",
+  "wait": { "kind": "selector", "selector": "#never-exists" },
+  "actions": []
+}

@@ -1,0 +1,13 @@
+{
+  "capture_id": "broken-smoke",
+  "run_id": "smoke-broken",
+  "case_id": "ainvest-market-heatmap-rebuild",
+  "fixture_dir": "broken",
+  "fixture_index": "index.html",
+  "viewport": { "width": 1024, "height": 700 },
+  "wait": { "kind": "load" },
+  "actions": [
+    { "kind": "screenshot", "label": "broken-initial" },
+    { "kind": "click", "selector": "#missing-action", "label": "missing-action" }
+  ]
+}
