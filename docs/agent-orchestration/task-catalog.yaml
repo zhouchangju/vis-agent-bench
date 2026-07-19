@@ -58,7 +58,7 @@ tasks:
   - id: VAB-T03
     title: 股权关系脱敏 Fixture
     wave: 2
-    status: ready
+    status: accepted
     branch: codex/vab-t03-equity-fixture
     depends_on: [VAB-T02]
     prompt: prompts/VAB-T03-EQUITY-FIXTURE.md
@@ -84,7 +84,7 @@ tasks:
   - id: VAB-T05
     title: 股权关系确定性 Evaluator
     wave: 3
-    status: planned
+    status: ready
     branch: codex/vab-t05-equity-evaluator
     depends_on: [VAB-T03, VAB-T04]
     prompt: prompts/VAB-T05-EQUITY-EVALUATOR.md
@@ -129,10 +129,10 @@ tasks:
 
   - id: VAB-T08
     title: 总集成与 Web 控制面
-    wave: 4
+    wave: 6
     status: planned
     branch: codex/vab-t08-integration
-    depends_on: [VAB-T01, VAB-T03, VAB-T05, VAB-T06, VAB-T07]
+    depends_on: [VAB-T01, VAB-T03, VAB-T05, VAB-T06, VAB-T07, VAB-T09, VAB-T10, VAB-T11, VAB-T12, VAB-T13]
     prompt: prompts/VAB-T08-INTEGRATION.md
     allowed_paths:
       - scripts/bench.mjs
@@ -144,3 +144,82 @@ tasks:
       - README.md
       - docs/roadmap/ROADMAP.md
       - docs/agent-orchestration/evidence/VAB-T08.md
+
+  - id: VAB-T09
+    title: Macro Map 3D 脱敏 Fixture
+    wave: 3
+    status: ready
+    branch: codex/vab-t09-macro-3d-fixture
+    depends_on: [VAB-T02]
+    prompt: prompts/VAB-T09-MACRO-3D-FIXTURE.md
+    allowed_paths:
+      - cases/macro-map-3d-greenfield/fixture/**
+      - scripts/fixtures/macro-map-3d/**
+      - tests/cases/macro-map-3d/**
+      - docs/agent-orchestration/evidence/VAB-T09.md
+
+  - id: VAB-T10
+    title: AInvest Heatmap 脱敏 Fixture
+    wave: 3
+    status: ready
+    branch: codex/vab-t10-heatmap-fixture
+    depends_on: [VAB-T02]
+    prompt: prompts/VAB-T10-HEATMAP-FIXTURE.md
+    allowed_paths:
+      - cases/ainvest-market-heatmap-rebuild/fixture/**
+      - scripts/fixtures/heatmap/**
+      - tests/cases/ainvest-heatmap/**
+      - docs/agent-orchestration/evidence/VAB-T10.md
+
+  - id: VAB-T11
+    title: Playwright 真实浏览器证据 Driver
+    wave: 3
+    status: ready
+    branch: codex/vab-t11-playwright-driver
+    depends_on: [VAB-T06]
+    prompt: prompts/VAB-T11-PLAYWRIGHT-DRIVER.md
+    allowed_paths:
+      - src/browser-evidence/drivers/**
+      - scripts/capture-playwright-evidence.mjs
+      - tests/browser-evidence/playwright/**
+      - docs/architecture/BROWSER_EVIDENCE_PROTOCOL.md
+      - docs/agent-orchestration/evidence/VAB-T11.md
+
+  - id: VAB-T12
+    title: Macro Map 3D 确定性 Evaluator
+    wave: 5
+    status: planned
+    branch: codex/vab-t12-macro-3d-evaluator
+    depends_on: [VAB-T04, VAB-T09, VAB-T11]
+    prompt: prompts/VAB-T12-MACRO-3D-EVALUATOR.md
+    allowed_paths:
+      - src/evaluators/cases/macro-map-3d/**
+      - tests/evaluators/macro-map-3d/**
+      - cases/macro-map-3d-greenfield/evaluator/**
+      - docs/agent-orchestration/evidence/VAB-T12.md
+
+  - id: VAB-T13
+    title: AInvest Heatmap 确定性 Evaluator
+    wave: 5
+    status: planned
+    branch: codex/vab-t13-heatmap-evaluator
+    depends_on: [VAB-T04, VAB-T10, VAB-T11]
+    prompt: prompts/VAB-T13-HEATMAP-EVALUATOR.md
+    allowed_paths:
+      - src/evaluators/cases/ainvest-heatmap/**
+      - tests/evaluators/ainvest-heatmap/**
+      - cases/ainvest-market-heatmap-rebuild/evaluator/**
+      - docs/agent-orchestration/evidence/VAB-T13.md
+
+  - id: VAB-T14
+    title: 真实模型端到端 Pilot
+    wave: 7
+    status: planned
+    branch: codex/vab-t14-real-model-pilot
+    depends_on: [VAB-T08]
+    prompt: prompts/VAB-T14-REAL-MODEL-PILOT.md
+    allowed_paths:
+      - config/pilots/**
+      - runs/pilots/**
+      - docs/reports/pilots/**
+      - docs/agent-orchestration/evidence/VAB-T14.md
