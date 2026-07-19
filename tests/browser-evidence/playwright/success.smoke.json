@@ -15,6 +15,8 @@
     { "kind": "assert-text", "selector": "#title", "text": "Keyboard accepted" },
     { "kind": "resize", "width": 800, "height": 500 },
     { "kind": "collect-state", "label": "final-state", "selectors": ["#title", "#increment", "#chart"] },
-    { "kind": "screenshot", "label": "final", "full_page": false }
+    { "kind": "click", "selector": "#navigate" },
+    { "kind": "wait", "selector": "#final-page", "state": "visible" },
+    { "kind": "screenshot", "label": "final", "full_page": true }
   ]
 }

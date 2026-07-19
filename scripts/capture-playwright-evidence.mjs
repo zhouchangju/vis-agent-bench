@@ -9,7 +9,18 @@ function output(payload) {
 }
 
 function usage() {
-  return 'Usage: node scripts/capture-playwright-evidence.mjs <spec.json> --out-dir <directory>';
+  return [
+    'Usage: node scripts/capture-playwright-evidence.mjs <spec.json> --out-dir <directory>',
+    '  [--allow-origin <exact-loopback-origin>]... [--allow-file-root <fixture-directory>]...',
+  ].join('\n');
+}
+
+function valuesFor(args, flag) {
+  const values = [];
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === flag && args[index + 1]) values.push(args[index + 1]);
+  }
+  return values;
 }
 
 async function main() {
@@ -37,7 +48,13 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  const result = await createPlaywrightDriver().capture(spec, { outDir });
+  const result = await createPlaywrightDriver().capture(spec, {
+    outDir,
+    policy: {
+      allowed_origins: valuesFor(args, '--allow-origin'),
+      allowed_file_roots: valuesFor(args, '--allow-file-root'),
+    },
+  });
   output(result);
   if (result.status === 'error') process.exitCode = 1;
 }

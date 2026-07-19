@@ -5,6 +5,11 @@ import { join } from 'node:path';
 import { structuredError } from '../errors.mjs';
 import { validateEvidencePackage } from '../evidence-package.mjs';
 import { loadPlaywright, resolveChromiumExecutable } from './playwright-loader.mjs';
+import {
+  checkPolicyUrl,
+  normalizePlaywrightPolicy,
+  validateSpecUrlsAgainstPolicy,
+} from './playwright-policy.mjs';
 import { validatePlaywrightSpec } from './playwright-spec.mjs';
 
 function nowIso() {
@@ -22,14 +27,64 @@ function artifactWriter(outDir, name, bytes) {
   return target;
 }
 
-function isAllowedRuntimeUrl(value) {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'file:'
-      || (['http:', 'https:'].includes(url.protocol) && ['localhost', '127.0.0.1', '::1'].includes(url.hostname));
-  } catch {
-    return false;
+function pngDimensions(bytes) {
+  if (bytes.length < 24
+    || bytes.toString('ascii', 1, 4) !== 'PNG'
+    || bytes.toString('ascii', 12, 16) !== 'IHDR') {
+    throw new Error('Chromium screenshot did not return a valid PNG IHDR.');
   }
+  return {
+    width: bytes.readUInt32BE(16),
+    height: bytes.readUInt32BE(20),
+  };
+}
+
+class CaptureDeadlineError extends Error {
+  constructor(limitMs) {
+    super(`Capture exceeded its ${limitMs}ms total deadline.`);
+    this.name = 'CaptureDeadlineError';
+    this.deadline = true;
+    this.limitMs = limitMs;
+  }
+}
+
+function createDeadline(limitMs, onExpire) {
+  let expired = false;
+  let rejectDeadline;
+  const deadlinePromise = new Promise((resolvePromise, reject) => {
+    rejectDeadline = reject;
+  });
+  const timer = setTimeout(() => {
+    expired = true;
+    try {
+      onExpire();
+    } finally {
+      rejectDeadline(new CaptureDeadlineError(limitMs));
+    }
+  }, limitMs);
+  return {
+    get expired() {
+      return expired;
+    },
+    race(operation) {
+      return Promise.race([operation, deadlinePromise]);
+    },
+    clear() {
+      clearTimeout(timer);
+    },
+  };
+}
+
+async function closeWithin(operation, timeoutMs = 1_000) {
+  if (!operation) return;
+  let timer;
+  await Promise.race([
+    operation.catch(() => {}),
+    new Promise(resolvePromise => {
+      timer = setTimeout(resolvePromise, timeoutMs);
+    }),
+  ]);
+  clearTimeout(timer);
 }
 
 function emptyEvidence(spec, started, failures, environment = {}) {
@@ -182,7 +237,7 @@ async function executeStep(page, step, context) {
         ts: nowIso(),
         path,
         format: 'png',
-        dimensions: { ...context.viewport },
+        dimensions: pngDimensions(bytes),
         digest: `sha256-${createHash('sha256').update(bytes).digest('hex')}`,
       });
       break;
@@ -238,26 +293,67 @@ export function createPlaywrightDriver({ load = loadPlaywright } = {}) {
           evidence: null,
         };
       }
-      return runCapture(validation.spec, { ...options, load });
+      const policyValidation = normalizePlaywrightPolicy(options.policy);
+      if (!policyValidation.valid) {
+        return {
+          status: 'error',
+          summary: `Playwright control-plane policy is invalid: ${policyValidation.errors.length} issue(s).`,
+          next_actions: ['Supply exact loopback origins and existing fixture roots from the trusted control plane.'],
+          artifacts: [],
+          errors: policyValidation.errors,
+          evidence: null,
+        };
+      }
+      const policyErrors = validateSpecUrlsAgainstPolicy(validation.spec, policyValidation.policy);
+      if (policyErrors.length) {
+        return {
+          status: 'error',
+          summary: `Playwright smoke spec violates the control-plane policy: ${policyErrors.length} issue(s).`,
+          next_actions: ['Declare only the exact fixture origin or real fixture root required by this capture.'],
+          artifacts: [],
+          errors: policyErrors,
+          evidence: null,
+        };
+      }
+      return runCapture(validation.spec, { ...options, policy: policyValidation.policy, load });
     },
   };
 }
 
-async function runCapture(spec, { outDir = null, writeArtifact = artifactWriter, load = loadPlaywright } = {}) {
+async function runCapture(spec, {
+  outDir = null,
+  writeArtifact = artifactWriter,
+  load = loadPlaywright,
+  policy,
+} = {}) {
   const started = Date.now();
   let playwrightInfo;
   let executable;
   let browser;
+  let context;
+  const policyNetworkEvents = [];
+  const deadline = createDeadline(spec.capture_deadline_ms, () => {
+    void context?.close().catch(() => {});
+    void browser?.close().catch(() => {});
+  });
   try {
     playwrightInfo = load();
     executable = resolveChromiumExecutable(playwrightInfo.playwright.chromium);
-    browser = await playwrightInfo.playwright.chromium.launch({
+    const launch = playwrightInfo.playwright.chromium.launch({
       headless: true,
+      timeout: spec.capture_deadline_ms,
       ...(executable.executablePath ? { executablePath: executable.executablePath } : {}),
     });
+    launch.then(lateBrowser => {
+      if (deadline.expired) void lateBrowser.close().catch(() => {});
+    }).catch(() => {});
+    browser = await deadline.race(launch);
   } catch (error) {
+    deadline.clear();
     const environmentFailure = failure('DRIVER_UNAVAILABLE', error.message, 'environment', {
       phase: 'browser-launch',
+      deadline_exceeded: error.deadline === true ? true : undefined,
+      capture_deadline_ms: error.deadline === true ? spec.capture_deadline_ms : undefined,
       attempts: error.attempts ?? undefined,
     });
     const evidence = emptyEvidence(spec, started, [environmentFailure], {
@@ -268,24 +364,79 @@ async function runCapture(spec, { outDir = null, writeArtifact = artifactWriter,
     return envelope(evidence, outDir);
   }
 
-  let context;
   let page;
   let userAgent = null;
   let browserVersion = null;
   try {
-    context = await browser.newContext({ viewport: spec.viewport });
+    context = await deadline.race(browser.newContext({
+      viewport: spec.viewport,
+      serviceWorkers: 'block',
+    }));
+    await deadline.race(context.addInitScript(() => {
+      const blockedRegister = () => Promise.reject(new DOMException(
+        'Service Worker registration is blocked by browser evidence policy.',
+        'SecurityError',
+      ));
+      if (globalThis.ServiceWorkerContainer) {
+        Object.defineProperty(globalThis.ServiceWorkerContainer.prototype, 'register', {
+          configurable: false,
+          writable: false,
+          value: blockedRegister,
+        });
+      }
+      if (globalThis.navigator?.serviceWorker) {
+        Object.defineProperty(globalThis.navigator.serviceWorker, 'register', {
+          configurable: false,
+          writable: false,
+          value: blockedRegister,
+        });
+      }
+    }));
     await context.route('**/*', async route => {
-      if (isAllowedRuntimeUrl(route.request().url())) await route.continue();
-      else await route.abort('blockedbyclient');
+      const request = route.request();
+      const decision = checkPolicyUrl(request.url(), policy);
+      if (decision.allowed) {
+        await route.continue();
+        return;
+      }
+      policyNetworkEvents.push({
+        ts: nowIso(),
+        url: request.url(),
+        method: request.method(),
+        resource_type: request.resourceType(),
+        failed: true,
+        blocked_by_policy: true,
+        error_text: decision.reason,
+      });
+      await route.abort('blockedbyclient');
     });
-    page = await context.newPage();
+    if (typeof context.routeWebSocket !== 'function') {
+      throw new Error('Installed Playwright lacks routeWebSocket; WebSocket isolation cannot be enforced.');
+    }
+    await deadline.race(context.routeWebSocket('**/*', async websocket => {
+      policyNetworkEvents.push({
+        ts: nowIso(),
+        url: websocket.url(),
+        method: 'GET',
+        resource_type: 'websocket',
+        failed: true,
+        blocked_by_policy: true,
+        expected_policy_boundary: true,
+        error_text: 'WebSocket connections are forbidden during browser evidence capture.',
+      });
+      await websocket.close({ code: 1008, reason: 'Blocked by browser evidence policy' });
+    }));
+    page = await deadline.race(context.newPage());
     browserVersion = browser.version();
-    userAgent = await page.evaluate(() => navigator.userAgent);
+    userAgent = await deadline.race(page.evaluate(() => navigator.userAgent));
   } catch (error) {
-    await context?.close().catch(() => {});
-    await browser.close().catch(() => {});
+    await closeWithin(context?.close());
+    await closeWithin(browser.close());
+    deadline.clear();
     const environmentFailure = failure('DRIVER_UNAVAILABLE', error.message, 'environment', {
       phase: 'browser-context',
+      deadline_exceeded: error.deadline === true ? true : undefined,
+      capture_deadline_ms: error.deadline === true ? spec.capture_deadline_ms : undefined,
     });
     const evidence = emptyEvidence(spec, started, [environmentFailure], {
       playwright_source: playwrightInfo.source,
@@ -297,13 +448,15 @@ async function runCapture(spec, { outDir = null, writeArtifact = artifactWriter,
   const consoleMessages = [];
   const consoleErrors = [];
   const pageErrors = [];
-  const networkEvents = [];
+  const networkEvents = policyNetworkEvents;
   const failures = [];
   const actionLog = [];
   const screenshots = [];
   const domSnapshots = [];
   let pageUrl = null;
   let viewport = { ...spec.viewport };
+  let pageLoaded = false;
+  let deadlineFailureRecorded = false;
 
   page.on('console', message => {
     const entry = { ts: nowIso(), type: message.type(), message: message.text() };
@@ -344,14 +497,33 @@ async function runCapture(spec, { outDir = null, writeArtifact = artifactWriter,
       const entry = { ts: nowIso(), phase: 'step', index, kind: step.kind, label, status: 'running' };
       actionLog.push(entry);
       try {
-        await executeStep(page, step, {
+        await deadline.race(executeStep(page, step, {
           spec, index, outDir, writeArtifact, screenshots, domSnapshots, viewport, pageUrl,
-        });
+        }));
         if (step.kind === 'resize') viewport = { width: step.width, height: step.height };
-        if (step.kind === 'goto') pageUrl = page.url();
+        if (step.kind === 'goto') {
+          pageUrl = page.url();
+          pageLoaded = true;
+        }
         entry.status = 'passed';
       } catch (error) {
-        const item = step.kind === 'goto'
+        const item = error.deadline
+          ? pageLoaded
+            ? failure('CAPTURE_INCOMPLETE', error.message, 'product', {
+              phase: 'capture-deadline',
+              step: step.kind,
+              label,
+              deadline_exceeded: true,
+              capture_deadline_ms: spec.capture_deadline_ms,
+            })
+            : failure('DRIVER_UNAVAILABLE', error.message, 'environment', {
+              phase: 'capture-deadline',
+              step: step.kind,
+              label,
+              deadline_exceeded: true,
+              capture_deadline_ms: spec.capture_deadline_ms,
+            })
+          : step.kind === 'goto'
           ? failure('LOAD_FAILED', error.message, 'navigation', { step: step.kind, label, url: step.url })
           : error.selectorMissing
             ? failure('SELECTOR_MISSING', error.message, 'product', { step: step.kind, label, selector: step.selector })
@@ -359,23 +531,36 @@ async function runCapture(spec, { outDir = null, writeArtifact = artifactWriter,
             ? failure('ASSERT_FAILED', error.message, 'product', { step: step.kind, label, selector: step.selector })
             : classifyInteractionError(error, step, label);
         failures.push(item);
+        if (error.deadline) deadlineFailureRecorded = true;
         entry.status = 'failed';
         entry.failure = item;
-        if (step.kind === 'goto') break;
+        if (step.kind === 'goto' || error.deadline) break;
       } finally {
         entry.duration_ms = Date.now() - before;
       }
     }
+    if (!deadline.expired) pageUrl = page.url();
   } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
+    await closeWithin(context.close());
+    await closeWithin(browser.close());
+    if (deadline.expired && !deadlineFailureRecorded) {
+      failures.push(failure('CAPTURE_INCOMPLETE', `Capture exceeded its ${spec.capture_deadline_ms}ms total deadline.`, 'product', {
+        phase: 'capture-finalization',
+        deadline_exceeded: true,
+        capture_deadline_ms: spec.capture_deadline_ms,
+      }));
+    }
+    deadline.clear();
   }
 
   if (pageErrors.length) {
     failures.push(failure('PAGE_ERROR', `Captured ${pageErrors.length} uncaught page error(s).`, 'product', { count: pageErrors.length }));
   }
-  if (networkEvents.length) {
-    failures.push(failure('NETWORK_FAILURE', `Captured ${networkEvents.length} failed network request(s).`, 'product', { count: networkEvents.length }));
+  const reportableNetworkEvents = networkEvents.filter(event => !event.expected_policy_boundary);
+  if (reportableNetworkEvents.length) {
+    failures.push(failure('NETWORK_FAILURE', `Captured ${reportableNetworkEvents.length} failed network request(s).`, 'product', {
+      count: reportableNetworkEvents.length,
+    }));
   }
 
   const evidence = {

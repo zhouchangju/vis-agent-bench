@@ -11,8 +11,9 @@ const STEP_KINDS = new Set([
   'collect-state',
 ]);
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const LABEL = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+export const MAX_PLAYWRIGHT_STEPS = 64;
+export const MAX_CAPTURE_DEADLINE_MS = 120_000;
 
 function diagnostic(path, code, message) {
   return { path, code, message };
@@ -43,14 +44,20 @@ function validateLocalUrl(value, path, errors) {
     return;
   }
   if (parsed.protocol === 'file:') return;
-  if (!['http:', 'https:'].includes(parsed.protocol) || !LOCAL_HOSTS.has(parsed.hostname)) {
+  const hostname = parsed.hostname.startsWith('[') && parsed.hostname.endsWith(']')
+    ? parsed.hostname.slice(1, -1)
+    : parsed.hostname;
+  const loopback = hostname === 'localhost'
+    || hostname === '::1'
+    || /^127(?:\.\d{1,3}){3}$/.test(hostname);
+  if (!['http:', 'https:'].includes(parsed.protocol) || !loopback) {
     errors.push(diagnostic(path, 'LOCAL_URL_ONLY', 'Only file: and loopback http(s) URLs are allowed.'));
   }
 }
 
 function validateTimeout(value, path, errors) {
-  if (value != null && (!Number.isInteger(value) || value < 0 || value > 120_000)) {
-    errors.push(diagnostic(path, 'NUMBER_RANGE', 'timeout_ms must be an integer from 0 to 120000.'));
+  if (value != null && (!Number.isInteger(value) || value <= 0 || value > 120_000)) {
+    errors.push(diagnostic(path, 'NUMBER_RANGE', 'timeout_ms must be an integer from 1 to 120000.'));
   }
 }
 
@@ -130,7 +137,7 @@ export function validatePlaywrightSpec(input) {
   if (!isObject(input)) return { valid: false, errors: [diagnostic('$', 'OBJECT', 'Spec must be an object.')], spec: null };
   const allowed = new Set([
     'schema_version', 'capture_id', 'run_id', 'case_id', 'viewport', 'steps',
-    'default_timeout_ms', 'capture_console_errors', 'capture_page_errors',
+    'default_timeout_ms', 'capture_deadline_ms', 'capture_console_errors', 'capture_page_errors',
     'capture_network_failures', 'capture_dom_summary',
   ]);
   for (const key of Object.keys(input)) {
@@ -147,6 +154,16 @@ export function validatePlaywrightSpec(input) {
     errors.push(diagnostic('$.viewport', 'VIEWPORT', 'viewport requires positive integer width and height.'));
   }
   validateTimeout(input.default_timeout_ms, '$.default_timeout_ms', errors);
+  if (input.capture_deadline_ms != null
+    && (!Number.isInteger(input.capture_deadline_ms)
+      || input.capture_deadline_ms <= 0
+      || input.capture_deadline_ms > MAX_CAPTURE_DEADLINE_MS)) {
+    errors.push(diagnostic(
+      '$.capture_deadline_ms',
+      'NUMBER_RANGE',
+      `capture_deadline_ms must be an integer from 1 to ${MAX_CAPTURE_DEADLINE_MS}.`,
+    ));
+  }
   for (const field of [
     'capture_console_errors', 'capture_page_errors', 'capture_network_failures', 'capture_dom_summary',
   ]) {
@@ -157,6 +174,13 @@ export function validatePlaywrightSpec(input) {
   if (!Array.isArray(input.steps) || !input.steps.length) {
     errors.push(diagnostic('$.steps', 'ARRAY', 'steps must be a non-empty array.'));
   } else {
+    if (input.steps.length > MAX_PLAYWRIGHT_STEPS) {
+      errors.push(diagnostic(
+        '$.steps',
+        'ARRAY_MAX',
+        `steps must contain at most ${MAX_PLAYWRIGHT_STEPS} entries.`,
+      ));
+    }
     input.steps.forEach((step, index) => validateStep(step, index, errors));
     if (input.steps[0]?.kind !== 'goto') {
       errors.push(diagnostic('$.steps[0].kind', 'FIRST_STEP', 'The first step must be goto.'));
@@ -174,6 +198,7 @@ export function validatePlaywrightSpec(input) {
       viewport: input.viewport ?? { width: 1280, height: 800 },
       steps: input.steps.map(step => ({ ...step })),
       default_timeout_ms: input.default_timeout_ms ?? 5_000,
+      capture_deadline_ms: input.capture_deadline_ms ?? 60_000,
       capture_console_errors: input.capture_console_errors ?? true,
       capture_page_errors: input.capture_page_errors ?? true,
       capture_network_failures: input.capture_network_failures ?? true,

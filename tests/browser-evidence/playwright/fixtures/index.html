@@ -5,6 +5,7 @@
   <title>VAB T11 Local Smoke</title>
   <style>
     body { font-family: sans-serif; margin: 24px; }
+    body.tall { min-height: 1300px; }
     #tooltip { visibility: hidden; }
     #chart:hover + #tooltip { visibility: visible; }
     canvas { border: 1px solid #333; }
@@ -14,6 +15,7 @@
   <h1 id="title">Ready</h1>
   <button id="increment">Count: 0</button>
   <input id="mode" aria-label="Mode">
+  <button id="navigate">Open final page</button>
   <canvas id="chart" width="120" height="60"></canvas>
   <p id="tooltip">Canvas details</p>
   <script>
@@ -24,6 +26,9 @@
     });
     document.querySelector('#mode').addEventListener('keydown', event => {
       if (event.key === 'Enter') document.querySelector('#title').textContent = 'Keyboard accepted';
+    });
+    document.querySelector('#navigate').addEventListener('click', () => {
+      location.href = '/final';
     });
     const context = document.querySelector('#chart').getContext('2d');
     context.fillStyle = '#2563eb';
