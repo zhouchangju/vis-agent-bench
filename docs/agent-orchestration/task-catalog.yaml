@@ -214,7 +214,7 @@ tasks:
   - id: VAB-T14
     title: 真实模型端到端 Pilot
     wave: 7
-    status: running
+    status: accepted
     branch: codex/vab-t14-real-model-pilot
     depends_on: [VAB-T08]
     prompt: prompts/VAB-T14-REAL-MODEL-PILOT.md
