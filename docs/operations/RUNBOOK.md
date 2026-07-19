@@ -340,6 +340,18 @@ tail -f .local/runs/<run-id>/logs/stages/<stage-id>/stdout.raw
 `bench:status --watch`。单个 stdout/stderr 超过 16 MiB 会被截断并将该阶段标记失败，以保护宿主机
 内存和磁盘。
 
+### 恢复被额度或限流中断的 Run
+
+恢复命令必须使用原 Run ID；它不会新建 Run，不会重跑已完成阶段，并保留原 workspace 与 CLI Session：
+
+```bash
+npm run bench:case -- --resume-run <run-id>
+```
+
+对于旧版 Run（只有 `run-spec.json`，没有 `run-state.json`），首次恢复会自动保存
+`run-spec.legacy-v2.json` 和 `result.pre-resume.json`，然后仅补齐当前 Runner 所需的状态文件。迁移不删除
+旧日志、旧结果或已完成阶段。恢复时不接受新的 `--engine`、`--model` 或预算参数，避免混入不同模型或配置。
+
 ### 独立目录与文件级隔离
 
 每次运行都会创建：

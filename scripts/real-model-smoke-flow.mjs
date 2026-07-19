@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 
@@ -457,8 +457,94 @@ function printQuickViewArtifacts(items) {
   }
 }
 
+function resolveResumeRun(value) {
+  const direct = resolve(value);
+  if (existsSync(direct)) return direct;
+  const byId = join(projectRoot, '.local', 'runs', value);
+  if (existsSync(byId)) return byId;
+  throw new Error(`待恢复 Run 不存在：${value}`);
+}
+
+function readJson(path) {
+  return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+async function resumeExistingRun(args) {
+  const runDir = resolveResumeRun(String(args.resume_run));
+  const specPath = join(runDir, 'run-spec.json');
+  if (!existsSync(specPath)) throw new Error(`待恢复 Run 缺少 run-spec.json：${runDir}`);
+  const storedSpec = readJson(specPath);
+  const storedResult = existsSync(join(runDir, 'result.json')) ? readJson(join(runDir, 'result.json')) : null;
+  const caseId = storedSpec.case_id || storedResult?.case_id;
+  const model = storedSpec.engine?.configured_model || storedSpec.engine?.model
+    || storedResult?.engine?.configured_model || storedResult?.engine?.model;
+  const engine = storedSpec.engine?.adapter || storedResult?.engine?.adapter;
+  if (!caseId || !model || !engine) throw new Error('待恢复 Run 缺少 case、engine 或 model，拒绝猜测配置。');
+  const caseDir = join(projectRoot, 'cases', caseId);
+  const caseMetaPath = join(caseDir, 'case.yaml');
+  if (!existsSync(caseMetaPath)) throw new Error(`待恢复 Run 的 Case 不存在：${caseId}`);
+  const caseMeta = parseYaml(readFileSync(caseMetaPath, 'utf8'));
+  const isDevelopmentSmoke = caseMeta.task_type === 'development-smoke';
+  const wallTimeMinutes = Number(storedSpec.budget?.wall_time_minutes || 180);
+  const provider = storedSpec.engine?.provider || storedResult?.engine?.provider || 'unspecified';
+  if (args.dry_run) {
+    process.stdout.write(`${JSON.stringify({
+      status: 'success',
+      summary: '恢复配置解析成功；未调用模型。',
+      resolved_config: { run_id: storedSpec.run_id || basename(runDir), case_id: caseId, engine, model, provider, wall_time_minutes: wallTimeMinutes },
+      next_actions: ['移除 --dry-run 后从原 Run 的未完成阶段继续。'],
+      artifacts: [join(runDir, 'run-spec.json'), join(runDir, 'result.json')],
+    }, null, 2)}\n`);
+    return;
+  }
+  process.stderr.write(
+    `[VAB] 恢复 Run：${storedSpec.run_id || basename(runDir)}\n`
+    + `[VAB] Run 目录：${runDir}\n`
+    + `[VAB] 保留已完成阶段、workspace 和原生 Session；只执行未完成阶段。\n`
+    + `[VAB] 另开终端观察：npm run bench:status -- --run ${storedSpec.run_id || basename(runDir)} --watch\n`,
+  );
+  writeJson(join(runDir, 'logs', 'real-smoke-resume.json'), {
+    resumed_at: new Date().toISOString(),
+    requested_via: 'bench:case --resume-run',
+    configured_engine: engine,
+    configured_model: model,
+    configured_provider: provider,
+  });
+  const executed = await runNodeWithProgress(
+    ['scripts/bench.mjs', 'run', '--run-dir', runDir],
+    { runDir, timeout: wallTimeMinutes * 60_000 + 30_000 },
+  );
+  const usage = collectReportedUsage(runDir, caseDir);
+  const outcome = createMachineEvidence(runDir, executed.envelope, caseDir, isDevelopmentSmoke);
+  const report = generateReport(runDir, caseMeta, outcome);
+  const quickView = collectQuickViewArtifacts(runDir, report.artifacts);
+  printQuickViewArtifacts(quickView);
+  process.stdout.write(`${JSON.stringify({
+    status: outcome.flowPassed ? 'success' : 'warning',
+    summary: outcome.flowPassed
+      ? `${caseMeta.title} 已从原 Run 恢复完成；流程门禁通过${isDevelopmentSmoke ? '。' : '，业务验收仍待浏览器与人工评审。'}`
+      : `${caseMeta.title} 已尝试从原 Run 恢复，但一个或多个流程门禁失败。`,
+    next_actions: outcome.flowPassed
+      ? [isDevelopmentSmoke ? '检查恢复后的模型事件和演示报告。' : '进入浏览器评审并补录人工评分、修改时间和最终验收结论。']
+      : ['检查 real-smoke-checkpoints.json 和恢复阶段的 stderr，修复根因后仅重试一次。'],
+    artifacts: [...report.artifacts, ...quickView.map(item => item.path), join(runDir, 'logs', 'real-smoke-checkpoints.json'), join(runDir, 'logs', 'stages')],
+    quick_view: quickView,
+    run_id: storedSpec.run_id || basename(runDir),
+    run_dir: runDir,
+    resumed: true,
+    case_id: caseId,
+    case_title: caseMeta.title,
+    configured_model: model,
+    configured_provider: provider,
+    reported_cost_usd: usage.cost_usd,
+    reported_tokens: { input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cached_tokens: usage.cached_tokens },
+    business_acceptance: outcome.businessAccepted === true ? 'accepted' : (isDevelopmentSmoke ? 'not-applicable' : 'pending-human-review'),
+  }, null, 2)}\n`);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.resume_run) return resumeExistingRun(args);
   if (args.help) {
     process.stdout.write(`${JSON.stringify({
       status: 'success',

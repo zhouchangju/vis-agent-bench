@@ -175,6 +175,12 @@ Pi 使用精简的 print 输出、`--approve` 和受限内置工具运行；阶�
 npm run bench:status -- --run <run-id> --watch
 ```
 
+当模型额度或临时 429 中断时，恢复同一个 Run（保留已完成阶段、workspace 与原生 Session）：
+
+```bash
+npm run bench:case -- --resume-run <run-id>
+```
+
 每次运行都创建 `.local/runs/<run-id>/workspace`，但当前只是文件级软隔离，不能阻止同一用户权限
 下的 CLI 通过绝对路径读取宿主机其他目录，因此不进入正式排行榜。
 

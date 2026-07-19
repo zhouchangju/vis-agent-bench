@@ -625,14 +625,105 @@ function prepareBundleCommand(args) {
   );
 }
 
+function migrateLegacyRun(runDir, legacySpec) {
+  const legacyResultPath = join(runDir, 'result.json');
+  const legacyResult = existsSync(legacyResultPath)
+    ? JSON.parse(readFileSync(legacyResultPath, 'utf8'))
+    : null;
+  const caseId = legacySpec.case_id || legacyResult?.case_id;
+  const adapter = adapterId(legacySpec.engine?.adapter || legacyResult?.engine?.adapter);
+  const model = legacySpec.engine?.configured_model || legacySpec.engine?.model
+    || legacyResult?.engine?.configured_model || legacyResult?.engine?.model;
+  if (!caseId || !adapter || !model) {
+    throw new Error('Legacy Run 缺少 case、adapter 或 model，无法安全迁移恢复。');
+  }
+  const caseDir = join(projectRoot, 'cases', caseId);
+  if (!existsSync(caseDir)) throw new Error(`Legacy Run 的 Case 已不存在：${caseId}`);
+  const scenario = loadScenario(caseDir);
+  const workspace = join(runDir, 'workspace');
+  const baseline = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: workspace, encoding: 'utf8', shell: false });
+  if (baseline.status !== 0 || !/^[0-9a-f]{40}$/.test(baseline.stdout.trim())) {
+    throw new Error('Legacy Run 的 workspace 缺少可验证的 Git baseline，拒绝恢复。');
+  }
+
+  const completed = (legacySpec.scenario?.completed_stages || legacyResult?.stages || [])
+    .map(stage => typeof stage === 'string' ? stage : stage.stage_id)
+    .filter(stageId => scenario.stages.some(stage => stage.id === stageId));
+  const currentStage = legacySpec.scenario?.current_stage
+    || scenario.stages.find(stage => !completed.includes(stage.id))?.id
+    || null;
+  const attempts = Object.fromEntries([...completed, ...(currentStage ? [currentStage] : [])].map(stageId => [stageId, 1]));
+  const spec = buildRunSpec({
+    name: legacySpec.name || `${caseId}-${adapter}-${model}`,
+    case_id: caseId,
+    engine: {
+      adapter,
+      executable: legacySpec.engine?.executable || getAdapter(adapter).executable,
+      configured_model: model,
+      provider: legacySpec.engine?.provider || legacyResult?.engine?.provider || 'unspecified',
+      credential_ref: legacySpec.engine?.credential_ref || `secret://${adapter}/default`,
+      reasoning_effort: legacySpec.engine?.reasoning_effort || null,
+      model_provider: legacySpec.engine?.model_provider || null,
+    },
+    network: legacySpec.isolation?.network !== false && legacySpec.isolation?.network !== 'disabled',
+    workspace_root: workspace,
+    wall_time_minutes: legacySpec.budget?.wall_time_minutes || 180,
+    max_retries: 1,
+    max_tokens: legacySpec.budget?.max_tokens ?? null,
+    max_cost_usd: legacySpec.budget?.max_cost_usd ?? null,
+  });
+  const state = {
+    schema_version: 1,
+    run_id: legacySpec.run_id || legacyResult?.run_id || basename(runDir),
+    status: 'run-failed',
+    scenario: {
+      mode: scenario.mode,
+      stage_ids: scenario.stages.map(stage => stage.id),
+      current_stage: currentStage,
+      completed_stages: completed,
+      attempts,
+      future_stage_inputs_copied: false,
+    },
+    session: {
+      id: legacySpec.session?.id || legacyResult?.session?.id || null,
+      continuity: legacySpec.session?.continuity || getAdapter(adapter).session_continuity,
+      started: legacySpec.session?.started !== false,
+    },
+    run_spec_sha256: jsonDigest(spec),
+    package_gate: baselinePackageGate(workspace),
+    baseline_commit: baseline.stdout.trim(),
+    started_at: new Date().toISOString(),
+    legacy_started_at: legacySpec.started_at || null,
+    legacy_migration: {
+      migrated_at: new Date().toISOString(),
+      source_schema_version: legacySpec.schema_version || null,
+      preserved_completed_stages: completed,
+      resumed_from_stage: currentStage,
+    },
+    process_pid: null,
+  };
+  const legacySpecBackup = join(runDir, 'run-spec.legacy-v2.json');
+  if (!existsSync(legacySpecBackup)) writeFileSync(legacySpecBackup, JSON.stringify(legacySpec, null, 2));
+  if (legacyResult && !existsSync(join(runDir, 'result.pre-resume.json'))) {
+    writeFileSync(join(runDir, 'result.pre-resume.json'), JSON.stringify(legacyResult, null, 2));
+  }
+  writeFileSync(join(runDir, 'run-spec.json'), JSON.stringify(spec, null, 2));
+  writeFileSync(join(runDir, 'run-state.json'), JSON.stringify(state, null, 2));
+  return { spec, state };
+}
+
 async function run(args) {
   const runDir = resolve(requireOption(args, 'run_dir'));
   const specPath = join(runDir, 'run-spec.json');
   const statePath = join(runDir, 'run-state.json');
   if (!existsSync(specPath)) throw new Error(`Missing run spec: ${specPath}`);
-  if (!existsSync(statePath)) throw new Error(`Missing run state: ${statePath}`);
-  const spec = JSON.parse(readFileSync(specPath, 'utf8'));
-  const state = JSON.parse(readFileSync(statePath, 'utf8'));
+  let spec = JSON.parse(readFileSync(specPath, 'utf8'));
+  let state;
+  if (existsSync(statePath)) {
+    state = JSON.parse(readFileSync(statePath, 'utf8'));
+  } else {
+    ({ spec, state } = migrateLegacyRun(runDir, spec));
+  }
   const specValidation = validateRunSpec(spec);
   if (!specValidation.valid) throw new Error(`RunSpec is invalid: ${JSON.stringify(specValidation.errors)}`);
   if (state.run_spec_sha256 !== jsonDigest(spec)) {
