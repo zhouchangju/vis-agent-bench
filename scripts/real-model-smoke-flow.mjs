@@ -277,7 +277,16 @@ function runFixtureTest(runDir, required) {
 function detectProviderQuotaFailure(runDir) {
   const resultPath = join(runDir, 'result.json');
   if (!existsSync(resultPath)) return null;
-  const failedStage = (readJson(resultPath).stages || []).find(stage => stage.status !== 'success');
+  const result = readJson(resultPath);
+  const statePath = join(runDir, 'run-state.json');
+  const state = existsSync(statePath) ? readJson(statePath) : null;
+  // An orchestration/Runner crash can leave the previous result.json in place. Do not let an old
+  // quota error override the current failure diagnosis.
+  if (state?.active_window_started_at && result.completed_at
+    && Date.parse(result.completed_at) < Date.parse(state.active_window_started_at)) {
+    return null;
+  }
+  const failedStage = (result.stages || []).find(stage => stage.status !== 'success');
   if (!failedStage?.stage_id) return null;
   const stageDir = join(runDir, 'logs', 'stages', failedStage.stage_id);
   if (!existsSync(stageDir)) return null;

@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -1276,7 +1283,31 @@ async function main() {
   process.exitCode = 1;
 }
 
+function markRunFailedAfterUnhandledError(error) {
+  try {
+    const [command, ...rest] = process.argv.slice(2);
+    if (command !== 'run') return;
+    const args = parseArgs(rest);
+    if (!args.run_dir) return;
+    const statePath = join(resolve(args.run_dir), 'run-state.json');
+    if (!existsSync(statePath)) return;
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    if (state.status !== 'running' || state.process_pid !== process.pid) return;
+    state.status = 'run-failed';
+    state.process_pid = null;
+    state.last_error = {
+      at: new Date().toISOString(),
+      message: error.message,
+      source: 'runner-unhandled-error',
+    };
+    writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
+  } catch {
+    // Do not mask the original Runner failure when best-effort state cleanup fails.
+  }
+}
+
 main().catch(error => {
+  markRunFailedAfterUnhandledError(error);
   output('error', error.message, ['Fix the reported issue and retry; stop after two identical failures.']);
   process.exitCode = 1;
 });
