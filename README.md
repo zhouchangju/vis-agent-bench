@@ -138,6 +138,15 @@ npm run bench:case -- \
 Kimi CLI 没有原生费用上限，必须显式确认这一点；建议先增加 `--dry-run` 做零费用配置检查。
 所有参数的含义和默认值见[评测运行手册](docs/operations/RUNBOOK.md#参数说明)。
 
+运行中查看阶段、日志增长和独立工作区：
+
+```bash
+npm run bench:status -- --run <run-id> --watch
+```
+
+每次运行都创建 `.local/runs/<run-id>/workspace`，但当前只是文件级软隔离，不能阻止同一用户权限
+下的 CLI 通过绝对路径读取宿主机其他目录，因此不进入正式排行榜。
+
 ## Runner MVP
 
 检查本机 CLI：

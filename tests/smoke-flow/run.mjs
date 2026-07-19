@@ -36,6 +36,16 @@ try {
   assert.match(html, /演示数据/);
   assert.match(html, /开发流程 Smoke 报告/);
 
+  const statusResult = spawnSync(
+    process.execPath,
+    ['scripts/bench-status.mjs', '--run', outDir],
+    { cwd: repoRoot, encoding: 'utf8', shell: false },
+  );
+  assert.equal(statusResult.status, 0, statusResult.stderr || statusResult.stdout);
+  assert.match(statusResult.stdout, /状态：success/);
+  assert.match(statusResult.stdout, /独立工作区：/);
+  assert.match(statusResult.stdout, /已完成 3\/3/);
+
   const dryRun = spawnSync(
     process.execPath,
     [

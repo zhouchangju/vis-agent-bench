@@ -4,9 +4,10 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
@@ -73,6 +74,108 @@ function runNode(args, { cwd = projectRoot, timeout = 15 * 60_000 } = {}) {
     throw new Error(`Command ${args.join(' ')} did not return a JSON envelope: ${(result.stderr || result.stdout).slice(0, 500)}`);
   }
   return { result, envelope };
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+}
+
+function readProgress(runDir) {
+  const specPath = join(runDir, 'run-spec.json');
+  if (!existsSync(specPath)) return null;
+  try {
+    const spec = JSON.parse(readFileSync(specPath, 'utf8'));
+    const stageId = spec.scenario?.current_stage;
+    const stdoutPath = stageId
+      ? join(runDir, 'logs', 'stages', stageId, 'stdout.raw')
+      : null;
+    const stderrPath = stageId
+      ? join(runDir, 'logs', 'stages', stageId, 'stderr.raw')
+      : null;
+    return {
+      status: spec.status,
+      stage_id: stageId,
+      completed: spec.scenario?.completed_stages?.length || 0,
+      total: spec.scenario?.stage_ids?.length || 0,
+      stdout_bytes: stdoutPath && existsSync(stdoutPath) ? statSync(stdoutPath).size : 0,
+      stderr_bytes: stderrPath && existsSync(stderrPath) ? statSync(stderrPath).size : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function runNodeWithProgress(args, { runDir, timeout }) {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(process.execPath, args, {
+      cwd: projectRoot,
+      env: process.env,
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    let timedOut = false;
+    let lastSignature = '';
+    let lastPrintedAt = 0;
+
+    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    child.stderr.on('data', chunk => {
+      const text = chunk.toString();
+      stderr += text;
+      process.stderr.write(text);
+    });
+
+    const printProgress = () => {
+      const progress = readProgress(runDir);
+      if (!progress) return;
+      const signature = JSON.stringify(progress);
+      const now = Date.now();
+      if (signature === lastSignature && now - lastPrintedAt < 30_000) return;
+      process.stderr.write(
+        `[VAB] 状态=${progress.status} 阶段=${progress.stage_id || '准备中'} `
+        + `完成=${progress.completed}/${progress.total} `
+        + `stdout=${formatBytes(progress.stdout_bytes)} stderr=${formatBytes(progress.stderr_bytes)}\n`,
+      );
+      lastSignature = signature;
+      lastPrintedAt = now;
+    };
+    printProgress();
+    const progressTimer = setInterval(printProgress, 5_000);
+    const timeoutTimer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      setTimeout(() => child.kill('SIGKILL'), 5_000).unref();
+    }, timeout);
+
+    child.on('error', error => {
+      clearInterval(progressTimer);
+      clearTimeout(timeoutTimer);
+      reject(new Error(`Command ${args.join(' ')} failed to start: ${error.message}`));
+    });
+    child.on('close', code => {
+      clearInterval(progressTimer);
+      clearTimeout(timeoutTimer);
+      printProgress();
+      if (timedOut) {
+        reject(new Error(`Command ${args.join(' ')} exceeded the configured wall-time limit.`));
+        return;
+      }
+      let envelope;
+      try {
+        envelope = JSON.parse(stdout);
+      } catch {
+        reject(new Error(`Command ${args.join(' ')} did not return a JSON envelope: ${(stderr || stdout).slice(0, 500)}`));
+        return;
+      }
+      resolvePromise({
+        result: { status: code, stdout, stderr },
+        envelope,
+      });
+    });
+  });
 }
 
 function evaluateCheckpoints(runDir, caseDir) {
@@ -267,7 +370,7 @@ function generateReport(runDir, caseMeta, outcome) {
   return { outcome, artifacts: [htmlPath, jsonPath, markdownPath] };
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!['claude', 'kimi'].includes(args.engine)) {
     throw new Error('当前真实模型统一入口支持 --engine claude 或 --engine kimi。');
@@ -357,15 +460,21 @@ function main() {
     throw new Error(`Prepare failed: ${prepared.envelope.summary}`);
   }
   const runDir = prepared.envelope.run_dir;
+  process.stderr.write(
+    `[VAB] Run 已创建：${prepared.envelope.run_id}\n`
+    + `[VAB] Run 目录：${runDir}\n`
+    + `[VAB] 独立工作区：${join(runDir, 'workspace')}\n`
+    + `[VAB] 另开终端观察：npm run bench:status -- --run ${prepared.envelope.run_id} --watch\n`,
+  );
   writeJson(join(runDir, 'logs', 'real-smoke-orchestrator.json'), {
     mode: isDevelopmentSmoke ? 'real-model-development-smoke' : 'real-model-case-benchmark',
     ...resolvedConfig,
     started_at: new Date().toISOString(),
   });
 
-  const executed = runNode(
+  const executed = await runNodeWithProgress(
     ['scripts/bench.mjs', 'run', '--run-dir', runDir],
-    { timeout: Number(wallTimeMinutes) * 60_000 + 30_000 },
+    { runDir, timeout: Number(wallTimeMinutes) * 60_000 + 30_000 },
   );
   const usage = collectReportedUsage(runDir, caseDir);
   const outcome = createMachineEvidence(runDir, executed.envelope, caseDir, isDevelopmentSmoke);
@@ -409,9 +518,7 @@ function main() {
   if (!outcome.flowPassed) process.exitCode = 2;
 }
 
-try {
-  main();
-} catch (error) {
+main().catch(error => {
   process.stdout.write(`${JSON.stringify({
     status: 'error',
     summary: error.message,
@@ -427,4 +534,4 @@ try {
     },
   }, null, 2)}\n`);
   process.exitCode = 1;
-}
+});

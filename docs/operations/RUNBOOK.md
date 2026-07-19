@@ -206,6 +206,78 @@ reports/report.json
 
 HTML 和 Markdown 报告默认使用中文；JSON 保留稳定的英文枚举与字段名，便于后续聚合。
 
+### 查看是否正在执行
+
+新启动的 `bench:case` 会直接在原终端输出：
+
+- Run ID 和 Run 目录；
+- 独立工作区路径；
+- 当前阶段和已完成阶段数；
+- stdout/stderr 日志大小；
+- 至少每 30 秒一次心跳。
+
+已经启动的 Run 可在另一个终端查看。省略 `--run` 时查看最新 Run：
+
+```bash
+npm run bench:status
+```
+
+持续观察指定 Run：
+
+```bash
+npm run bench:status -- \
+  --run 2026-07-19T12-39-03-957Z_claude_b186f92b \
+  --watch
+```
+
+列出最近 Run：
+
+```bash
+npm run bench:status -- --list
+```
+
+直接查看模型原始流式事件：
+
+```bash
+tail -f .local/runs/<run-id>/logs/stages/<stage-id>/stdout.raw
+```
+
+`stdout.raw` 是 JSONL，适合回溯但不适合日常阅读；优先使用 `bench:status --watch`。
+
+### 独立目录与文件级隔离
+
+每次运行都会创建：
+
+```text
+.local/runs/<run-id>/
+├── input/                 # 当前已披露的阶段 Prompt
+├── workspace/             # Agent 唯一应操作的独立工作区
+│   └── .git/              # 新初始化的基线仓库，不继承答案仓库历史
+├── logs/
+│   ├── leakage-scan.json  # 运行前答案泄漏扫描
+│   └── stages/            # 每阶段 stdout、stderr 和归一化事件
+├── artifacts/             # workspace.diff 等机器证据
+├── review/                # 后续人工评审
+├── .empty-skills/         # Kimi Skill 隔离目录
+├── run-spec.json          # 当前阶段、预算、引擎和隔离信息
+└── ISOLATION.md           # 本次隔离能力声明
+```
+
+Runner 只把脱敏 `fixture/starter` 复制到 `workspace/`，复制时排除 `.git`、`node_modules`、构建
+产物和常见缓存；然后对工作区执行答案泄漏扫描。扫描命中时 Run 不会开始。阶段输入按顺序写入，
+不会提前复制未来阶段 Prompt。
+
+但这只是文件级软隔离，不是安全沙箱：
+
+- CLI 进程以当前用户身份运行；
+- 为复用登录状态会继承 HOME；
+- 理论上仍能通过绝对路径读取宿主机其他目录；
+- 当前机制只能证明 Harness 没有主动把答案交给模型，不能证明模型进程绝对无法访问答案仓库。
+
+因此当前运行统一标记 `file-isolated-development` 和 `leaderboard_eligible=false`。需要严格证明
+“无法读取宿主机答案”时，必须升级到容器、独立用户或操作系统 Sandbox，并只挂载 Run 的
+`workspace/`、必要凭据代理和允许的网络。
+
 已有 Run 可以在不重新调用模型的情况下重新生成中文报告：
 
 ```bash
