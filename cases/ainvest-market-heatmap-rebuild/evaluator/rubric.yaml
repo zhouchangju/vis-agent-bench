@@ -1,14 +1,58 @@
-weights:
-  business_mapping: 25
-  treemap_visual_accuracy: 20
-  interaction_state: 20
-  multi_market_responsive: 15
-  performance_stability: 10
-  engineering_evidence: 10
-gates:
-  p0_min_score: 80
-  critical_failure_cap: 49
-levels:
-  p0: required
-  p1: differentiator
-  p2: production_readiness
+version: 1
+total: 100
+hard_gates:
+  - build-and-test
+  - input-validation
+  - area-weight-fidelity
+  - data-driven-treemap
+  - color-scale-semantics
+  - no-uncaught-runtime-errors
+  - hierarchy-drill-and-back
+  - resize-state-preservation
+categories:
+  business_mapping:
+    weight: 25
+    checks:
+      - build-and-test
+      - input-validation
+      - stock-scope-coverage
+      - market-rule-isolation
+      - area-weight-fidelity
+      - null-area-fallback
+  treemap_visual_accuracy:
+    weight: 20
+    checks:
+      - data-driven-treemap
+      - color-scale-semantics
+      - legend-scale-contract
+      - tooltip-required-fields
+      - high-density-label-degradation
+  interaction_state:
+    weight: 20
+    checks:
+      - no-uncaught-runtime-errors
+      - hierarchy-drill-and-back
+      - instrument-detail-event
+      - search-and-filter
+      - async-ui-states
+  multi_market_responsive:
+    weight: 15
+    checks:
+      - filter-state-restoration
+      - resize-state-preservation
+      - keyboard-accessibility
+      - responsive-viewports
+  performance_stability:
+    weight: 10
+    checks:
+      - stale-request-suppression
+      - lifecycle-cleanup
+  engineering_evidence:
+    weight: 10
+    checks:
+      - automated-test-evidence
+      - implementation-notes
+caps:
+  p0_failure_max_score: 49
+  screenshot_or_hardcoded_layout_max_score: 0
+  incomplete_cap: 0

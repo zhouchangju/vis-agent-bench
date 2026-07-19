@@ -1,0 +1,89 @@
+{
+  "description": "Overlay that deliberately breaks deterministic area, color/legend, drill/filter, resize/state, and keyboard contracts.",
+  "overrides": {
+    "commands": {
+      "build": { "exitCode": 1 }
+    },
+    "area": {
+      "cases": [
+        {
+          "id": "stock-market-cap",
+          "metric": "market_cap",
+          "nodes": [
+            { "id": "a", "inputValue": 3, "renderedArea": 100 },
+            { "id": "b", "inputValue": 2, "renderedArea": 100 },
+            { "id": "c", "inputValue": 1, "renderedArea": 100 }
+          ],
+          "groups": [
+            { "id": "sector-compute", "childIds": ["a", "b"], "renderedArea": 20 }
+          ]
+        },
+        {
+          "id": "stock-equal",
+          "metric": "equal",
+          "nodes": [
+            { "id": "a", "inputValue": 300, "renderedArea": 250 },
+            { "id": "b", "inputValue": 2, "renderedArea": 25 },
+            { "id": "c", "inputValue": 1, "renderedArea": 25 }
+          ]
+        }
+      ]
+    },
+    "color": {
+      "samples": [
+        { "id": "negative-extreme", "value": -33.4, "position": 1, "treatment": "scale" },
+        { "id": "negative", "value": -4, "position": 0.75, "treatment": "scale" },
+        { "id": "zero", "value": 0, "position": 0.5, "treatment": "scale" },
+        { "id": "positive", "value": 4, "position": 0.25, "treatment": "scale" },
+        { "id": "positive-extreme", "value": 41.7, "position": 0, "treatment": "scale" },
+        { "id": "null", "value": null, "position": 0.5, "treatment": "neutral" }
+      ]
+    },
+    "legend": {
+      "softMin": -8,
+      "neutral": 0,
+      "softMax": 8,
+      "clamp": true,
+      "noDataLabel": "",
+      "ticks": [
+        { "value": -8, "position": 1 },
+        { "value": 0, "position": 0.5 },
+        { "value": 8, "position": 0 }
+      ]
+    },
+    "interactions": {
+      "drill": {
+        "groupClickObserved": true,
+        "backClickObserved": false,
+        "afterGroupClick": { "drillPath": [] }
+      },
+      "filter": {
+        "requestQueryMatches": false,
+        "visibleIds": ["wrong"],
+        "expectedIds": ["stock-alp"]
+      }
+    },
+    "state": {
+      "restoration": {
+        "encodedKeys": ["market"],
+        "expected": { "market": "crypto", "includeBtc": false },
+        "restored": { "market": "stock", "includeBtc": true }
+      },
+      "resize": {
+        "observedInBrowser": true,
+        "layoutGenerationBefore": 4,
+        "layoutGenerationAfter": 4,
+        "nodesWithinViewport": false,
+        "before": { "market": "stock", "drillPath": ["sector-compute"] },
+        "after": { "market": "stock", "drillPath": [] }
+      }
+    },
+    "accessibility": {
+      "keyboard": {
+        "observedInBrowser": true,
+        "focusVisible": false,
+        "controls": []
+      }
+    }
+  }
+}

@@ -1,0 +1,271 @@
+{
+  "commands": {
+    "build": { "exitCode": 0 },
+    "typecheck": { "exitCode": 0 },
+    "test": { "exitCode": 0 }
+  },
+  "input": {
+    "validAccepted": true,
+    "invalidRejected": true,
+    "hiddenInvalidUsed": true,
+    "invalidUncaughtErrors": [],
+    "supportedStockScopes": ["sp500", "nasdaq100", "nasdaq-composite", "nyse", "all-stocks", "dow-jones"],
+    "marketRules": {
+      "stock": { "areaMetrics": ["market_cap", "equal"], "groupings": ["sector", "none"] },
+      "etf": { "areaMetrics": ["aum", "equal"], "groupings": ["asset_class", "none"] },
+      "crypto": { "areaMetrics": ["market_cap", "equal"], "groupings": ["none"] }
+    },
+    "marketRuleCases": {
+      "stock": { "usedAreaField": "market_cap" },
+      "etf": { "usedAreaField": "aum" },
+      "crypto": {
+        "usedAreaField": "market_cap",
+        "btcPresentWhenIncluded": true,
+        "btcPresentWhenExcluded": false
+      }
+    }
+  },
+  "area": {
+    "cases": [
+      {
+        "id": "stock-market-cap",
+        "metric": "market_cap",
+        "nodes": [
+          { "id": "a", "inputValue": 3, "renderedArea": 300 },
+          { "id": "b", "inputValue": 2, "renderedArea": 200 },
+          { "id": "c", "inputValue": 1, "renderedArea": 100 }
+        ],
+        "groups": [
+          { "id": "sector-compute", "childIds": ["a", "b"], "renderedArea": 500 },
+          { "id": "sector-health", "childIds": ["c"], "renderedArea": 100 }
+        ]
+      },
+      {
+        "id": "stock-equal",
+        "metric": "equal",
+        "nodes": [
+          { "id": "a", "inputValue": 300, "renderedArea": 100 },
+          { "id": "b", "inputValue": 2, "renderedArea": 100 },
+          { "id": "c", "inputValue": 1, "renderedArea": 100 }
+        ],
+        "groups": [
+          { "id": "sector-compute", "childIds": ["a", "b"], "renderedArea": 200 },
+          { "id": "sector-health", "childIds": ["c"], "renderedArea": 100 }
+        ]
+      }
+    ],
+    "nullFallback": {
+      "nodeId": "stock-nul",
+      "strategy": "minimum-positive",
+      "documented": true,
+      "renderedArea": 1
+    }
+  },
+  "layout": {
+    "source": "data",
+    "hardcodedCoordinates": false,
+    "rasterFallback": false,
+    "nodeCount": 72
+  },
+  "color": {
+    "domain": { "softMin": -8, "neutral": 0, "softMax": 8, "clamp": true },
+    "samples": [
+      { "id": "negative-extreme", "value": -33.4, "position": 0, "treatment": "scale" },
+      { "id": "negative", "value": -4, "position": 0.25, "treatment": "scale" },
+      { "id": "zero", "value": 0, "position": 0.5, "treatment": "scale" },
+      { "id": "positive", "value": 4, "position": 0.75, "treatment": "scale" },
+      { "id": "positive-extreme", "value": 41.7, "position": 1, "treatment": "scale" },
+      { "id": "null", "value": null, "position": null, "treatment": "no-data" }
+    ]
+  },
+  "legend": {
+    "softMin": -8,
+    "neutral": 0,
+    "softMax": 8,
+    "clamp": true,
+    "noDataLabel": "No data",
+    "ticks": [
+      { "value": -8, "position": 0 },
+      { "value": -4, "position": 0.25 },
+      { "value": 0, "position": 0.5 },
+      { "value": 4, "position": 0.75 },
+      { "value": 8, "position": 1 }
+    ]
+  },
+  "tooltip": {
+    "records": [
+      {
+        "name": "Alpine Compute Cooperative",
+        "symbol": "ALP",
+        "price": 188.2,
+        "marketCap": 3400000000000,
+        "colorMetric": "daily_change_pct",
+        "colorValue": 5.4
+      }
+    ]
+  },
+  "labels": {
+    "dense": {
+      "total": 48,
+      "visibleTextCount": 28,
+      "overflowCount": 0,
+      "occludedCount": 0,
+      "tooltipAvailableCount": 48,
+      "adaptiveLevels": ["full", "symbol-only", "hidden"]
+    }
+  },
+  "browserEvidence": {
+    "driver": "playwright-chromium",
+    "status": "success",
+    "page_errors": [],
+    "console_errors": [],
+    "failures": [],
+    "canvas_webgl_proven": false,
+    "notes": ["Behavior and state only; aesthetics require human review."]
+  },
+  "interactions": {
+    "drill": {
+      "groupClickObserved": true,
+      "backClickObserved": true,
+      "before": {
+        "market": "stock",
+        "dataSource": "sp500",
+        "areaMetric": "market_cap",
+        "colorMetric": "daily_change_pct",
+        "groupBy": "sector",
+        "drillPath": [],
+        "visibleIds": ["a", "b", "c"]
+      },
+      "afterGroupClick": {
+        "market": "stock",
+        "dataSource": "sp500",
+        "areaMetric": "market_cap",
+        "colorMetric": "daily_change_pct",
+        "groupBy": "sector",
+        "drillPath": ["sector-compute"],
+        "visibleIds": ["a", "b"]
+      },
+      "afterBack": {
+        "market": "stock",
+        "dataSource": "sp500",
+        "areaMetric": "market_cap",
+        "colorMetric": "daily_change_pct",
+        "groupBy": "sector",
+        "drillPath": [],
+        "visibleIds": ["c", "b", "a"]
+      }
+    },
+    "detailEvents": [
+      { "type": "instrument-detail", "id": "stock-alp", "symbol": "ALP", "market": "stock" }
+    ],
+    "search": {
+      "query": "alp",
+      "allResultsMatch": true,
+      "resultIds": ["stock-alp"]
+    },
+    "filter": {
+      "requestQueryMatches": true,
+      "visibleIds": ["stock-alp", "stock-cym"],
+      "expectedIds": ["stock-cym", "stock-alp"]
+    },
+    "uiStates": {
+      "loading": { "visible": true },
+      "empty": { "visible": true },
+      "error": { "visible": true, "retryAvailable": true },
+      "retry": { "recovered": true }
+    }
+  },
+  "state": {
+    "restoration": {
+      "encodedKeys": ["market", "dataSource", "areaMetric", "colorMetric", "groupBy", "search"],
+      "expected": {
+        "market": "stock",
+        "dataSource": "nasdaq100",
+        "areaMetric": "equal",
+        "colorMetric": "daily_change_pct",
+        "groupBy": "none",
+        "search": "cloud"
+      },
+      "restored": {
+        "search": "cloud",
+        "groupBy": "none",
+        "colorMetric": "daily_change_pct",
+        "areaMetric": "equal",
+        "dataSource": "nasdaq100",
+        "market": "stock"
+      }
+    },
+    "resize": {
+      "observedInBrowser": true,
+      "layoutGenerationBefore": 4,
+      "layoutGenerationAfter": 5,
+      "nodesWithinViewport": true,
+      "before": {
+        "market": "stock",
+        "dataSource": "sp500",
+        "areaMetric": "market_cap",
+        "colorMetric": "daily_change_pct",
+        "groupBy": "sector",
+        "drillPath": ["sector-compute"],
+        "visibleIds": ["a", "b"]
+      },
+      "after": {
+        "visibleIds": ["b", "a"],
+        "drillPath": ["sector-compute"],
+        "groupBy": "sector",
+        "colorMetric": "daily_change_pct",
+        "areaMetric": "market_cap",
+        "dataSource": "sp500",
+        "market": "stock"
+      }
+    }
+  },
+  "accessibility": {
+    "keyboard": {
+      "observedInBrowser": true,
+      "focusVisible": true,
+      "controls": [
+        { "id": "market", "role": "combobox", "tabbable": true, "activationKeys": ["Enter"], "activated": true },
+        { "id": "area", "role": "combobox", "tabbable": true, "activationKeys": ["Enter"], "activated": true },
+        { "id": "color", "role": "combobox", "tabbable": true, "activationKeys": ["Enter"], "activated": true },
+        { "id": "group", "role": "combobox", "tabbable": true, "activationKeys": ["Enter"], "activated": true },
+        { "id": "search", "role": "searchbox", "tabbable": true, "activationKeys": ["Enter"], "activated": true },
+        { "id": "tile", "role": "button", "tabbable": true, "activationKeys": ["Enter", "Space"], "activated": true },
+        { "id": "back", "role": "button", "tabbable": true, "activationKeys": ["Enter"], "activated": true },
+        { "id": "retry", "role": "button", "tabbable": true, "activationKeys": ["Space"], "activated": true }
+      ]
+    }
+  },
+  "responsive": {
+    "viewports": [
+      { "kind": "wide", "observedInBrowser": true, "horizontalOverflow": false, "controlsReachable": true },
+      { "kind": "narrow", "observedInBrowser": true, "horizontalOverflow": false, "controlsReachable": true },
+      { "kind": "fullscreen", "observedInBrowser": true, "horizontalOverflow": false, "controlsReachable": true }
+    ]
+  },
+  "performance": {
+    "requests": {
+      "latestRequestId": "request-3",
+      "committedRequestId": "request-3",
+      "staleCommitCount": 0
+    },
+    "lifecycle": {
+      "afterDestroy": { "timers": 0, "rafs": 0, "resizeObservers": 0, "listeners": 0, "subscriptions": 0 },
+      "callbacksAfterDestroy": 0,
+      "duplicateBindings": 0
+    }
+  },
+  "engineering": {
+    "tests": { "exitCode": 0, "transform": 4, "interaction": 6, "visualRegression": 1 },
+    "notes": {
+      "dataMapping": "Maps fixture metrics without production identifiers.",
+      "treemap": "Uses data-derived weights and hierarchy.",
+      "colorScale": "Uses one clamped diverging domain shared by legend.",
+      "responsive": "Recomputes geometry while preserving business state.",
+      "unfinished": "Safari and subjective visual parity remain for human review."
+    }
+  },
+  "artifact_paths": {
+    "default": ["artifacts/browser-evidence.json", "artifacts/heatmap-observation.json"]
+  }
+}
