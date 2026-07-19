@@ -84,7 +84,7 @@ tasks:
   - id: VAB-T05
     title: 股权关系确定性 Evaluator
     wave: 3
-    status: running
+    status: accepted
     branch: codex/vab-t05-equity-evaluator
     depends_on: [VAB-T03, VAB-T04]
     prompt: prompts/VAB-T05-EQUITY-EVALUATOR.md
@@ -148,7 +148,7 @@ tasks:
   - id: VAB-T09
     title: Macro Map 3D 脱敏 Fixture
     wave: 3
-    status: running
+    status: accepted
     branch: codex/vab-t09-macro-3d-fixture
     depends_on: [VAB-T02]
     prompt: prompts/VAB-T09-MACRO-3D-FIXTURE.md
@@ -161,7 +161,7 @@ tasks:
   - id: VAB-T10
     title: AInvest Heatmap 脱敏 Fixture
     wave: 3
-    status: running
+    status: accepted
     branch: codex/vab-t10-heatmap-fixture
     depends_on: [VAB-T02]
     prompt: prompts/VAB-T10-HEATMAP-FIXTURE.md
