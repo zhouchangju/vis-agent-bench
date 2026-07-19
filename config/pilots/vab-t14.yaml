@@ -1,0 +1,32 @@
+schema_version: 1
+pilot_id: VAB-T14
+title: 真实模型开发 Pilot
+as_of: "2026-07-20T00:21:17+08:00"
+manifest: runs/pilots/2026-07-19/manifest.json
+reports:
+  markdown: docs/reports/pilots/2026-07-19-real-model-pilot.md
+  html: docs/reports/pilots/2026-07-19-real-model-pilot.html
+policy:
+  evidence_class: development-pilot
+  human_review_required: true
+  leaderboard_eligible: false
+  productivity_claim_allowed: false
+  isolation:
+    mode: file-isolated-development
+    host_read_prevention_guaranteed: false
+  interpretation:
+    - CLI 阶段成功不等于 Harness 确定性评测成功
+    - checkpoint 与模型自产 browser-checks 不等于 Harness attestation
+    - 确定性评测成功不等于业务验收通过
+    - Token 与 CLI 报告费用只记录来源值，不推导真实提效
+    - 缺少 observation-attestation.json 是证据链缺口，不判为模型质量失败
+runs:
+  - pilot-codex-gpt56-macro-3d-20260719
+  - pilot-codex-gpt56sol-macro-3d-20260719
+  - pilot-kimi-k3-macro-3d-20260719
+  - 2026-07-19T12-00-42-321Z_claude_2630376a
+  - 2026-07-19T12-39-03-957Z_claude_b186f92b
+  - 2026-07-19T12-49-17-163Z_claude_5a83dca5
+  - 2026-07-19T13-11-45-665Z_codex_925c9152
+  - 2026-07-19T14-47-00-117Z_claude_1db3ea89
+  - 2026-07-19T14-47-37-564Z_codex_fef11fa2

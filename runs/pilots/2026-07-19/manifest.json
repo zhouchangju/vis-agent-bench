@@ -1,0 +1,513 @@
+{
+  "schema_version": 1,
+  "pilot_id": "VAB-T14",
+  "generated_at": "2026-07-20T00:21:17+08:00",
+  "status": "ready_for_acceptance",
+  "evidence_class": "development-pilot",
+  "leaderboard_eligible": false,
+  "human_review_status": "pending",
+  "management_conclusion": {
+    "supported": "Kimi K3 independently completed all S0-S4 CLI/checkpoint stages for a complex 3D visualization POC; the S4 build, typecheck, and test gate passed.",
+    "not_supported": [
+      "Business acceptance",
+      "A model winner",
+      "Measured productivity uplift"
+    ],
+    "reason": "Formal human visual acceptance remains pending, the Kimi run lacks a Harness observation attestation, Harness versions differ, and all runs used soft file isolation."
+  },
+  "global_limitations": [
+    "All runs used file-isolated-development mode with inherited host authentication. Soft file isolation does not guarantee that an agent cannot read host files outside the workspace.",
+    "Harness versions differ across runs. Historical complex runs cannot be compared directly with the final hardened smoke.",
+    "Kimi checkpoints and model-produced browser-checks exist, but the latest deterministic evaluator stopped because the run root has no observation-attestation.json. No attestation was fabricated.",
+    "The missing observation attestation is an evidence-chain gap, not a model-quality failure.",
+    "No complex run has completed formal business-side visual acceptance or a matched human baseline. No model winner or real productivity gain can be claimed."
+  ],
+  "harness_versions": {
+    "t14_controlled_pilot": {
+      "commit": "65e2b5af2277e90605161667cc918999d0de5043",
+      "confidence": "inferred",
+      "basis": "T14 branch HEAD and runner history at pilot launch; commit was not persisted inside the run artifact",
+      "limitations": [
+        "Predates later checkpoint identity, resume permissions, status parsing, package-gate and evidence-attestation hardening.",
+        "Development evidence only; not eligible for leaderboard or conclusion-grade comparison."
+      ]
+    },
+    "legacy_integration_smoke": {
+      "commit": null,
+      "confidence": "unknown",
+      "basis": "Legacy run artifacts do not persist an exact Harness commit",
+      "limitations": [
+        "Legacy symbolic-checkpoint evaluator results are not reliable model-quality verdicts.",
+        "Stage process exit success was not a sufficient delivery gate."
+      ]
+    },
+    "final_hardened_smoke": {
+      "run_commit": "68514fd",
+      "run_commit_full": "68514fd540f8f55bfaaf1012009f9401c8eba1fb",
+      "evidence_observed_through_commit": "577401366aa5916b1ca27a90e6282a86be095e08",
+      "confidence": "operator-recorded-and-repository-observed",
+      "basis": "The Codex smoke was launched on 68514fd; later observational/resume fixes are present through the current integration HEAD 5774013.",
+      "limitations": [
+        "This is a small dev-workflow smoke, not a complex visualization acceptance test.",
+        "The run itself does not retroactively inherit later Harness changes."
+      ]
+    }
+  },
+  "runs": [
+    {
+      "run_id": "pilot-kimi-k3-macro-3d-20260719",
+      "source_worktree": "t14",
+      "case_id": "macro-map-3d-greenfield",
+      "adapter": "kimi",
+      "configured_model": "kimi-code/k3",
+      "cli_version": "0.27.0",
+      "harness_version_ref": "t14_controlled_pilot",
+      "run_status": "success",
+      "stage_status": {
+        "S0": "success",
+        "S1": "success",
+        "S2": "success",
+        "S3": "success",
+        "S4": "success"
+      },
+      "attempts": {
+        "S0": 1,
+        "S1": 1,
+        "S2": 1,
+        "S3": 1,
+        "S4": 1
+      },
+      "duration_ms": 9888981,
+      "duration_minutes": 164.81635,
+      "usage": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "cached_tokens": null,
+        "total_tokens": null,
+        "cost_usd": null,
+        "availability": "unavailable"
+      },
+      "evaluator_state": "blocked_missing_observation_attestation",
+      "evaluator_detail": "The latest integration Harness evaluate command stopped immediately because observation-attestation.json is absent at the run root. Checkpoints and model-produced browser-checks exist, but are not a Harness attestation. No attestation was fabricated.",
+      "failure_source": "evidence_chain_gap",
+      "failure_attribution": "not_a_model_quality_failure",
+      "business_acceptance": "human_review_pending",
+      "leaderboard_eligible": false,
+      "operator_preview": {
+        "status": "informal_not_acceptance",
+        "observations": [
+          "At 200 nodes, the selected state has oversized and crowded arrows.",
+          "The S3 ego view is highly hairball-like.",
+          "The 3D panel version runs, but hierarchy and visual polish still need human adjustment."
+        ]
+      },
+      "evidence": [
+        {
+          "kind": "result",
+          "path": ".local/runs/pilot-kimi-k3-macro-3d-20260719/result.json",
+          "sha256": "b024040980b320123a0e77bf32434ed440bb5e60fb2aa63f645c6a6840e1618b"
+        },
+        {
+          "kind": "run-state",
+          "path": ".local/runs/pilot-kimi-k3-macro-3d-20260719/run-state.json",
+          "sha256": "63861f9d3d145c59a6d52ddae1f46905dc22068ca64dace400bbe8f56e2ef713"
+        },
+        {
+          "kind": "checkpoint-S2",
+          "path": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/checkpoints/S2.json",
+          "sha256": "d6ae480462ffdaa8dcbeb8794a264e13196ff595d445a4e39ad21b2254deddc6"
+        },
+        {
+          "kind": "checkpoint-S3",
+          "path": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/checkpoints/S3.json",
+          "sha256": "b15a33fdb1282b79efb0c98b6d211aaae6f77500092ac243a53bb8c5b34105c5"
+        },
+        {
+          "kind": "checkpoint-S4",
+          "path": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/checkpoints/S4.json",
+          "sha256": "6212872b74558b93cb1d7855f789947b8ec04739c26baf5d969492ea8286bf5b"
+        },
+        {
+          "kind": "model-browser-checks-S2",
+          "path": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/evidence/S2/browser-checks.json",
+          "sha256": "3a6174869e49e1ebd87483393dfd1637191134406832dc15f696530622aef9d4"
+        },
+        {
+          "kind": "model-browser-checks-S3",
+          "path": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/evidence/S3/browser-checks.json",
+          "sha256": "9bdab0b4af833f0d5f3b2c5e9721f2d541f1814dcca0c55219296e654c3a5659"
+        },
+        {
+          "kind": "model-browser-checks-S4",
+          "path": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/evidence/S4/browser-checks.json",
+          "sha256": "9f69335609b4025fa26fd26c2b692296a7209d2a073b9976a816ff2a9e855591"
+        },
+        {
+          "kind": "workspace-diff",
+          "path": ".local/runs/pilot-kimi-k3-macro-3d-20260719/artifacts/workspace.diff",
+          "sha256": "77872cb27e274d319437ad9e7cb67248ac99f784e92362b8d451035d190ec173"
+        }
+      ]
+    },
+    {
+      "run_id": "pilot-codex-gpt56-macro-3d-20260719",
+      "source_worktree": "t14",
+      "case_id": "macro-map-3d-greenfield",
+      "adapter": "codex",
+      "configured_model": "gpt-5.6",
+      "cli_version": "codex-cli 0.144.6",
+      "harness_version_ref": "t14_controlled_pilot",
+      "run_status": "error",
+      "stage_status": {"S0": "error"},
+      "duration_ms": 115325,
+      "usage": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "cached_tokens": null,
+        "total_tokens": null,
+        "cost_usd": null,
+        "availability": "unavailable"
+      },
+      "failure_source": "provider_or_transport",
+      "failure_detail": "Model metadata missing, followed by repeated request timeouts.",
+      "evaluator_state": "not_run",
+      "business_acceptance": "human_review_pending",
+      "leaderboard_eligible": false,
+      "evidence": [
+        {
+          "kind": "run-spec",
+          "path": ".local/runs/pilot-codex-gpt56-macro-3d-20260719/run-spec.json",
+          "sha256": "14fe697b83d91b124564aa5fdd3dbb04e66fa96b8f55f2ac1818f4c3c2a6b57e"
+        },
+        {
+          "kind": "result",
+          "path": ".local/runs/pilot-codex-gpt56-macro-3d-20260719/result.json",
+          "sha256": "b36d9acf2db22e0bfee738d14121aa85f4bbb52ed642a459ae755bdabf68f80a"
+        }
+      ]
+    },
+    {
+      "run_id": "pilot-codex-gpt56sol-macro-3d-20260719",
+      "source_worktree": "t14",
+      "case_id": "macro-map-3d-greenfield",
+      "adapter": "codex",
+      "configured_model": "gpt-5.6-sol",
+      "cli_version": "codex-cli 0.144.6",
+      "harness_version_ref": "t14_controlled_pilot",
+      "run_status": "error",
+      "stage_status": {
+        "S0": "success",
+        "S1": "checkpoint_gate_error",
+        "S1_attempts": 2
+      },
+      "duration_ms": 368076,
+      "duration_scope": "final invocation only",
+      "usage": {
+        "input_tokens": 1490313,
+        "output_tokens": 26261,
+        "cached_tokens": null,
+        "total_tokens": 1516574,
+        "cost_usd": null,
+        "availability": "reported"
+      },
+      "failure_source": "harness_checkpoint_protocol",
+      "failure_detail": "S1 produced code but wrote a checkpoint with invalid identity; an earlier resume attempt also exposed a read-only resume-path Harness defect.",
+      "evaluator_state": "not_run",
+      "business_acceptance": "human_review_pending",
+      "leaderboard_eligible": false,
+      "evidence": [
+        {
+          "kind": "run-spec",
+          "path": ".local/runs/pilot-codex-gpt56sol-macro-3d-20260719/run-spec.json",
+          "sha256": "3e31a28faed1ce1e0169da85d7321144f6bedaf16909ae28cb20f48b75d7a583"
+        },
+        {
+          "kind": "result",
+          "path": ".local/runs/pilot-codex-gpt56sol-macro-3d-20260719/result.json",
+          "sha256": "220ea45988c5bc6f817d5ba198162f2be75aafc290cc26a145614f51df5b9f37"
+        }
+      ]
+    },
+    {
+      "run_id": "2026-07-19T12-00-42-321Z_claude_2630376a",
+      "source_worktree": "integration",
+      "case_id": "dev-workflow-smoke",
+      "adapter": "claude",
+      "configured_model": "deepseek-v4-flash",
+      "observed_models": ["deepseek-v4-flash", "deepseek-v4-pro[1m]"],
+      "cli_version": "not persisted in compact result",
+      "harness_version_ref": "legacy_integration_smoke",
+      "run_status": "success",
+      "stage_status": {"S0": "success", "S1": "success", "S2": "success"},
+      "duration_ms": 221951,
+      "usage": {
+        "input_tokens": 30615,
+        "output_tokens": 11687,
+        "cached_tokens": 243968,
+        "total_tokens": null,
+        "cost_usd": 0.576699,
+        "availability": "reported"
+      },
+      "failure_source": null,
+      "evaluator_state": "passed_smoke_only",
+      "business_acceptance": "human_review_pending",
+      "leaderboard_eligible": false,
+      "notes": [
+        "This validates the basic CLI-to-fixture workflow only; it is not evidence of complex visualization delivery."
+      ],
+      "evidence": [
+        {
+          "kind": "result",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T12-00-42-321Z_claude_2630376a/result.json",
+          "sha256": "32d27b1fc7c481864491e4dfb819f54be5eaafe4d71a7035cc9e39b1a15f3a03"
+        },
+        {
+          "kind": "evaluator-summary",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T12-00-42-321Z_claude_2630376a/evaluator-summary.json",
+          "sha256": "aaec82d6409b71480023365b078a1029d333ce2e5bf086d1b42378062758069a"
+        }
+      ]
+    },
+    {
+      "run_id": "2026-07-19T12-39-03-957Z_claude_b186f92b",
+      "source_worktree": "integration",
+      "case_id": "narrative-equity-relationship",
+      "adapter": "claude",
+      "configured_model": "glm-5.2",
+      "observed_models": ["glm-5.2"],
+      "cli_version": "claude-code 2.1.177",
+      "harness_version_ref": "legacy_integration_smoke",
+      "run_status": "error",
+      "stage_status": {"S0": "success", "S1": "success", "S2": "success", "S3": "success", "S4": "error"},
+      "duration_ms": 1905314,
+      "duration_scope": "latest resumed invocation only",
+      "usage": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "cached_tokens": null,
+        "total_tokens": null,
+        "cost_usd": null,
+        "availability": "partial",
+        "cost_availability": "partial",
+        "latest_reported_stages": {
+          "S3": {"input_tokens": 266731, "output_tokens": 24363, "cached_tokens": 9209408, "cost_usd": 6.547434},
+          "S4": {"input_tokens": 533990, "output_tokens": 31977, "cached_tokens": 6570688, "cost_usd": 6.754719}
+        }
+      },
+      "failure_source": "provider_rate_limit",
+      "failure_detail": "A resumed attempt completed S3, then HTTP 429 five-hour usage limit stopped S4. Overall usage is partial because not every attempt reported usage.",
+      "evaluator_state": "unknown_due_incomplete_run_and_symbolic_checkpoint_evaluator",
+      "business_acceptance": "human_review_pending",
+      "leaderboard_eligible": false,
+      "evidence": [
+        {
+          "kind": "result",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T12-39-03-957Z_claude_b186f92b/result.json",
+          "sha256": "98414b6ddd0f6caabe582af084d0fa13a9368903036ad486396603be797ec538"
+        },
+        {
+          "kind": "evaluator-summary",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T12-39-03-957Z_claude_b186f92b/evaluator-summary.json",
+          "sha256": "c52359e85d0907ebe5586766d120a9d184b31dc137440d5d3f290d32ed933534"
+        }
+      ]
+    },
+    {
+      "run_id": "2026-07-19T12-49-17-163Z_claude_5a83dca5",
+      "source_worktree": "integration",
+      "case_id": "macro-map-3d-greenfield",
+      "adapter": "claude",
+      "configured_model": "glm-5.2",
+      "observed_models": ["glm-5.2"],
+      "cli_version": "claude-code 2.1.177",
+      "harness_version_ref": "legacy_integration_smoke",
+      "run_status": "error",
+      "stage_status": {"S0": "success", "S1": "success", "S2": "success", "S3": "success", "S4": "error"},
+      "duration_ms": 1882458,
+      "duration_scope": "latest resumed invocation only",
+      "usage": {
+        "input_tokens": 1467735,
+        "output_tokens": 182486,
+        "cached_tokens": 26554240,
+        "total_tokens": null,
+        "cost_usd": 25.177945,
+        "availability": "reported",
+        "cost_availability": "reported"
+      },
+      "failure_source": "provider_rate_limit",
+      "failure_detail": "A resumed attempt completed S3, then HTTP 429 five-hour usage limit stopped S4.",
+      "evaluator_state": "unknown_due_incomplete_run_and_symbolic_checkpoint_evaluator",
+      "business_acceptance": "human_review_pending",
+      "leaderboard_eligible": false,
+      "evidence": [
+        {
+          "kind": "result",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T12-49-17-163Z_claude_5a83dca5/result.json",
+          "sha256": "f126176e1a385694fbef4730fad355a0e009b36515125554f1f4f88b0e199063"
+        },
+        {
+          "kind": "evaluator-summary",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T12-49-17-163Z_claude_5a83dca5/evaluator-summary.json",
+          "sha256": "ac6b691d6bd53e55414a93c3e1b5e45260bb942893716b42532035bd23a6ae9e"
+        }
+      ]
+    },
+    {
+      "run_id": "2026-07-19T13-11-45-665Z_codex_925c9152",
+      "source_worktree": "integration",
+      "case_id": "narrative-equity-relationship",
+      "adapter": "codex",
+      "configured_model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "cli_version": "not persisted in compact result",
+      "harness_version_ref": "legacy_integration_smoke",
+      "run_status": "success",
+      "stage_status": {"S0": "success", "S1": "success", "S2": "success", "S3": "success", "S4": "success", "S5": "success"},
+      "duration_ms": 327879,
+      "usage": {
+        "input_tokens": 3237934,
+        "output_tokens": 43167,
+        "cached_tokens": 0,
+        "total_tokens": null,
+        "cost_usd": 0,
+        "availability": "cli_reported_unverified"
+      },
+      "failure_source": "legacy_evaluator_protocol",
+      "failure_detail": "CLI stages exited successfully, but the legacy evaluator failed because it treated symbolic checkpoint labels as required literal files.",
+      "evaluator_state": "unknown_due_symbolic_checkpoint_evaluator",
+      "business_acceptance": "human_review_pending",
+      "leaderboard_eligible": false,
+      "notes": [
+        "Reported cost_usd=0 is retained as CLI output and must not be interpreted as actual provider billing."
+      ],
+      "evidence": [
+        {
+          "kind": "result",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T13-11-45-665Z_codex_925c9152/result.json",
+          "sha256": "f050ab955d3fe21ab5a9551b088b63cfbfdeceabb362ba13e2fd621bf2f79c2a"
+        },
+        {
+          "kind": "evaluator-summary",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T13-11-45-665Z_codex_925c9152/evaluator-summary.json",
+          "sha256": "c52359e85d0907ebe5586766d120a9d184b31dc137440d5d3f290d32ed933534"
+        }
+      ]
+    },
+    {
+      "run_id": "2026-07-19T14-47-00-117Z_claude_1db3ea89",
+      "source_worktree": "integration",
+      "case_id": "dev-workflow-smoke",
+      "adapter": "claude",
+      "configured_model": "deepseek-v4-flash",
+      "cli_version": "2.1.177 (Claude Code)",
+      "harness_version_ref": "final_hardened_smoke",
+      "run_status": "error",
+      "stage_status": {"S0": "error"},
+      "duration_ms": 1654,
+      "usage": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "cached_tokens": null,
+        "total_tokens": null,
+        "cost_usd": null,
+        "availability": "unavailable"
+      },
+      "failure_source": "configuration_validation_gap",
+      "failure_detail": "An unintended default smoke reached the provider and returned HTTP 400 [1211]: model does not exist. Zero-valued CLI fields are treated as no Token/cost evidence.",
+      "evaluator_state": "not_run",
+      "business_acceptance": "not_applicable",
+      "leaderboard_eligible": false,
+      "evidence": [
+        {
+          "kind": "result",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T14-47-00-117Z_claude_1db3ea89/result.json",
+          "sha256": "ad053307354aee36aa9626df07bf5fd5d88ffcd401b451f31172a39c051ab666"
+        },
+        {
+          "kind": "provider-error-output",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T14-47-00-117Z_claude_1db3ea89/logs/stages/S0/attempt-01/stdout.raw",
+          "sha256": "d5fb73d91241d3e38285fc0247626bf3c77ae2807e01b946b9f8aa685e87bfb1"
+        }
+      ]
+    },
+    {
+      "run_id": "2026-07-19T14-47-37-564Z_codex_fef11fa2",
+      "source_worktree": "integration",
+      "case_id": "dev-workflow-smoke",
+      "adapter": "codex",
+      "configured_model": "gpt-5.6-sol",
+      "reasoning_effort": "low",
+      "cli_version": "codex-cli 0.144.6",
+      "harness_version_ref": "final_hardened_smoke",
+      "run_status": "success",
+      "stage_status": {"S0": "success", "S1": "success", "S2": "success"},
+      "duration_ms": 538008,
+      "usage": {
+        "input_tokens": 545598,
+        "output_tokens": 12056,
+        "cached_tokens": 453632,
+        "total_tokens": 557654,
+        "cost_usd": null,
+        "cost_availability": "unavailable",
+        "availability": "reported"
+      },
+      "failure_source": null,
+      "evaluator_state": "passed_smoke_only",
+      "business_acceptance": "not_applicable_smoke",
+      "leaderboard_eligible": false,
+      "notes": [
+        "This validates the final-hardened staged control path only; it is not complex visualization delivery evidence.",
+        "Run report: final-hardened-codex-smoke.html."
+      ],
+      "evidence": [
+        {
+          "kind": "result",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T14-47-37-564Z_codex_fef11fa2/result.json",
+          "sha256": "3a56ca2829d7e01de857bcdb7673e53bbb97e1d1128c2d72a9321140deb008a8"
+        },
+        {
+          "kind": "final-hardened-report",
+          "path": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T14-47-37-564Z_codex_fef11fa2/reports/final-hardened-codex-smoke.html",
+          "sha256": "f671d1d08e6be06fcc84f904a3b767759ec004078b8634e1bc8086f5f843b046"
+        }
+      ]
+    }
+  ],
+  "selected_assets": [
+    {
+      "path": "runs/pilots/2026-07-19/assets/kimi-s2-selection-one-hop-dark.png",
+      "source": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/evidence/S2/selection-one-hop-dark.png",
+      "sha256": "8fc3b2fa2f63a7627a1719f6a9a2492189f30c04c2f27ee7dcc1bf74cd6a2ba7"
+    },
+    {
+      "path": "runs/pilots/2026-07-19/assets/kimi-s3-ego-plane-hub.png",
+      "source": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/evidence/S3/ego-plane-hub.png",
+      "sha256": "068af6d00ecc4da8f3337b072940822362959326ec9b88008559de3b6665a9ac"
+    },
+    {
+      "path": "runs/pilots/2026-07-19/assets/kimi-s3-panel-offset-3d.png",
+      "source": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/evidence/S3/panel-offset-3d.png",
+      "sha256": "290c11ec562d9746febb472a438226250ffb3934cdfc88ab4d969a08579184dd"
+    },
+    {
+      "path": "runs/pilots/2026-07-19/assets/kimi-s4-mobile-low-tier.png",
+      "source": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/evidence/S4/mobile-low-tier.png",
+      "sha256": "98b531782c6b9b694c1211c906830b5359f6d8eb98bb1f7a36ac172c281a968c"
+    },
+    {
+      "path": "runs/pilots/2026-07-19/assets/kimi-s4-context-restored.png",
+      "source": ".local/runs/pilot-kimi-k3-macro-3d-20260719/workspace/.vab/evidence/S4/context-restored.png",
+      "sha256": "3fd6253fc99acd0d662e50d7f71a547e553f0c6cfb5f317caf4953e6aa20624e"
+    },
+    {
+      "path": "runs/pilots/2026-07-19/assets/glm-narrative-s2-overview-fit.png",
+      "source": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T12-39-03-957Z_claude_b186f92b/workspace/.screenshots/s2/01-overview-fit.png",
+      "sha256": "9606c3bc309431bf998fcf81affcaa495430b840c4062efe1e246ff2ab3f7f51"
+    },
+    {
+      "path": "runs/pilots/2026-07-19/assets/glm-3d-v2-selected.png",
+      "source": "/Users/leozhou/git/worktrees/vis-agent-bench-integration/.local/runs/2026-07-19T12-49-17-163Z_claude_5a83dca5/workspace/docs/shots/v2-selected.png",
+      "sha256": "b2348d3927da09b3c8c61f30c4388267ba43711331e797672444c234765b53d6"
+    }
+  ]
+}
