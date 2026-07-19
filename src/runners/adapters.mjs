@@ -158,10 +158,11 @@ function buildClaudeCommand(ctx) {
 
 function buildPiCommand(ctx) {
   const session = ctx.session || {};
-  // Pi 的 --approve 使无人工值守时不因权限确认阻塞；其余 --no-* 参数避免
-  // 继承宿主机的上下文、扩展、Skills 或 prompt 模板，保证本次 Run 可复现。
+  // Pi 的 JSON event mode 会在长工具调用中反复输出完整消息，实测可能造成 GB 级日志。
+  // 评测的原始过程与最终交付已由 workspace/checkpoint 保留，因此采用 print mode；
+  // 阶段间通过同一 session-dir 中的 --continue 保持原生会话连续性。
   const args = [
-    '--mode', 'json',
+    '--mode', 'print',
     '--approve',
     '--no-context-files',
     '--no-extensions',
@@ -172,15 +173,13 @@ function buildPiCommand(ctx) {
   ];
   if (ctx.modelProvider) args.push('--provider', ctx.modelProvider);
   args.push('--model', ctx.model);
-  if (session.started && (session.id || session.resumeFrom)) {
-    args.push('--session', session.id || session.resumeFrom);
-  }
+  if (session.started) args.push('--continue');
   args.push(ctx.prompt);
   return {
     executable: ctx.executable,
     args,
     stdin: null,
-    format: 'jsonl',
+    format: 'text',
   };
 }
 
@@ -210,7 +209,7 @@ const adapters = {
     id: 'codex',
     executable: defaultExecutables.codex,
     versionArgs: ['--version'],
-    session_continuity: 'native',
+    session_continuity: 'native-working-directory',
     parseVersion(output) {
       return parseSemverVersion(output || '');
     },

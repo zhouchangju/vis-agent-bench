@@ -2,6 +2,10 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createWriteStream, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+// 日志是可回溯证据，不应成为单个 Agent 进程耗尽宿主机磁盘/内存的入口。
+// 16 MiB 足够保留普通 CLI 的完整阶段输出；超过则保留前缀与明确截断证据，并判定该阶段失败。
+const MAX_CAPTURE_BYTES = 16 * 1024 * 1024;
+
 export function detectExecutable(executable, versionArgs = ['--version']) {
   const started = Date.now();
   const result = spawnSync(executable, versionArgs, {
@@ -51,6 +55,7 @@ export function runCommand({ runId, engine, command, cwd, logsDir, timeoutMs, en
     const stdout = createWriteStream(stdoutPath);
     const stderr = createWriteStream(stderrPath);
     const stdoutFinished = new Promise(done => stdout.once('finish', done));
+    const stderrFinished = new Promise(done => stderr.once('finish', done));
     const started = Date.now();
 
     const child = spawn(command.executable, command.args, {
@@ -60,8 +65,25 @@ export function runCommand({ runId, engine, command, cwd, logsDir, timeoutMs, en
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
-    child.stdout.pipe(stdout);
-    child.stderr.pipe(stderr);
+    const output = {
+      stdout_bytes: 0,
+      stderr_bytes: 0,
+      stdout_discarded_bytes: 0,
+      stderr_discarded_bytes: 0,
+    };
+    const capture = (stream, sink, keptKey, discardedKey) => {
+      stream.on('data', chunk => {
+        const remaining = Math.max(0, MAX_CAPTURE_BYTES - output[keptKey]);
+        if (remaining > 0) {
+          const kept = chunk.length <= remaining ? chunk : chunk.subarray(0, remaining);
+          output[keptKey] += kept.length;
+          sink.write(kept);
+        }
+        if (chunk.length > remaining) output[discardedKey] += chunk.length - remaining;
+      });
+    };
+    capture(child.stdout, stdout, 'stdout_bytes', 'stdout_discarded_bytes');
+    capture(child.stderr, stderr, 'stderr_bytes', 'stderr_discarded_bytes');
     if (command.stdin != null) child.stdin.end(command.stdin);
     else child.stdin.end();
 
@@ -90,21 +112,31 @@ export function runCommand({ runId, engine, command, cwd, logsDir, timeoutMs, en
 
     child.on('close', (code, signal) => {
       clearTimeout(timer);
+      if (output.stdout_discarded_bytes > 0) {
+        stdout.write(`\n[VAB] stdout exceeded ${MAX_CAPTURE_BYTES} bytes; ${output.stdout_discarded_bytes} bytes were discarded.\n`);
+      }
+      if (output.stderr_discarded_bytes > 0) {
+        stderr.write(`\n[VAB] stderr exceeded ${MAX_CAPTURE_BYTES} bytes; ${output.stderr_discarded_bytes} bytes were discarded.\n`);
+      }
       stderr.end();
       stdout.end();
-      stdoutFinished.then(() => {
+      Promise.all([stdoutFinished, stderrFinished]).then(() => {
         const normalized = join(logsDir, 'normalized-events.jsonl');
         normalizeLines(stdoutPath, runId, engine, normalized, stageId);
+        const outputTruncated = output.stdout_discarded_bytes > 0 || output.stderr_discarded_bytes > 0;
         resolve({
-          status: code === 0 && !timedOut ? 'success' : 'error',
+          status: code === 0 && !timedOut && !outputTruncated ? 'success' : 'error',
           exit_code: code,
           signal,
           timed_out: timedOut,
           duration_ms: Date.now() - started,
-          error: null,
+          error: outputTruncated
+            ? `CLI output exceeded the ${MAX_CAPTURE_BYTES}-byte capture limit; retained prefix and truncation marker.`
+            : null,
           stdoutPath,
           stderrPath,
           normalized,
+          output,
         });
       });
     });

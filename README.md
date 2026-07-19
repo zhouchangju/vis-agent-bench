@@ -166,8 +166,8 @@ npm run bench:case -- \
   --acknowledge-no-cost-cap
 ```
 
-Pi 使用 JSONL、`--approve` 和受限内置工具运行；它当前没有可由 Harness 强制的原生费用上限，建议先加入
-`--dry-run` 确认模型和 Provider 配置。
+Pi 使用精简的 print 输出、`--approve` 和受限内置工具运行；阶段间通过隔离目录中的会话续跑。它当前
+没有可由 Harness 强制的原生费用上限，建议先加入 `--dry-run` 确认模型和 Provider 配置。
 
 运行中查看阶段、日志增长和独立工作区：
 

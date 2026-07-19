@@ -177,7 +177,7 @@ function stagePrompt(caseDir, scenario, stage) {
     '',
     `当前阶段：${stage.id} / ${stage.name}`,
     '只处理当前已知信息，不要猜测后续需求。',
-    '更新 workspace 根目录的 requirement-ledger.yaml，保持内容短小并标注 must/should/may、决策、假设和待确认项。',
+    '更新 workspace 根目录的 requirement-ledger.yaml：必须是一个可由 YAML.parse() 读取的单一 YAML 文档；不要写 `---`、`...` 或多文档分隔符。保持内容短小并标注 must/should/may、决策、假设和待确认项。',
     `本阶段 checkpoint：${(stage.checkpoint || []).join('、')}`,
     ...developmentSmokeRules,
     `把符号型 checkpoint 写入 .vab/checkpoints/${stage.id}.json：`,

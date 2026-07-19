@@ -48,7 +48,7 @@ export function parseLine(line) {
 
 /**
  * CLI 私有事件名 → 标准事件字典的别名映射。
- * Codex / Claude / Kimi / Pi 的 JSONL 用各自的事件名，归一化时统一回 RUN_LOG_SPEC 的字典。
+ * Codex / Claude / Kimi 的 JSONL 用各自的事件名；Pi 当前使用 print mode，作为普通输出归一化。
  */
 const TYPE_ALIASES = new Map([
   // Claude stream-json
@@ -61,15 +61,6 @@ const TYPE_ALIASES = new Map([
   ['message.start', 'assistant.message'],
   ['message.delta', 'assistant.message'],
   ['message.end', 'assistant.message'],
-  // Pi --mode json
-  ['session', 'session.info'],
-  ['agent_start', 'stage.started'],
-  ['agent_end', 'stage.ended'],
-  ['message_start', 'assistant.message'],
-  ['message_update', 'assistant.message'],
-  ['message_end', 'assistant.message'],
-  ['tool_execution_start', 'tool.started'],
-  ['tool_execution_end', 'tool.ended'],
 ]);
 
 function classifyType(parsed) {

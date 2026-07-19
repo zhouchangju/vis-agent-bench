@@ -186,7 +186,7 @@ check('claude adapter emits session-id on fresh runs and --resume on subsequent 
   assert.ok(!resumed.args.includes('--max-budget-usd'));
 });
 
-check('pi adapter runs non-interactively with explicit provider and resumes its native session', () => {
+check('pi adapter runs non-interactively with explicit provider and resumes its isolated working-directory session', () => {
   const adapter = getAdapter('pi');
   const fresh = adapter.buildCommand({
     adapter: 'pi',
@@ -201,9 +201,9 @@ check('pi adapter runs non-interactively with explicit provider and resumes its 
   });
   assert.equal(fresh.executable, 'pi');
   assert.equal(fresh.stdin, null);
-  assert.equal(fresh.format, 'jsonl');
+  assert.equal(fresh.format, 'text');
   assert.deepEqual(fresh.args, [
-    '--mode', 'json',
+    '--mode', 'print',
     '--approve',
     '--no-context-files',
     '--no-extensions',
@@ -223,7 +223,8 @@ check('pi adapter runs non-interactively with explicit provider and resumes its 
     },
     session: { id: 'pi-session-1234567890', started: true },
   });
-  assert.equal(resumed.args[resumed.args.indexOf('--session') + 1], 'pi-session-1234567890');
+  assert.ok(resumed.args.includes('--continue'));
+  assert.ok(!resumed.args.includes('--session'));
 });
 
 check('parseSemverVersion extracts the first semver-like substring', () => {

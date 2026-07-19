@@ -187,7 +187,8 @@ Token 和费用仅在 stream-json 明确上报时记录，否则报告显示“�
 
 ## 使用 Pi 直连 DeepSeek
 
-Pi 使用其原生 `--mode json` JSONL 输出；需要先在当前 shell 中配置 DeepSeek 凭据：
+Pi 使用 `--mode print`，避免 JSON event mode 在长工具调用中重复完整消息而生成超大日志；需要先在当前
+shell 中配置 DeepSeek 凭据：
 
 ```bash
 export DEEPSEEK_API_KEY='…'
@@ -215,8 +216,8 @@ npm run bench:case -- \
 
 Adapter 固定传入 `--approve`、`--no-context-files`、`--no-extensions`、`--no-skills` 和
 `--no-prompt-templates`，并只开放 `read,bash,edit,write,grep,find,ls` 这些 Pi 内置工具。每个 Run
-使用自己的 `.pi-sessions/`，从 Pi JSONL 的 `session.id` 续跑后续阶段。Pi 没有 Harness 可验证的
-原生费用上限，因此只能由墙钟超时、日志和事后 usage 记录控制。
+使用自己的 `.pi-sessions/`，后续阶段以 `--continue` 续跑。Pi 没有 Harness 可验证的原生费用上限，
+因此只能由墙钟超时、日志和事后 usage 记录控制。
 
 可指定的现有 Case：
 
@@ -285,7 +286,7 @@ HTML 和 Markdown 报告默认使用中文；JSON 保留稳定的英文枚举与
 2. `workspace/dist/index.html`：模型实际生成的、可由浏览器加载的最终构建网页；
 3. `workspace/automated-test-results/summary.json`：模型自行留下的构建与测试声明；
 4. `artifacts/workspace.diff`：相对初始 Fixture 的完整代码变化；
-5. `logs/stages/S0...Sn/`：各阶段 Prompt、原始 JSONL 输出与 stderr，用于回溯需求澄清和失败。
+5. `logs/stages/S0...Sn/`：各阶段 Prompt、原始 stdout/stderr 与归一化事件，用于回溯需求澄清和失败。
 
 不要优先打开 `workspace/index.html`：它可能是引用 `.ts` 源文件的开发入口。应优先打开
 `workspace/dist/index.html`。若浏览器对本地 module 有限制，在该工作区启动静态服务后访问：
@@ -335,7 +336,9 @@ npm run bench:status -- --list
 tail -f .local/runs/<run-id>/logs/stages/<stage-id>/stdout.raw
 ```
 
-`stdout.raw` 是 JSONL，适合回溯但不适合日常阅读；优先使用 `bench:status --watch`。
+不同 Adapter 的 `stdout.raw` 可能是 JSONL 或普通文本；它适合回溯但不适合日常阅读，优先使用
+`bench:status --watch`。单个 stdout/stderr 超过 16 MiB 会被截断并将该阶段标记失败，以保护宿主机
+内存和磁盘。
 
 ### 独立目录与文件级隔离
 

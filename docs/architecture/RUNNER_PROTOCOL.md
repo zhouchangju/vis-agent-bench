@@ -195,21 +195,22 @@ Kimi 使用工作目录作为主 workspace。Token/费用只在 stream-json 实�
 Pi 作为独立 CLI Provider Adapter 接入，首个已支持的实际 Provider 是 DeepSeek：
 
 - executable：`pi`；
-- 非交互事件输出：`--mode json`（JSONL）；
+- 非交互输出：`--mode print`。Pi 的 JSON event mode 会在长工具调用中重复完整消息，可能形成
+  超大日志；阶段日志、workspace 产物和 checkpoint 已提供可回溯证据；
 - 模型与实际 Provider：`--model "$MODEL_ID" --provider "$MODEL_PROVIDER"`；
 - 凭据：通过子进程白名单传入 `DEEPSEEK_API_KEY`，不写入命令或日志；
 - 无人值守：`--approve`；
 - 上下文净化：`--no-context-files --no-extensions --no-skills --no-prompt-templates`；
 - 工具：显式限制为 `read,bash,edit,write,grep,find,ls`；
-- 会话：每个 Run 使用 `<runDir>/.pi-sessions`，从 JSONL 首行 `type=session` 的 `id` 保存并在后续
-  Stage 用 `--session <id>` 恢复；
+- 会话：每个 Run 使用 `<runDir>/.pi-sessions`，后续 Stage 使用 `--continue` 恢复该隔离目录中的
+  最近会话；
 - 费用：没有可由 Harness 验证的原生单阶段费用上限，真实运行必须确认
   `--acknowledge-no-cost-cap`。
 
 概念命令：
 
 ```bash
-pi --mode json --approve \
+pi --mode print --approve \
   --no-context-files --no-extensions --no-skills --no-prompt-templates \
   --session-dir /run/.pi-sessions \
   --tools read,bash,edit,write,grep,find,ls \

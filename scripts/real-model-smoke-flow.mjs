@@ -84,22 +84,22 @@ function formatBytes(bytes) {
 }
 
 function readProgress(runDir) {
-  const specPath = join(runDir, 'run-spec.json');
-  if (!existsSync(specPath)) return null;
+  const statePath = join(runDir, 'run-state.json');
+  if (!existsSync(statePath)) return null;
   try {
-    const spec = JSON.parse(readFileSync(specPath, 'utf8'));
-    const stageId = spec.scenario?.current_stage;
-    const stdoutPath = stageId
-      ? join(runDir, 'logs', 'stages', stageId, 'stdout.raw')
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    const stageId = state.scenario?.current_stage;
+    const attempt = state.scenario?.attempts?.[stageId] || 0;
+    const stageLogDir = stageId && attempt
+      ? join(runDir, 'logs', 'stages', stageId, `attempt-${String(attempt).padStart(2, '0')}`)
       : null;
-    const stderrPath = stageId
-      ? join(runDir, 'logs', 'stages', stageId, 'stderr.raw')
-      : null;
+    const stdoutPath = stageLogDir ? join(stageLogDir, 'stdout.raw') : null;
+    const stderrPath = stageLogDir ? join(stageLogDir, 'stderr.raw') : null;
     return {
-      status: spec.status,
+      status: state.status,
       stage_id: stageId,
-      completed: spec.scenario?.completed_stages?.length || 0,
-      total: spec.scenario?.stage_ids?.length || 0,
+      completed: state.scenario?.completed_stages?.length || 0,
+      total: state.scenario?.stage_ids?.length || 0,
       stdout_bytes: stdoutPath && existsSync(stdoutPath) ? statSync(stdoutPath).size : 0,
       stderr_bytes: stderrPath && existsSync(stderrPath) ? statSync(stderrPath).size : 0,
     };
