@@ -111,7 +111,7 @@
               </div>
               <div class="field span-2">
                 <label for="model">Configured model ID</label>
-                <input id="model" value="gpt-5-example" autocomplete="off">
+                <input id="model" value="gpt-5.6" autocomplete="off">
               </div>
               <div class="field span-2">
                 <label for="executable">Executable</label>
@@ -133,7 +133,7 @@
           <div class="section-body isolation-grid">
             <div>
               <div class="toggle-row">
-                <div><strong>允许访问公开互联网</strong><small>查官方文档和公开产品；内部代码网络仍阻断。</small></div>
+                <div><strong>允许访问公开互联网</strong><small>查官方文档和公开产品；文件隔离版暂不提供网络层内网阻断。</small></div>
                 <label class="switch"><input id="network" type="checkbox" checked><span></span></label>
               </div>
               <div class="toggle-row">
@@ -145,7 +145,7 @@
                 <label class="switch"><input type="checkbox" disabled><span></span></label>
               </div>
               <div class="toggle-row">
-                <div><strong>隐藏 Evaluator 延后执行</strong><small>Worker 销毁后在控制面验收。</small></div>
+                <div><strong>隐藏 Evaluator 延后执行</strong><small>CLI Runner 结束后由控制面单独验收，不复制到工作区。</small></div>
                 <label class="switch"><input type="checkbox" checked disabled><span></span></label>
               </div>
             </div>
@@ -195,9 +195,18 @@
         </section>
 
         <div class="run-footer">
-          <div class="run-summary" id="run-summary"><b>3 Cases</b> · codex-cli / gpt-5-example · file-isolated development · public network enabled</div>
+          <div class="run-summary" id="run-summary"><b>3 Cases</b> · codex-cli / gpt-5.6 · file-isolated development · public network enabled</div>
           <button class="primary" id="generate-run">生成 RunSpec 预览</button>
         </div>
+        <section class="section" id="run-spec-panel" hidden>
+          <header class="section-head">
+            <div><span class="section-index">RUNSPEC / EXPORT</span><h2>可执行配置预览</h2><p>每个 Case 对应一份 schema_version 2 RunSpec；Bundle 只负责批量导出，不复制 Runner 逻辑。</p></div>
+            <button class="primary" id="download-run-spec" type="button">下载 JSON</button>
+          </header>
+          <div class="section-body">
+            <textarea id="run-spec-preview" aria-label="RunSpec JSON preview" readonly style="width:100%;min-height:32rem;font-family:ui-monospace,monospace"></textarea>
+          </div>
+        </section>
       </div>
     </div>
   </main>

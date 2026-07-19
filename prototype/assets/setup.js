@@ -3,7 +3,7 @@ const engineDefaults = {
     label: "Codex ready",
     status: "info",
     provider: "openai",
-    model: "gpt-5-example",
+    model: "gpt-5.6",
     executable: "codex",
     credential: "secret://codex/default"
   },
@@ -11,7 +11,7 @@ const engineDefaults = {
     label: "Kimi ready",
     status: "info",
     provider: "moonshot",
-    model: "kimi-k3-example",
+    model: "kimi-code/k3",
     executable: "/Users/leozhou/.kimi-code/bin/kimi",
     credential: "secret://kimi/default"
   },
@@ -87,7 +87,94 @@ $("#generate-run").addEventListener("click", () => {
   }
 
   const engine = selectedEngine();
-  showToast(`RunSpec 预览已生成：${cases.length} Cases / ${engine}`);
+  const bundle = buildRunSpecBundle();
+  $("#run-spec-preview").value = JSON.stringify(bundle, null, 2);
+  $("#run-spec-panel").hidden = false;
+  showToast(`RunSpec 已生成：${cases.length} Cases / ${engine}`);
 });
 
+$("#download-run-spec").addEventListener("click", () => {
+  const blob = new Blob([`${JSON.stringify(buildRunSpecBundle(), null, 2)}\n`], {
+    type: "application/json"
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "vis-agent-bench-run-spec-bundle.json";
+  link.click();
+  URL.revokeObjectURL(url);
+  showToast("RunSpec bundle 已下载。");
+});
+
+function nullableNumber(value) {
+  if (value == null || String(value).trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildRunSpec(caseId) {
+  const engine = selectedEngine();
+  const allowedTools = ["shell", "file_read", "file_write"];
+  if ($("#network").checked) allowedTools.push("public_web");
+  return {
+    schema_version: 2,
+    name: `${caseId}-${engine}-${$("#model").value}`,
+    case_id: caseId,
+    engine: {
+      adapter: engine,
+      executable: $("#executable").value,
+      configured_model: $("#model").value,
+      provider: $("#provider").value,
+      credential_ref: $("#credential").value
+    },
+    isolation: {
+      mode: "file-isolated-development",
+      leaderboard_eligible: false,
+      network: $("#network").checked ? "enabled" : "disabled",
+      block_internal_network: false,
+      inherited_home_for_auth: true,
+      answer_leakage_scan: true,
+      workspace_root: ".local/runs"
+    },
+    permissions: {
+      read_internal_source: false,
+      read_answer_repository: false,
+      hidden_evaluator_visible: false,
+      allowed_tools: allowedTools
+    },
+    budget: {
+      wall_time_minutes: Number($("#wall-time").value),
+      max_retries: Number($("#retries").value),
+      max_tokens: nullableNumber($("#tokens").value),
+      max_cost_usd: nullableNumber($("#cost").value)
+    },
+    scenario: {
+      mode: "progressive-disclosure",
+      baseline_type: "current-ai-assisted-workflow",
+      session_continuity_required: true
+    },
+    evidence: {
+      raw_stdout: true,
+      raw_stderr: true,
+      normalized_events: true,
+      file_snapshots: true,
+      git_diff: true,
+      screenshots: true,
+      redact_secrets: true,
+      human_review_required: true
+    }
+  };
+}
+
+function buildRunSpecBundle() {
+  return {
+    schema_version: 1,
+    kind: "vis-agent-bench-run-spec-bundle",
+    generated_at: new Date().toISOString(),
+    runs: selectedCases().map(buildRunSpec)
+  };
+}
+
 refreshCards();
+
+globalThis.__VAB_SETUP__ = { buildRunSpec, buildRunSpecBundle };

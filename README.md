@@ -10,7 +10,7 @@
 
 ## 当前阶段
 
-当前处于 `M2：分阶段 CLI Runner 与首轮端到端试验`。
+当前处于 `M2：已完成确定性总集成，准备首轮真实模型试验`。
 
 首批范围已收敛为：
 
@@ -175,9 +175,39 @@ npm run bench:doctor
 node scripts/bench.mjs prepare \
   --case macro-map-3d-greenfield \
   --engine kimi \
-  --model kimi-k3-example
+  --model kimi-code/k3
 ```
 
 `run` 会在同一 CLI 会话中依次执行 S0 模糊 Brief、需求对齐、POC 反馈和生产化
 阶段；每阶段单独保留日志和 checkpoint。命令会返回 Run 目录和下一步运行命令。首期隔离等级为
 `file-isolated-development`，不具备操作系统级防读取保证，也不进入正式排行榜。
+
+运行设置页生成的 schema v2 RunSpec 与 CLI 使用同一契约。CLI 已统一接入：
+
+```bash
+node scripts/bench.mjs validate --spec config/run-profile.example.yaml
+node scripts/bench.mjs build-fixture --case narrative-equity-relationship --run-dir <run-dir>
+node scripts/bench.mjs run --run-dir <run-dir>
+node scripts/bench.mjs evaluate --run-dir <run-dir>
+node scripts/bench.mjs capture --capture-spec <capture.json> --out-dir <dir> --allow-origin <origin>
+node scripts/bench.mjs report --run-dir <run-dir>
+```
+
+真实 CLI Run 会记录实际 CLI 版本、阶段日志、归一化事件、原生 Token/费用字段（CLI
+不提供时明确标记 `unavailable`）、文件快照、Git diff 和人工评审占位。
+
+## 确定性 Golden Run
+
+在调用收费模型前，可用本地 fake adapter 验证三类 Case 的完整控制链路：
+
+```bash
+node scripts/bench.mjs golden \
+  --spec config/run-profile.example.yaml \
+  --out-root .local/acceptance \
+  --run-id golden-smoke
+```
+
+该命令执行 RunSpec 校验、脱敏 Fixture、分阶段假运行、真实 Chromium 证据、带完整性
+绑定的 Evaluator、人工评审占位和 HTML 报告。它只证明 Harness 接线，不代表任何真实模型
+能力结论；Golden 结果始终标记为 conclusion-ineligible。失败后可使用同一 `run-id` 加
+`--resume` 复用已完成 checkpoint。

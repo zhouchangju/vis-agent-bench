@@ -73,8 +73,10 @@ const server = await startServer();
 let browser;
 try {
   const address = server.address();
+  const origin = `http://127.0.0.1:${address.port}`;
   const capture = await createPlaywrightDriver().capture(browserSpec(address.port), {
     outDir: join(OUTPUT_ROOT, 'browser'),
+    policy: { allowed_origins: [origin], allowed_file_roots: [] },
   });
   assert.equal(capture.status, 'success', JSON.stringify(capture.errors, null, 2));
   browser = capture.evidence;
