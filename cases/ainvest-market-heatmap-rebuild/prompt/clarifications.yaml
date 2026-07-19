@@ -1,0 +1,8 @@
+answers:
+  visual_source: "以上线页面和固定参考图为准；自动验收不依赖实时行情。"
+  data_source: "验收全部使用脱敏 Mock API，不要求接生产接口。"
+  chart_library: "允许选择合适的 Treemap 实现，但必须由数据驱动且可维护。"
+  market_rules: "Stock、ETF、Crypto 的面积、颜色、数据源和分组规则分别提供。"
+  navigation: "标的点击只需触发结构化事件，不要求实现详情页。"
+  browser_scope: "当前 Chrome、Safari；覆盖桌面和窄屏。"
+  networking: "允许查看公开参考页面和技术文档。"

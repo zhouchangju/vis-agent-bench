@@ -1,0 +1,16 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Local-only inputs may contain internal screenshots or source snapshots.
+.local/
+
+# Generated benchmark state.
+runs/
+artifacts/
+reports/generated/
+coverage/
+dist/
+

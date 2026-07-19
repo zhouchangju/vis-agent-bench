@@ -1,0 +1,14 @@
+weights:
+  business_mapping: 25
+  treemap_visual_accuracy: 20
+  interaction_state: 20
+  multi_market_responsive: 15
+  performance_stability: 10
+  engineering_evidence: 10
+gates:
+  p0_min_score: 80
+  critical_failure_cap: 49
+levels:
+  p0: required
+  p1: differentiator
+  p2: production_readiness

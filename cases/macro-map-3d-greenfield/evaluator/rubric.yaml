@@ -1,0 +1,14 @@
+weights:
+  business_correctness: 20
+  visual_quality: 15
+  interaction_state_machine: 25
+  performance_stability: 20
+  engineering_quality: 15
+  evidence_documentation: 5
+gates:
+  p0_min_score: 80
+  critical_failure_cap: 49
+levels:
+  p0: required
+  p1: differentiator
+  p2: production_readiness

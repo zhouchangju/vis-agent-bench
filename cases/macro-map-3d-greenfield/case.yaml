@@ -1,0 +1,19 @@
+id: macro-map-3d-greenfield
+title: Macro Map 3D 因子关系场景
+status: draft
+suite_role: primary
+source_type: observed
+difficulty: expert
+task_type: greenfield
+visibility: internal
+initial_prompt: scenario/initial-brief.md
+scenario: scenario/stages.yaml
+requirement_truth: prompt/requirement.md
+clarifications: prompt/clarifications.yaml
+acceptance: evaluator/acceptance.md
+rubric: evaluator/rubric.yaml
+fixture: fixture
+provenance: provenance.md
+quality_gate:
+  p0_required: true
+  max_critical_failures: 0

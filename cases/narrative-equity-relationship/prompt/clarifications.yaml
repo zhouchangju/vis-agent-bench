@@ -1,0 +1,40 @@
+version: 1
+answers:
+  product_scope:
+    answer: >
+      首期交付可复用可视化组件和脱敏演示页；业务聊天、数据生产和服务端接口不在范围内。
+  initial_view:
+    answer: >
+      默认先展示完整结论总览；用户播放或点击章节后进入章节叙事。
+  layout_coordinates:
+    answer: >
+      DSL 不提供节点坐标。布局由组件计算，但总览到章节及步骤重绘需要保持位置连续性。
+  rendering_stack:
+    answer: >
+      可以自行选择适合的 SVG/Canvas 和图布局方案，但必须集成提供的 TypeScript 组件脚手架，
+      不得硬编码 fixture 坐标。
+  chapter_semantics:
+    answer: >
+      章节可以引用总览元素，也可以新增初始隐藏元素；timeline 首次引用时才使新增元素进入。
+  animation_parallelism:
+    answer: >
+      同一个 step 内多个动画并行；step 之间顺序执行。组合动画内部可以有自己的阶段顺序。
+  manual_navigation:
+    answer: >
+      任意跳转结果应等价于从开头顺序播放到该位置，不能依赖该章节以前真的播放过。
+  audio:
+    answer: >
+      音频是可选能力；有音频时动画与音频同时开始，以较长者决定 step 何时推进。
+  responsiveness:
+    answer: >
+      主要是桌面业务页和可缩放面板。小容器优先保留图形关系，文字层允许隐藏。
+  visual_reference:
+    answer: >
+      提供脱敏节点图标、边标记和少量固定状态参考图；不提供可直接复制的源组件。
+  performance:
+    answer: >
+      以几十到约百个节点、多个章节和连续动画为主。重点是交互与重绘稳定，不要求超大图谱。
+  network:
+    answer: >
+      可以联网查询公开文档，但运行工作区不会提供答案仓库或原实现。
+

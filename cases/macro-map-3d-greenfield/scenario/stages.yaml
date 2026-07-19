@@ -1,0 +1,55 @@
+version: 1
+mode: progressive-disclosure
+requirement_truth: ../prompt/requirement.md
+stages:
+  - id: S0
+    name: ambiguous-brief
+    input: initial-brief.md
+    checkpoint:
+      - requirement-ledger.yaml
+      - docs/poc-plan.md
+    observe: [question_quality, assumptions, context_prep_minutes]
+  - id: S1
+    name: requirement-alignment
+    stakeholder_message: |
+      数据会标记核心/外围因子，关系分正向、负向、未知。完整数据约数百节点、
+      数千关系。业务方最在意双层球面结构、方向可识别和选中节点后的一跳关系，
+      桌面与触控都要能操作。请先完成可评审 POC，不要求业务 Header 和详情面板。
+    checkpoint:
+      - requirement-ledger.yaml
+      - runnable-poc
+    observe: [time_to_shared_understanding, time_to_first_poc]
+  - id: S2
+    name: poc-review
+    stakeholder_message: |
+      首轮评审反馈：核心与外围的空间层次仍不够明显；长标签互相遮挡；旋转结束后
+      偶尔误触节点。选中节点时请弱化无关内容，并让正负关系和方向一眼可辨。
+      默认可以缓慢自转，但悬停和用户操作时要暂停。
+    checkpoint:
+      - requirement-ledger.yaml
+      - reviewable-poc-v2
+      - regression-evidence
+    observe: [first_pass_fitness, micro_adjustments, requirement_retention]
+  - id: S3
+    name: interaction-expansion
+    stakeholder_message: |
+      研究员希望在局部关系很多时切到 2D 关系平面；3D 是旋转，2D 是平移，切换时
+      不应抖动或错选。右侧业务面板可能遮住一部分画布，因此视觉中心和命中坐标需要
+      支持外部偏移。运行中还会切换中英文和明暗主题。
+    checkpoint:
+      - requirement-ledger.yaml
+      - interaction-demo
+      - tests
+    observe: [constraint_retention, regressions, clarification_minutes]
+  - id: S4
+    name: production-readiness
+    stakeholder_message: |
+      请补齐移动端降级、Resize、重复挂载卸载、WebGL context lost 恢复和性能统计。
+      我们会关注每帧临时对象、边的重建、资源释放，以及完整数据规模下是否仍可操作。
+    checkpoint:
+      - candidate-delivery
+      - automated-test-results
+      - performance-evidence
+      - final-requirement-ledger
+    observe: [accepted_delivery, fix_minutes, final_review_minutes]
+

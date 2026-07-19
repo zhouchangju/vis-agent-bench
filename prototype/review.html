@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vis Agent Bench · Human Review</title>
+  <link rel="stylesheet" href="./assets/prototype.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./setup.html"><span class="brand-mark">VAB</span>Vis Agent Bench</a>
+      <nav class="nav" aria-label="Prototype pages">
+        <a href="./setup.html">运行设置</a>
+        <a class="active" href="./review.html">人工评审</a>
+        <a href="./report.html">领导报告</a>
+      </nav>
+      <div class="top-meta">HUMAN REVIEW / PROTOTYPE</div>
+    </header>
+
+    <div class="demo-ribbon"><b>LOCAL DEMO</b> 内容只保存在当前浏览器 localStorage，可导出 JSON；尚未连接真实 Run。</div>
+
+    <section class="review-intro">
+      <div>
+        <div class="eyebrow">Evidence → judgment → report</div>
+        <h1>机器负责留证据，人负责判断是否真的可用。</h1>
+        <p>先查看代码差异、测试、截图、性能和过程日志，再补充视觉、交互、业务判断和人工修复时间。没有人工评审时，系统只生成机器证据报告，不输出“是否大幅提效”的管理结论。</p>
+      </div>
+      <span class="status warn" id="review-progress">0 / 3 reviewed</span>
+    </section>
+
+    <section id="review-cases"></section>
+
+    <section class="section" style="margin-top:18px">
+      <header class="section-head">
+        <div><span class="section-index">REVIEW PACKAGE</span><h2>人工评审数据预览</h2><p>最终保存为每个 Run 的 human-review.json。</p></div>
+        <span class="status info">schema v1</span>
+      </header>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="field"><label for="reviewer">评审人</label><input id="reviewer" value="Leo"></div>
+          <div class="field span-2"><label for="run-id">Run ID</label><input id="run-id" value="sample-run-replace-with-real-id"></div>
+        </div>
+        <pre class="review-preview" id="review-preview"></pre>
+        <div class="review-actions">
+          <button class="secondary" id="clear-review">清空</button>
+          <button class="secondary" id="export-review">导出 JSON</button>
+          <button class="primary" id="save-review">保存人工评审</button>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="./assets/review.js"></script>
+</body>
+</html>

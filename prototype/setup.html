@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vis Agent Bench · Run Setup</title>
+  <link rel="stylesheet" href="./assets/prototype.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./setup.html"><span class="brand-mark">VAB</span>Vis Agent Bench</a>
+      <nav class="nav" aria-label="Prototype pages">
+        <a class="active" href="./setup.html">运行设置</a>
+        <a href="./review.html">人工评审</a>
+        <a href="./report.html">领导报告</a>
+      </nav>
+      <div class="top-meta">CONTROL PLANE / PROTOTYPE 0.1</div>
+    </header>
+
+    <div class="demo-ribbon"><b>DEMO</b> 这是交互原型，不会真实启动模型，也不会保存密钥。</div>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow">New evaluation run</div>
+        <h1>把一次模型测试，变成可审计的工程实验。</h1>
+        <p>选择真实业务 Case、CLI 与目标模型，平台会从模糊 Brief 开始，按需求对齐、POC 反馈和生产验收逐阶段执行，并采集每轮日志、代码、质量与人类投入。</p>
+      </div>
+      <aside class="hero-note">
+        <strong>正式结果必须通过隔离预检</strong>
+        Worktree 只能防止修改，不能防止读取答案。正式 Run 仅允许容器、专用 VM 或受 ACL 限制的专用用户。
+      </aside>
+    </section>
+
+    <div class="layout">
+      <aside class="steps" aria-label="Configuration steps">
+        <div class="step active"><span class="step-num">01</span><div><strong>Case</strong><small>真实业务任务</small></div></div>
+        <div class="step active"><span class="step-num">02</span><div><strong>Engine</strong><small>CLI 与模型</small></div></div>
+        <div class="step active"><span class="step-num">03</span><div><strong>Isolation</strong><small>文件与网络边界</small></div></div>
+        <div class="step active"><span class="step-num">04</span><div><strong>Budget</strong><small>时间、Token、费用</small></div></div>
+        <div class="step active"><span class="step-num">05</span><div><strong>Evidence</strong><small>日志与验收</small></div></div>
+      </aside>
+
+      <div class="stack">
+        <section class="section">
+          <header class="section-head">
+            <div><span class="section-index">01 / CASE SUITE</span><h2>选择评测任务</h2><p>首期三个业务切片均采用“模糊需求 → POC → 反馈 → 验收”剧本。</p></div>
+            <span class="status good" id="case-status">3 selected</span>
+          </header>
+          <div class="section-body">
+            <div class="card-grid" id="case-grid">
+              <label class="select-card selected">
+                <input type="checkbox" value="macro-map-3d-greenfield" checked>
+                <span class="card-code">CASE / 3D / EXPERT</span>
+                <h3>Macro Map 3D</h3>
+                <p>1481 节点关系场景，覆盖深度视觉、交互状态机、性能降级与 WebGL 治理。</p>
+              </label>
+              <label class="select-card selected">
+                <input type="checkbox" value="narrative-equity-relationship" checked>
+                <span class="card-code">CASE / NARRATIVE GRAPH / EXPERT</span>
+                <h3>股权关系叙事可视化</h3>
+                <p>复杂股权图组件，覆盖关系布局、分章节动画、播放状态机、媒体联动和生产回归。</p>
+              </label>
+              <label class="select-card selected">
+                <input type="checkbox" value="ainvest-market-heatmap-rebuild" checked>
+                <span class="card-code">CASE / PRODUCT / EXPERT</span>
+                <h3>Market Heatmap</h3>
+                <p>已上线业务复刻，覆盖多市场 Treemap、色阶、钻取、设置、竞态和生产稳定性。</p>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <header class="section-head">
+            <div><span class="section-index">02 / ENGINE</span><h2>选择 CLI 与目标模型</h2><p>Engine 是执行工具，Model 是被测对象；报告同时记录二者。</p></div>
+            <span class="status info" id="engine-status">Codex ready</span>
+          </header>
+          <div class="section-body">
+            <div class="engine-grid" id="engine-grid">
+              <label class="select-card engine-card selected">
+                <input type="radio" name="engine" value="codex-cli" checked>
+                <span class="card-code">codex-cli 0.144.6</span>
+                <h3>Codex</h3>
+                <p>测试 GPT 系列；支持 JSONL、模型选择、Workspace Sandbox 和跨阶段 Session Resume。</p>
+              </label>
+              <label class="select-card engine-card">
+                <input type="radio" name="engine" value="kimi-code-cli">
+                <span class="card-code">kimi-code 0.27.0</span>
+                <h3>Kimi Code</h3>
+                <p>测试 Kimi 系列；支持 Prompt 非交互、stream-json、模型选择和 Auto 权限。</p>
+              </label>
+              <label class="select-card engine-card">
+                <input type="radio" name="engine" value="claude-code-cli">
+                <span class="card-code">claude-code 2.1.177</span>
+                <h3>Claude Code</h3>
+                <p>测试 GLM / DeepSeek 等配置；支持 stream-json、预算上限、安全模式和跨阶段 Session Resume。</p>
+              </label>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="provider">Provider</label>
+                <select id="provider">
+                  <option value="openai">OpenAI</option>
+                  <option value="moonshot">Moonshot / Kimi</option>
+                  <option value="zhipu">Zhipu / GLM</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="custom">Custom compatible endpoint</option>
+                </select>
+              </div>
+              <div class="field span-2">
+                <label for="model">Configured model ID</label>
+                <input id="model" value="gpt-5-example" autocomplete="off">
+              </div>
+              <div class="field span-2">
+                <label for="executable">Executable</label>
+                <input id="executable" value="codex" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="credential">Credential reference</label>
+                <input id="credential" value="secret://codex/default" autocomplete="off">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <header class="section-head">
+            <div><span class="section-index">03 / ISOLATION</span><h2>隔离与联网</h2><p>答案仓库和隐藏验收必须在 Worker 文件系统中完全不存在。</p></div>
+            <span class="status warn">soft isolation</span>
+          </header>
+          <div class="section-body isolation-grid">
+            <div>
+              <div class="toggle-row">
+                <div><strong>允许访问公开互联网</strong><small>查官方文档和公开产品；内部代码网络仍阻断。</small></div>
+                <label class="switch"><input id="network" type="checkbox" checked><span></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><strong>复制内部答案到工作区</strong><small>强制禁止；启动前执行已知答案泄漏扫描。</small></div>
+                <label class="switch"><input type="checkbox" disabled><span></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><strong>加载个人规则 / MCP / 运行前历史 Session</strong><small>禁用；但同一个 Run 内保留阶段会话连续性。</small></div>
+                <label class="switch"><input type="checkbox" disabled><span></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><strong>隐藏 Evaluator 延后执行</strong><small>Worker 销毁后在控制面验收。</small></div>
+                <label class="switch"><input type="checkbox" checked disabled><span></span></label>
+              </div>
+            </div>
+            <pre class="manifest" aria-label="Mount manifest"><span class="dim"># worker mount manifest</span>
+<span class="ok">COPY</span> case input       → run/input
+<span class="ok">COPY</span> clean scaffold   → run/workspace
+<span class="ok">DROP</span> .git / cache / build / answer
+
+<span class="ok">PASS</span> answer leakage scan
+<span class="ok">PASS</span> fresh run Git repository
+<span class="ok">PASS</span> input SHA-256 manifest
+<span class="ok">PASS</span> hidden evaluator not copied
+
+<span class="deny">LIMIT</span> current user can still read host
+<span class="deny">LIMIT</span> not leaderboard eligible
+<span class="dim">Upgrade path: container / VM later</span></pre>
+          </div>
+        </section>
+
+        <section class="section">
+          <header class="section-head">
+            <div><span class="section-index">04 / BUDGET</span><h2>预算与停止条件</h2><p>不可获得的数据标记 unavailable，不用估算值冒充精确统计。</p></div>
+            <span class="status warn">hard stop enabled</span>
+          </header>
+          <div class="section-body">
+            <div class="budget-grid">
+              <div class="budget-box"><label>Wall time</label><input id="wall-time" type="number" value="180"><small>minutes</small></div>
+              <div class="budget-box"><label>Max retries</label><input id="retries" type="number" value="1"><small>per Case</small></div>
+              <div class="budget-box"><label>Token budget</label><input id="tokens" placeholder="—"><small>optional / capability-based</small></div>
+              <div class="budget-box"><label>Cost budget</label><input id="cost" placeholder="—"><small>USD / optional</small></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <header class="section-head">
+            <div><span class="section-index">05 / EVIDENCE</span><h2>证据采集</h2><p>Agent 的自述不是完成证据；以 Runner、Git、Evaluator 和人工 Review 为准。</p></div>
+            <span class="status good">9 collectors</span>
+          </header>
+          <div class="section-body">
+            <div class="card-grid">
+              <div class="select-card selected"><span class="card-code">PROCESS</span><h3>完整事件日志</h3><p>原始 stdout/stderr、归一化 JSONL、CLI 版本、参数和退出原因。</p></div>
+              <div class="select-card selected"><span class="card-code">WORKSPACE</span><h3>代码与文件证据</h3><p>输入哈希、前后文件树、Git diff、构建测试与最终产物。</p></div>
+              <div class="select-card selected"><span class="card-code">PRODUCTIVITY</span><h3>收敛与人效证据</h3><p>需求澄清、Spec 准备、首版 POC、微调轮数、回归、验收和端到端交付时间。</p></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="run-footer">
+          <div class="run-summary" id="run-summary"><b>3 Cases</b> · codex-cli / gpt-5-example · file-isolated development · public network enabled</div>
+          <button class="primary" id="generate-run">生成 RunSpec 预览</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="./assets/setup.js"></script>
+</body>
+</html>

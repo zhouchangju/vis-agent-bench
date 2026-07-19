@@ -1,0 +1,67 @@
+version: 1
+total: 100
+hard_gates:
+  - build_and_typecheck
+  - valid_overview_render
+  - deterministic_chapter_navigation
+  - no_critical_layout_overlap
+  - lifecycle_cleanup
+categories:
+  business_and_data:
+    weight: 14
+    checks:
+      - dsl_validation_and_compatibility
+      - node_edge_semantics
+      - overview_chapter_to_show_contract
+      - event_payload_correctness
+  layout:
+    weight: 22
+    checks:
+      - fit_and_title_offset
+      - label_aware_node_spacing
+      - node_node_overlap
+      - edge_node_overlap
+      - edge_endpoint_boundary
+      - edge_label_wrapping_and_collision
+      - horizontal_layer_alignment
+      - overview_chapter_position_stability
+  visual_quality:
+    weight: 12
+    checks:
+      - node_type_status_focus_encoding
+      - edge_style_direction_encoding
+      - label_and_tag_readability
+      - subtitle_panel_and_popup_layering
+      - small_container_degradation
+  animation_and_state:
+    weight: 22
+    checks:
+      - basic_animation_semantics
+      - grow_and_move_sequence
+      - replace_without_flash
+      - group_group_grow_ungroup
+      - persistent_opacity_and_dim
+      - camera_focus
+  playback_and_navigation:
+    weight: 16
+    checks:
+      - overview_to_chapter
+      - chapter_inheritance
+      - arbitrary_chapter_start
+      - previous_next_and_pause_resume
+      - completion_returns_overview
+      - audio_animation_timing
+  engineering_delivery:
+    weight: 14
+    checks:
+      - component_api_and_types
+      - resize_and_stale_transition_control
+      - cleanup_and_no_duplicate_events
+      - automated_tests
+      - examples_and_documentation
+caps:
+  p0_failure_max_score: 59
+  hardcoded_fixture_answer_max_score: 20
+  missing_group_animation_max_score: 74
+  non_deterministic_navigation_max_score: 49
+

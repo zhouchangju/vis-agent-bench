@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vis Agent Bench · Leadership Report</title>
+  <link rel="stylesheet" href="./assets/prototype.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./setup.html"><span class="brand-mark">VAB</span>Vis Agent Bench</a>
+      <nav class="nav" aria-label="Prototype pages">
+        <a href="./setup.html">运行设置</a>
+        <a href="./review.html">人工评审</a>
+        <a class="active" href="./report.html">领导报告</a>
+      </nav>
+      <div class="top-meta">REPORT / 2026-07 / SAMPLE</div>
+    </header>
+
+    <div class="demo-ribbon"><b>SAMPLE DATA</b> 最终报告将在机器证据和人工评审都完成后生成；以下数字只用于验证报告结构。</div>
+
+    <section class="report-hero">
+      <div class="verdict">
+        <span class="status good">建议：有限范围试点</span>
+        <h1>编码不是主瓶颈；候选模型尚未改变需求收敛方式。</h1>
+        <p>示例结果显示，Kimi K3 在方案表达和首版视觉上有局部优势，但需求澄清、约束保持和多轮微调没有显著优于当前 Codex + GPT 工作流。是否推广，应以“到业务验收的人类总投入”判断，而不是看 Demo 生成速度。</p>
+        <div class="speed-number"><b>1.08×</b><span>相对当前 AI 基线<br>示例，非实测结论</span></div>
+      </div>
+      <aside class="decision-panel">
+        <div>
+          <div class="eyebrow">Executive decision</div>
+          <h2>这次评测回答了什么？</h2>
+          <div class="decision-list">
+            <div class="decision-item"><b>1</b><span>测试单位已从一次编码改为“模糊需求—POC—反馈—验收”的完整过程。</span></div>
+            <div class="decision-item"><b>2</b><span>Kimi 的潜在价值更可能来自首版方案与视觉，而不是纯编码能力代差。</span></div>
+            <div class="decision-item"><b>3</b><span>是否大幅提效，要看澄清和微调是否下降；当前示例不足以支持全面切换。</span></div>
+          </div>
+        </div>
+        <span class="status info">Evidence completeness 92%</span>
+      </aside>
+    </section>
+
+    <section class="metric-grid" aria-label="Executive metrics">
+      <div class="metric"><div class="label">Time to shared understanding</div><div class="value">1.6h</div><div class="delta warn">当前基线 1.5h · 示例</div></div>
+      <div class="metric"><div class="label">First POC fitness</div><div class="value">71%</div><div class="delta good">视觉首版较基线 +8pt · 示例</div></div>
+      <div class="metric"><div class="label">Iterations to acceptance</div><div class="value">4.3</div><div class="delta warn">当前基线 4.0 轮 · 示例</div></div>
+      <div class="metric"><div class="label">Human touch time</div><div class="value">6.9h</div><div class="delta">当前 AI 基线 7.4h · 示例</div></div>
+    </section>
+
+    <div class="report-grid">
+      <div>
+        <section class="report-card">
+          <header class="report-card-head"><h2>模型 × Case 结果矩阵</h2><span class="status info">pass@1</span></header>
+          <div class="report-card-body">
+            <table class="matrix">
+              <thead><tr><th>运行组合</th><th>需求对齐</th><th>首版 POC</th><th>验收轮数</th><th>P0 合格率</th><th>人工投入</th></tr></thead>
+              <tbody>
+                <tr><td class="model">Codex · 当前 GPT 基线</td><td>1.5h / 2轮</td><td class="score warn">63%</td><td>4.0</td><td class="score good">67%</td><td>7.4h</td></tr>
+                <tr><td class="model">Kimi Code · K3 候选</td><td>1.6h / 2轮</td><td class="score good">71%</td><td class="score warn">4.3</td><td class="score good">67%</td><td>6.9h</td></tr>
+                <tr><td class="model">Claude Code · 第三方模型</td><td>2.0h / 3轮</td><td class="score warn">61%</td><td class="score bad">5.3</td><td class="score warn">33%</td><td>8.6h</td></tr>
+              </tbody>
+            </table>
+            <p class="footnote">主基线是团队现有 Codex + 主力 GPT 工作流。首版 POC 是对最终 P0 要求的覆盖率；所有数字均为原型示例。</p>
+          </div>
+        </section>
+
+        <section class="report-card">
+          <header class="report-card-head"><h2>按 Case 看能力边界</h2><span class="status good">3 real tasks</span></header>
+          <div class="report-card-body case-list">
+            <div class="case-row">
+              <div><h3>Macro Map 3D</h3><p>高价值辅助 · 不能独立交付</p></div>
+              <span class="status warn">P0 partial</span>
+              <div><div class="gate"><span class="on"></span><span class="on"></span><span class="partial"></span></div><p class="footnote">布局与基础交互完成；关系命中、移动降级和资源恢复未达门槛。</p></div>
+            </div>
+            <div class="case-row">
+              <div><h3>股权关系叙事可视化</h3><p>核心编码可辅助 · 状态与视觉需深度 Review</p></div>
+              <span class="status warn">P0 partial</span>
+              <div><div class="gate"><span class="on"></span><span class="partial"></span><span class="partial"></span></div><p class="footnote">基础关系图与章节切换可用；复杂布局、动画连续性和音画同步仍需人工修正。</p></div>
+            </div>
+            <div class="case-row">
+              <div><h3>Market Heatmap</h3><p>主链路可用 · 需要业务边界 Review</p></div>
+              <span class="status good">P0 passed</span>
+              <div><div class="gate"><span class="on"></span><span class="on"></span><span class="partial"></span></div><p class="footnote">Stock 闭环通过；ETF/Crypto 色阶和快速切换竞态仍需修复。</p></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="report-card">
+          <header class="report-card-head"><h2>人类时间消耗在哪里</h2><span class="status info">human touch breakdown</span></header>
+          <div class="report-card-body bar-list">
+            <div class="bar-row"><span>需求澄清</span><div class="bar-track"><div class="bar-fill human" style="width:74%"></div></div><span class="bar-value">1.6h</span></div>
+            <div class="bar-row"><span>上下文 / Spec 准备</span><div class="bar-track"><div class="bar-fill human" style="width:58%"></div></div><span class="bar-value">1.2h</span></div>
+            <div class="bar-row"><span>首版 POC 评审</span><div class="bar-track"><div class="bar-fill" style="width:31%"></div></div><span class="bar-value">0.6h</span></div>
+            <div class="bar-row"><span>视觉交互微调</span><div class="bar-track"><div class="bar-fill human" style="width:86%"></div></div><span class="bar-value">2.1h</span></div>
+            <div class="bar-row"><span>缺陷与回归修复</span><div class="bar-track"><div class="bar-fill human" style="width:49%"></div></div><span class="bar-value">0.9h</span></div>
+            <div class="bar-row"><span>最终验收</span><div class="bar-track"><div class="bar-fill" style="width:25%"></div></div><span class="bar-value">0.5h</span></div>
+            <p class="footnote">单独记录 Agent 编码运行时间，但管理结论以 Human Touch Time 和 Accepted Delivery 为准。</p>
+          </div>
+        </section>
+      </div>
+
+      <aside>
+        <section class="report-card">
+          <header class="report-card-head"><h2>管理结论</h2><span class="status good">actionable</span></header>
+          <div class="report-card-body">
+            <div class="finding"><small>01 / BASELINE</small><h3>不要拿 Kimi 和纯手写比较</h3><p>团队已经普遍使用 Codex。模型切换只有在相对当前 AI 工作流降低总人工时，才构成新增提效。</p></div>
+            <div class="finding"><small>02 / VALUE</small><h3>单独验证首版方案与视觉优势</h3><p>如果 Kimi 的优势成立，应体现为更高 First POC Fitness 和更少微调，而不是主观评价“审美不错”。</p></div>
+            <div class="finding"><small>03 / BOTTLENECK</small><h3>重点攻需求账本与阶段化上下文</h3><p>通过逐阶段披露和 Requirement Ledger，测它能否在上下文变长后仍保持关键约束。</p></div>
+            <div class="finding"><small>04 / DECISION</small><h3>没有显著差异就不切换主流程</h3><p>可保留 Kimi 做方案探索或视觉 POC，但不能据此宣称编码和完整交付发生本质变化。</p></div>
+          </div>
+        </section>
+
+        <section class="report-card">
+          <header class="report-card-head"><h2>隔离与证据</h2><span class="status good">verified</span></header>
+          <div class="report-card-body">
+            <div class="audit">
+              <div><b>Isolation</b>File-isolated development</div>
+              <div><b>Answer repo</b>Not mounted</div>
+              <div><b>OS-level read block</b>Not enabled</div>
+              <div><b>Public network</b>Enabled / audited</div>
+              <div><b>CLI logs</b>100% collected</div>
+              <div><b>Token usage</b>2 reported / 1 unavailable</div>
+            </div>
+            <p class="footnote">当前文件隔离只适合内部开发验证，不具备容器级防读取能力，结果标记 leaderboard_eligible=false。</p>
+          </div>
+        </section>
+
+        <section class="report-card">
+          <header class="report-card-head"><h2>费用口径</h2><span class="status warn">mixed availability</span></header>
+          <div class="report-card-body">
+            <div class="finding"><small>REPORTED</small><h3>Codex / Claude Code</h3><p>从 CLI 结构化事件中保存 Token 或费用，并保留原始事件引用。</p></div>
+            <div class="finding"><small>UNAVAILABLE</small><h3>Kimi Code 示例</h3><p>若 CLI 不返回 usage，只展示自然时间和人工投入，不根据文本长度估算 Token。</p></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

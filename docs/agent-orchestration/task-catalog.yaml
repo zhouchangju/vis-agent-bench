@@ -1,0 +1,147 @@
+schema_version: 1
+baseline_required: true
+integration_branch: codex/agent-bench-integration
+task_status_values:
+  - planned
+  - ready
+  - running
+  - review
+  - accepted
+  - blocked
+  - needs_integration_change
+
+tasks:
+  - id: VAB-T00
+    title: 契约与结构校验
+    wave: 0
+    status: planned
+    branch: codex/vab-t00-contracts
+    depends_on: []
+    prompt: prompts/VAB-T00-CONTRACTS.md
+    allowed_paths:
+      - schemas/**
+      - src/contracts/**
+      - scripts/validate-structure.mjs
+      - tests/contracts/**
+      - package.json
+      - docs/agent-orchestration/evidence/VAB-T00.md
+
+  - id: VAB-T01
+    title: CLI Adapter 协议与遥测
+    wave: 1
+    status: planned
+    branch: codex/vab-t01-runner-telemetry
+    depends_on: [VAB-T00]
+    prompt: prompts/VAB-T01-RUNNER-TELEMETRY.md
+    allowed_paths:
+      - src/runners/**
+      - src/telemetry/**
+      - tests/runners/**
+      - docs/architecture/RUNNER_PROTOCOL.md
+      - docs/agent-orchestration/evidence/VAB-T01.md
+
+  - id: VAB-T02
+    title: Fixture Builder 与隔离框架
+    wave: 1
+    status: planned
+    branch: codex/vab-t02-fixture-framework
+    depends_on: [VAB-T00]
+    prompt: prompts/VAB-T02-FIXTURE-FRAMEWORK.md
+    allowed_paths:
+      - src/fixtures/**
+      - src/core/file-isolation.mjs
+      - scripts/build-fixture.mjs
+      - tests/fixtures/**
+      - docs/architecture/ISOLATION_AND_ANTI_CHEATING.md
+      - docs/agent-orchestration/evidence/VAB-T02.md
+
+  - id: VAB-T03
+    title: 股权关系脱敏 Fixture
+    wave: 2
+    status: planned
+    branch: codex/vab-t03-equity-fixture
+    depends_on: [VAB-T02]
+    prompt: prompts/VAB-T03-EQUITY-FIXTURE.md
+    allowed_paths:
+      - cases/narrative-equity-relationship/fixture/**
+      - scripts/fixtures/equity/**
+      - tests/cases/narrative-equity/**
+      - docs/agent-orchestration/evidence/VAB-T03.md
+
+  - id: VAB-T04
+    title: Evaluator Core
+    wave: 1
+    status: planned
+    branch: codex/vab-t04-evaluator-core
+    depends_on: [VAB-T00]
+    prompt: prompts/VAB-T04-EVALUATOR-CORE.md
+    allowed_paths:
+      - src/evaluators/core/**
+      - tests/evaluators/core/**
+      - docs/architecture/EVALUATOR_PROTOCOL.md
+      - docs/agent-orchestration/evidence/VAB-T04.md
+
+  - id: VAB-T05
+    title: 股权关系确定性 Evaluator
+    wave: 3
+    status: planned
+    branch: codex/vab-t05-equity-evaluator
+    depends_on: [VAB-T03, VAB-T04]
+    prompt: prompts/VAB-T05-EQUITY-EVALUATOR.md
+    allowed_paths:
+      - src/evaluators/cases/narrative-equity/**
+      - tests/evaluators/narrative-equity/**
+      - cases/narrative-equity-relationship/evaluator/**
+      - docs/agent-orchestration/evidence/VAB-T05.md
+
+  - id: VAB-T06
+    title: 浏览器证据与人工评审
+    wave: 1
+    status: planned
+    branch: codex/vab-t06-browser-review
+    depends_on: [VAB-T00]
+    prompt: prompts/VAB-T06-BROWSER-REVIEW.md
+    allowed_paths:
+      - src/browser-evidence/**
+      - src/review/**
+      - scripts/capture-browser-evidence.mjs
+      - tests/browser-evidence/**
+      - prototype/review.html
+      - prototype/assets/review.js
+      - schemas/human-review.schema.json
+      - docs/agent-orchestration/evidence/VAB-T06.md
+
+  - id: VAB-T07
+    title: 报告生成器
+    wave: 1
+    status: planned
+    branch: codex/vab-t07-reporting
+    depends_on: [VAB-T00]
+    prompt: prompts/VAB-T07-REPORTING.md
+    allowed_paths:
+      - src/reporting/**
+      - scripts/generate-report.mjs
+      - tests/reporting/**
+      - schemas/report.schema.json
+      - prototype/report.html
+      - docs/reports/**
+      - docs/agent-orchestration/evidence/VAB-T07.md
+
+  - id: VAB-T08
+    title: 总集成与 Web 控制面
+    wave: 4
+    status: planned
+    branch: codex/vab-t08-integration
+    depends_on: [VAB-T01, VAB-T03, VAB-T05, VAB-T06, VAB-T07]
+    prompt: prompts/VAB-T08-INTEGRATION.md
+    allowed_paths:
+      - scripts/bench.mjs
+      - src/control-plane/**
+      - tests/e2e/**
+      - prototype/setup.html
+      - prototype/assets/setup.js
+      - package.json
+      - README.md
+      - docs/roadmap/ROADMAP.md
+      - docs/agent-orchestration/evidence/VAB-T08.md
+

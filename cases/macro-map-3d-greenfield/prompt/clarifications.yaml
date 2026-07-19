@@ -1,0 +1,8 @@
+answers:
+  data_scale: "正式数据为 1481 个节点、2106 条边；另提供约 200 节点开发样本。"
+  layout_stability: "同一数据和配置重复加载时位置必须稳定。"
+  browser_scope: "以当前 Chrome、Safari 为主，移动端至少覆盖 iPhone 尺寸。"
+  visual_reference: "提供关键状态参考图，但不要求逐像素复制技术实现。"
+  performance_target: "具体阈值由统一测试机基线确定；不得通过删减数据规避。"
+  networking: "允许联网查文档，但运行验收使用本地 fixture。"
+  existing_source: "不提供现有 3D 实现源码。"

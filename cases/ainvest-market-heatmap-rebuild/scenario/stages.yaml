@@ -1,0 +1,45 @@
+version: 1
+mode: progressive-disclosure
+requirement_truth: ../prompt/requirement.md
+stages:
+  - id: S0
+    name: ambiguous-brief
+    input: initial-brief.md
+    checkpoint: [requirement-ledger.yaml, docs/poc-plan.md]
+    observe: [question_quality, assumptions, context_prep_minutes]
+  - id: S1
+    name: stock-poc
+    stakeholder_message: |
+      首版只做 Stock，但需要切换多个常见指数范围。面积支持市值和等面积；颜色先按
+      日涨跌；可以按 Sector 分组或不分组。小格子可降级信息，但 Tooltip 必须有名称、
+      代码、价格、市值和当前颜色指标。点击板块钻取，点击股票发出详情事件。
+    checkpoint: [requirement-ledger.yaml, runnable-poc]
+    observe: [time_to_shared_understanding, time_to_first_poc]
+  - id: S2
+    name: poc-review
+    stakeholder_message: |
+      首轮评审反馈：极端涨跌让大部分颜色失去区分度；小节点文字太拥挤；钻取后 Resize
+      会丢状态。请补齐正、负、零、空值与极端值规则，以及 loading、empty、error、retry。
+      禁止贴图或硬编码矩形位置。
+    checkpoint: [requirement-ledger.yaml, reviewable-poc-v2, regression-evidence]
+    observe: [first_pass_fitness, micro_adjustments, requirement_retention]
+  - id: S3
+    name: multi-market
+    stakeholder_message: |
+      业务确认要扩展 ETF 和 Crypto。ETF 面积按 AUM、可按 Asset Class 分组；Crypto
+      面积按市值并支持包含/排除 BTC。不同市场的时间范围和颜色深度不同。还需要 Logo、
+      标题、数值、颜色方案设置，全屏和主要筛选状态恢复。
+    checkpoint: [requirement-ledger.yaml, multi-market-demo, tests]
+    observe: [constraint_retention, regressions, clarification_minutes]
+  - id: S4
+    name: production-readiness
+    stakeholder_message: |
+      请按生产候选收口：明暗主题、桌面/窄屏/全屏响应式；快速切换时旧请求不得覆盖新状态；
+      大数据下缩放、Tooltip、钻取和 Resize 保持流畅；避免重复绑定和实例泄漏。补齐类型、
+      数据转换单测、关键交互测试和视觉回归。
+    checkpoint:
+      - candidate-delivery
+      - automated-test-results
+      - final-requirement-ledger
+    observe: [accepted_delivery, fix_minutes, final_review_minutes]
+

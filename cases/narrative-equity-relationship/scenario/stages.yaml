@@ -1,0 +1,127 @@
+version: 1
+mode: progressive-disclosure
+requirement_truth: ../prompt/requirement.md
+stages:
+  - id: S0
+    name: ambiguous-product-brief
+    input: initial-brief.md
+    checkpoint:
+      - requirement-ledger.yaml
+      - docs/poc-plan.md
+    observe:
+      - question_quality
+      - product_model_understanding
+      - assumptions
+      - context_prep_minutes
+
+  - id: S1
+    name: overview-and-data-contract
+    stakeholder_message: |
+      数据分为一个结论总览和多个章节。节点至少包括组织、人物和数据图形三类，组织
+      还存在正常、空壳、破产、新成立等状态；关系需要表达实线/虚线、单向/双向、
+      关系文字、比例和可选标记。章节可以引用总览元素，也可以定义后续才出现的元素。
+
+      首版 POC 请完成：数据校验、总览图、层次关系布局、图标/标签/箭头、缩放和平移，
+      并提供节点、边和视口事件。总览必须在容器中完整可见，长名称和长关系文字不能
+      直接互相覆盖。
+    checkpoint:
+      - requirement-ledger.yaml
+      - runnable-overview-poc
+      - data-contract
+    observe:
+      - time_to_shared_understanding
+      - time_to_first_poc
+      - first_pass_fitness
+
+  - id: S2
+    name: layout-and-visual-review
+    stakeholder_message: |
+      首轮视觉走查发现：节点图片、名称胶囊和角标必须作为一个完整外包围盒参与布局；
+      连线端点应落在节点图片边界，不能穿过图片或名称；长边标签要合理换行，百分比等
+      数值尽量保持完整，并使用背景保证可读性。
+
+      同一层节点需要视觉对齐和相对均匀的间距；应尽量减少边交叉，并避免跨层连线穿过
+      中间节点。总览中已经确定的位置进入章节后应尽量不动，章节新增节点围绕已有关系
+      找位置。Resize 和步骤重绘都不能让老节点无理由跳动。
+    checkpoint:
+      - requirement-ledger.yaml
+      - layout-review-build
+      - layout-test-evidence
+      - fixed-state-screenshots
+    observe:
+      - node_overlap_count
+      - edge_node_overlap_count
+      - edge_label_collision_count
+      - layout_stability
+      - micro_adjustment_items
+
+  - id: S3
+    name: narrative-animation-system
+    stakeholder_message: |
+      现在加入章节时间线。每个 step 有字幕和一组可并行动画，step 之间顺序播放。
+      需要支持：元素渐现/渐隐、节点强调后恢复、持久透明度、边从源到目标生长、
+      边标记沿路径移动、多个节点成组/解组、指向组的关系生长，以及节点按序替换。
+
+      注意动画后的状态必须经得住正常重绘：置灰和透明度不能丢；隐藏元素不能闪现；
+      replace 序列的中间节点不能先出现在自己的布局位置；分组后相关旧边不能被下一次
+      render 错误恢复；解组后节点和边要回到一致位置。每个动画需要自动把镜头聚焦到
+      相关元素，但消失类动画不要造成无意义跳镜头。
+    checkpoint:
+      - requirement-ledger.yaml
+      - animation-demo
+      - animation-state-tests
+      - rerender-regression-evidence
+    observe:
+      - animation_correctness
+      - state_retention
+      - visual_flicker
+      - regressions
+
+  - id: S4
+    name: chapter-playback-and-media
+    stakeholder_message: |
+      完成总览→章节、章节→章节、播放/暂停/恢复、上一章/下一章、上一 step/下一 step、
+      任意章节起点跳转和播放完返回总览。章节切换时，总览引用元素正常显示；不属于
+      当前焦点但仍需保留的总览元素降低透明度；临时元素按规则退出。上一章已形成的
+      分组只有在目标章仍包含全部成员时才能继承，孤儿边不能残留。
+
+      每个 step 可能带音频、链接或截图素材。音频与动画以较长者决定 step 时长，
+      支持预加载、暂停、恢复、停止和无音频兼容。截图素材以独立浮层展示，需要加载
+      失败降级、出现/退出过渡和与 step 时长协调。字幕、全局标题、章节信息和问题入口
+      不应跟随 SVG 缩放而产生错误层级。
+    checkpoint:
+      - requirement-ledger.yaml
+      - end-to-end-playback-demo
+      - chapter-jump-tests
+      - audio-media-tests
+    observe:
+      - deterministic_navigation
+      - chapter_inheritance_correctness
+      - audio_animation_sync
+      - manual_intervention_minutes
+
+  - id: S5
+    name: componentization-and-production-readiness
+    stakeholder_message: |
+      请按可复用组件收口。提供 loadData、配置更新、总览渲染、播放控制、章节/步骤导航、
+      状态查询、SVG/缩略图能力和完整事件 API。支持资源基础路径配置。
+
+      容器变化通过容器级 Resize 监听；空间不足时图形仍可看，但文字、字幕和面板应
+      合理降级。快速章节切换时旧异步过渡不得覆盖新状态。重复 load、Resize、播放、
+      reset、挂载/卸载不能重复绑定事件、残留计时器、音频、DOM、动画帧或缓存。
+
+      交付类型定义、脱敏示例、API/DSL/动画说明、布局与状态单测、关键交互测试、固定
+      截图和已知边界。不能为了通过示例硬编码节点位置或业务实体名称。
+    checkpoint:
+      - candidate-delivery
+      - automated-test-results
+      - visual-evidence
+      - final-requirement-ledger
+      - limitations.md
+    observe:
+      - accepted_delivery
+      - requirement_retention
+      - lifecycle_cleanup
+      - fix_minutes
+      - final_review_minutes
+

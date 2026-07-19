@@ -1,0 +1,14 @@
+weights:
+  business_semantics: 20
+  layout_quality: 25
+  interaction_correctness: 20
+  standard_chart_integration: 20
+  testing_compatibility: 10
+  documentation: 5
+gates:
+  p0_min_score: 80
+  critical_failure_cap: 49
+levels:
+  p0: required
+  p1: differentiator
+  p2: production_readiness

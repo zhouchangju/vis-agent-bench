@@ -1,0 +1,37 @@
+version: 1
+mode: progressive-disclosure
+requirement_truth: ../prompt/requirement.md
+stages:
+  - id: S0
+    name: ambiguous-brief
+    input: initial-brief.md
+    checkpoint: [requirement-ledger.yaml, docs/poc-plan.md]
+    observe: [question_quality, assumptions, context_prep_minutes]
+  - id: S1
+    name: requirement-alignment
+    stakeholder_message: |
+      中心是目标产业，左侧上游、右侧下游；两边都可能多级、不同深度或一侧为空。
+      节点展示名称和涨跌指标，金融配色沿用产品规则。需要选中、取消和分支展开收起，
+      并向业务层发出节点点击与展开状态事件。
+    checkpoint: [requirement-ledger.yaml, runnable-poc]
+    observe: [time_to_shared_understanding, time_to_first_poc]
+  - id: S2
+    name: poc-review
+    stakeholder_message: |
+      首轮评审反馈：中心节点不够稳定，展开一侧时另一侧跳动太大；部分连线穿过节点；
+      长中英文和极端涨跌会挤坏布局。请保证空白点击取消选择，Tooltip、选中和强调状态
+      不互相覆盖，并在 Resize 后保持主要分支可见。
+    checkpoint: [requirement-ledger.yaml, reviewable-poc-v2, regression-evidence]
+    observe: [first_pass_fitness, micro_adjustments, requirement_retention]
+  - id: S3
+    name: component-integration
+    stakeholder_message: |
+      现在按正式 StandardChart 组件收口：支持业务分组、PC 明暗主题、键盘基本可访问；
+      数据更新尽量保持未变节点的位置与展开状态。必须走仓库现有扩展和生命周期，
+      提供类型安全 option、示例、API 文档、单测、交互测试和视觉回归。
+    checkpoint:
+      - candidate-delivery
+      - automated-test-results
+      - final-requirement-ledger
+    observe: [accepted_delivery, regressions, fix_minutes, final_review_minutes]
+

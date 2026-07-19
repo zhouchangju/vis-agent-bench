@@ -1,0 +1,7 @@
+answers:
+  repository_scope: "允许读取并修改 paradigm-chart 包及其测试、示例和文档。"
+  reference_data: "提供锂离子电池产业链脱敏 fixture，包含左右多级、空侧和长名称样本。"
+  technology: "必须接入 StandardChart 扩展机制，不能以独立页面或静态 SVG 规避。"
+  compatibility: "保持现有公开 API 和主题兼容；新增 API 需有类型与文档。"
+  mobile: "首期以 PC 为主，窄容器必须可用，不要求单独移动端产品稿。"
+  networking: "允许联网查技术资料。"
