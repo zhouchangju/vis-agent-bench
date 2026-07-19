@@ -290,12 +290,18 @@ function detectProviderQuotaFailure(runDir) {
   if (!failedStage?.stage_id) return null;
   const stageDir = join(runDir, 'logs', 'stages', failedStage.stage_id);
   if (!existsSync(stageDir)) return null;
-  const stderrPaths = readdirSync(stageDir)
+  const availableStderrPaths = readdirSync(stageDir)
     .sort()
     .reverse()
     .map(attempt => join(stageDir, attempt, 'stderr.raw'))
     .filter(existsSync);
-  const stderr = stderrPaths.map(path => readFileSync(path, 'utf8')).join('\n');
+  const resultAttemptPath = Number.isInteger(failedStage.attempt)
+    ? join(stageDir, `attempt-${String(failedStage.attempt).padStart(2, '0')}`, 'stderr.raw')
+    : null;
+  const stderrPaths = resultAttemptPath && existsSync(resultAttemptPath)
+    ? [resultAttemptPath]
+    : availableStderrPaths.slice(0, 1);
+  const stderr = stderrPaths.length ? readFileSync(stderrPaths[0], 'utf8') : '';
   if (!/(?:reached your usage limit|quota will be refreshed|usage limit for this billing cycle)/i.test(stderr)) {
     return null;
   }
