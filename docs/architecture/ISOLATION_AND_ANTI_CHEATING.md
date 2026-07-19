@@ -107,15 +107,17 @@ Worker 结束后只导出代码差异、日志和允许的产物。隐藏验收�
 
 这类 Case 不能把当前仓库或其 `.git` 交给 Agent。
 
-以股权关系叙事可视化为例：
+通用 Fixture Builder 生命周期（参见 `src/fixtures/builder.mjs`）：
 
-1. Fixture Builder 在 Host 上从固定 commit 导出无 `.git` 快照；
-2. 按 answer-exclusion manifest 删除现有股权关系实现、Playground、测试、文档、搜索索引和构建产物；
-3. 应用一份只负责移除注册引用的 compile-clean patch；
-4. 运行基线 build/lint/test，证明起始工程有效；
-5. 扫描 `EquityRelationship`、关键协调器类名、历史提交号和关键实现片段；
-6. 将清洗快照复制到 Worker；
-7. 答案仓库和完整 Git 历史始终留在 Host。
+1. **Scaffold**：Fixtu 构建器从指定源拷贝全树；
+2. **Exclusion**：应用默认排除规则（`.git`、`node_modules`、构建产物、编辑器缓存、搜索索引等），按需叠加 Case 声明的 `fixture/plan.yaml` 排除项；
+3. **Compile-clean patch**：应用仅移除注册引用、恢复可编译状态的补丁，不包含布局或交互答案；
+4. **Leakage scan**：三层扫描（path/content/canary），记录 rule_id、位置、发现片段和修复建议；路径和内容发现会阻断发布，canary 发现仅作建议；
+5. **Baseline gate**：运行 Case 声明的 `build`、`typecheck`、`test`、`lint` 步骤；任一必选步骤失败则拒绝发布；
+6. **Manifest**：生成确定性清单，含文件哈希、泄漏规则摘要、构建环境指纹和可复现摘要；
+7. **Publish**：仅在全部门槛通过后原子发布至导出根目录。
+
+以股权关系叙事可视化为例：
 
 不建议直接退回功能出现前的旧提交作为唯一方案，因为多年架构和依赖差异会把评测变成旧代码迁移，偏离当前开发效率问题。
 
@@ -128,12 +130,14 @@ Worker 结束后只导出代码差异、日志和允许的产物。隐藏验收�
 首期采用文件级软隔离：
 
 - `.local/runs/<run-id>/workspace` 为唯一工作目录；
-- 起始工程复制时排除 `.git`、依赖、缓存和构建产物；
-- Case-specific leakage rules 扫描已知答案文件名和实现特征；
+- 起始工程由 `Fixture Builder` (`src/fixtures/`) 生成并通过三层泄漏扫描；
+- 排除 `.git`、依赖、缓存和构建产物（`src/fixtures/exclusion.mjs` 默认规则 + Case 声明）；
+- Case-specific leakage rules 扫描已知答案文件名、实现特征和 canary 标记（`src/fixtures/leakage.mjs`）；
 - CLI 禁用或替换自动发现的规则、Skills、浏览器和历史 Session；
-- 日志保存精确输入和文件哈希。
+- 日志保存精确输入和文件哈希；
+- Manifest 记录完整来源血统和确定摘要。
 
-由于 CLI 进程仍以当前用户身份运行，这种模式不能声称“保证读不到主机其他目录”。它只表示平台没有主动提供答案，且工作目录中未发现答案。
+由于 CLI 进程仍以当前用户身份运行，这种模式不能声称”保证读不到主机其他目录”。它只表示平台没有主动提供答案，且工作目录中未发现答案。
 
 只有通过容器/VM/专用用户预检的 Run 才显示：
 

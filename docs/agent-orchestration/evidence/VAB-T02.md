@@ -1,0 +1,51 @@
+# VAB-T02 Evidence
+
+- Status: DONE
+- Baseline: `3492a47` (`chore: mark VAB-T00 accepted`)
+- Branch: `codex/vab-t02-fixture-framework`
+- Changed paths:
+  - `src/fixtures/baseline-gate.mjs`
+  - `src/fixtures/builder.mjs`
+  - `src/fixtures/exclusion.mjs`
+  - `src/fixtures/index.mjs`
+  - `src/fixtures/leakage.mjs`
+  - `src/fixtures/manifest.mjs`
+  - `src/core/file-isolation.mjs`
+  - `scripts/build-fixture.mjs`
+  - `tests/fixtures/run.mjs`
+  - `package.json`
+  - `docs/architecture/ISOLATION_AND_ANTI_CHEATING.md`
+  - this evidence file
+- Acceptance commands and results:
+  - `npm run test:fixtures` → PASS, 23/23 checks.
+  - `npm run test:contracts` → PASS, 8/8 checks.
+  - `npm test` → PASS, all checks.
+  - `git diff --check` → PASS.
+  - Positive: `buildFixture` with clean temp scaffold → exports manifest with stable digest.
+  - Negative (leakage): `buildFixture` with `EquityRelationshipController` file → rejected with 2 blocking findings.
+  - Negative (baseline): `buildFixture` with `baseline: { build: { command: ['false'], required: true } }` → rejected.
+  - CLI dry-run, successful export, leakage rejection and baseline failure all verified.
+- Produced artifacts:
+  - `src/fixtures/` — Fixture Builder framework (manifest, exclusion, leakage, baseline gate, lifecycle builder).
+  - `src/core/file-isolation.mjs` — unchanged public API delegation to shared engine, with `copyWorkspaceWithExclusion` added for Case-declared exclusions.
+  - `scripts/build-fixture.mjs` — CLI entry for Case fixture plan-driven builds.
+  - `tests/fixtures/run.mjs` — 23 positive/negative test checks.
+  - `docs/architecture/ISOLATION_AND_ANTI_CHEATING.md` — updated with Fixture Builder lifecycle.
+- Not proven:
+  - Three primary Case fixtures are NOT implemented (belongs to VAB-T03).
+  - Source repositories were NOT copied or modified.
+  - OS-level read isolation is NOT claimed; `leaderboard_eligible` remains `false`.
+  - VAB-T08 wiring into `scripts/bench.mjs` is NOT done (belongs to VAB-T08).
+  - Only file-system-level `git apply` / `replace` patches are supported; `git am` and interactive rebases are not.
+  - `canary_names` from the CLI are literal strings; future Case authors may want regex canaries for richer obfuscation.
+- Remaining risks:
+  - The legacy hard-coded `DEFAULT_CASE_RULES` in `src/fixtures/leakage.mjs` duplicate the rules previously in `file-isolation.mjs`. They will be moved to Case YAML files in VAB-T03; until then, there is one maintenance surface for answer pattern lists.
+  - The CLI does not support `--baseline-step` with a command argument (only enable/disable); baseline commands must come from the Case plan YAML. This is intentional per "Case declares the command".
+  - The builder does not verify that the workspace is truly writeable by a downstream agent; it only produces a file tree with a manifest.
+- Integration notes:
+  - VAB-T03 consumes `buildFixture` from `src/fixtures/builder.mjs` to create sanitized equity-relationship starting scaffold.
+  - VAB-T08 consumes `buildFixtureFromCase` and the CLI to wire `build-fixture` into the bench CLI's `build-fixture` sub-command.
+  - `scripts/bench.mjs` uses the unchanged `scanForAnswerLeakage` signature; no migration needed until VAB-T08.
+  - `src/fixtures/index.mjs` exports the public API surface; internal modules may change shape without breaking downstream consumers.
+- Rollback:
+  - Revert this commit; the previous `file-isolation.mjs` and `package.json` are drop-in compatible with existing `scripts/bench.mjs` and `scripts/validate-structure.mjs`.

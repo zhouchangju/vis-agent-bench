@@ -10,6 +10,31 @@ import {
 import { basename, join, relative, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 
+import {
+  buildRuleSet,
+  mergeLegacyRules,
+  scanWorkspace,
+  resolveLegacyRules,
+} from '../fixtures/leakage.mjs';
+import {
+  resolveExclusionConfig,
+  compileExclusionFilter,
+} from '../fixtures/exclusion.mjs';
+
+/**
+ * File-level isolation for development runs.
+ *
+ * This module is the Runner-facing facade over the Fixture Builder primitives
+ * in `src/fixtures/`. It keeps the small surface that `scripts/bench.mjs` has
+ * been calling since VAB-T00 (copy / list / scan / run layout) while delegating
+ * the actual scanning logic to the shared, tested rule engine.
+ *
+ * Reminder (see docs/architecture/ISOLATION_AND_ANTI_CHEATING.md): file-level
+ * isolation only proves that the platform did not *deliver* answers into the
+ * workspace. It cannot stop a process running as the user from reading other
+ * host directories. Such runs are `leaderboard_eligible=false`.
+ */
+
 const excludedNames = new Set([
   '.git',
   '.DS_Store',
@@ -21,35 +46,6 @@ const excludedNames = new Set([
   '.cache',
 ]);
 
-const leakageRules = {
-  'macro-map-3d-greenfield': [
-    /GraphScene\.tsx/i,
-    /scene\/managers\/(?:Animation|Color|Edge|Interaction|Layout|Node)Manager/i,
-  ],
-  'standard-chart-two-way-tree': [
-    /dvTwoWayTree/i,
-    /TwoWayTreeView/i,
-    /twoWayTree\.js/i,
-    /自定义双向树图组件扩展/i,
-  ],
-  'narrative-equity-relationship': [
-    /EquityRelationship(?:Controller|View|Data|State|Layout|Interaction|Config)?/i,
-    /ChapterTransitionCoordinator/i,
-    /ChapterEntryBaseline/i,
-    /NodeLayoutResolver/i,
-    /AnimationEngine/i,
-    /packages[\\/]+equity-relationship/i,
-    /@narrative-visual\/equity-relationship/i,
-    /股权关系可视化组件/i,
-  ],
-  'ainvest-market-heatmap-rebuild': [
-    /WidgetHeatmap/i,
-    /HeatmapTreemapView/i,
-    /useTreemapChart/i,
-    /widget-heatmap/i,
-  ],
-};
-
 function shouldCopy(source) {
   return !excludedNames.has(basename(source));
 }
@@ -60,6 +56,28 @@ export function copyWorkspaceSource(source, target) {
     recursive: true,
     filter: shouldCopy,
     preserveTimestamps: true,
+  });
+}
+
+/**
+ * Copy a source tree into a target while applying a Case-declared exclusion
+ * configuration. Used by the Fixture Builder directly; exposed here so the
+ * Runner can perform an ad-hoc sanitised copy when a Case has no full plan.
+ */
+export function copyWorkspaceWithExclusion(source, target, exclusionConfig) {
+  if (!existsSync(source)) throw new Error(`Workspace source does not exist: ${source}`);
+  const exclude = exclusionConfig
+    ? compileExclusionFilter(resolveExclusionConfig(exclusionConfig))
+    : (_rel, _isDir) => false;
+  cpSync(source, target, {
+    recursive: true,
+    preserveTimestamps: true,
+    filter: (src) => {
+      if (src === source) return true;
+      if (excludedNames.has(basename(src))) return false;
+      const rel = relative(source, src);
+      return !exclude(rel, false);
+    },
   });
 }
 
@@ -82,29 +100,31 @@ export function listFiles(root) {
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-export function scanForAnswerLeakage(caseId, workspace) {
-  const rules = leakageRules[caseId] || [];
-  const findings = [];
-  const files = listFiles(workspace);
-
-  for (const file of files) {
-    for (const rule of rules) {
-      if (rule.test(file.path)) findings.push({ file: file.path, rule: String(rule), source: 'path' });
-    }
-    if (file.bytes > 1024 * 1024) continue;
-    const absolute = join(workspace, file.path);
-    let text;
-    try {
-      text = readFileSync(absolute, 'utf8');
-    } catch {
-      continue;
-    }
-    for (const rule of rules) {
-      if (rule.test(text)) findings.push({ file: file.path, rule: String(rule), source: 'content' });
-    }
-  }
-
-  return findings;
+/**
+ * Scan a workspace for answer leakage.
+ *
+ * Returns the legacy-shaped findings (`{ file, rule, source }`) by default so
+ * `scripts/bench.mjs` keeps working unchanged. Pass `{ detailed: true }` to
+ * get the full VAB-T02 finding shape (rule_id, recovery hint, line, snippet).
+ *
+ * @param {string} caseId
+ * @param {string} workspace
+ * @param {{ declared?: object, detailed?: boolean }} [options]
+ */
+export function scanForAnswerLeakage(caseId, workspace, options = {}) {
+  const declared = options.declared ? buildRuleSet(options.declared, caseId) : { path: [], content: [], canary: [] };
+  const legacy = resolveLegacyRules(caseId);
+  const ruleSet = mergeLegacyRules(declared, legacy);
+  const findings = scanWorkspace(workspace, ruleSet);
+  if (options.detailed) return findings;
+  return findings.map(f => ({
+    file: f.file,
+    rule: f.pattern,
+    source: f.source,
+    ...(f.line != null ? { line: f.line } : {}),
+    ...(f.recovery ? { recovery: f.recovery } : {}),
+    ...(f.rule_id ? { rule_id: f.rule_id } : {}),
+  }));
 }
 
 export function createRunLayout(projectRoot, runId) {
