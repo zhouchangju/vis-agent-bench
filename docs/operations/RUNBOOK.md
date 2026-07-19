@@ -241,6 +241,10 @@ reports/report.json
 
 HTML 和 Markdown 报告默认使用中文；JSON 保留稳定的英文枚举与字段名，便于后续聚合。
 
+每次真实 Run 结束时，终端会额外打印 `[VAB] 直接查看` 清单：HTML 评测报告、最终交付网页、
+交付说明、自动化测试结果、性能证据和 Requirement Ledger 都以可直接打开的 `file://` 地址给出；
+同一清单也写入最终 JSON 输出的 `quick_view` 字段。
+
 ### 查看是否正在执行
 
 新启动的 `bench:case` 会直接在原终端输出：

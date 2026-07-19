@@ -9,7 +9,7 @@ import {
 } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 
 import { buildReport } from '../src/reporting/builders.mjs';
@@ -370,6 +370,31 @@ function generateReport(runDir, caseMeta, outcome) {
   return { outcome, artifacts: [htmlPath, jsonPath, markdownPath] };
 }
 
+function collectQuickViewArtifacts(runDir, reportArtifacts) {
+  const workspace = join(runDir, 'workspace');
+  const candidates = [
+    ['评测报告（HTML）', reportArtifacts[0]],
+    ['最终交付网页', join(workspace, 'index.html')],
+    ['候选交付说明', join(workspace, 'candidate-delivery.md')],
+    ['自动化测试结果', join(workspace, 'automated-test-results.md')],
+    ['性能证据', join(workspace, 'performance-evidence.md')],
+    ['需求 Ledger', join(workspace, 'requirement-ledger.yaml')],
+    ['视觉走查版本', join(workspace, 'reviewable-poc-v2', 'index.html')],
+    ['交互扩展版本', join(workspace, 'interaction-demo', 'index.html')],
+  ];
+  return candidates
+    .filter(([, path]) => existsSync(path))
+    .map(([label, path]) => ({ label, path, url: pathToFileURL(path).href }));
+}
+
+function printQuickViewArtifacts(items) {
+  if (items.length === 0) return;
+  process.stderr.write('[VAB] 直接查看：\n');
+  for (const item of items) {
+    process.stderr.write(`[VAB] ${item.label}：${item.url}\n`);
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!['codex', 'claude', 'kimi'].includes(args.engine)) {
@@ -494,6 +519,8 @@ async function main() {
   const usage = collectReportedUsage(runDir, caseDir);
   const outcome = createMachineEvidence(runDir, executed.envelope, caseDir, isDevelopmentSmoke);
   const report = generateReport(runDir, caseMeta, outcome);
+  const quickView = collectQuickViewArtifacts(runDir, report.artifacts);
+  printQuickViewArtifacts(quickView);
 
   process.stdout.write(`${JSON.stringify({
     status: outcome.flowPassed ? 'success' : 'warning',
@@ -507,9 +534,11 @@ async function main() {
       : ['检查 real-smoke-checkpoints.json 和各阶段 stderr，修复根因后仅重试一次。'],
     artifacts: [
       ...report.artifacts,
+      ...quickView.map(item => item.path),
       join(runDir, 'logs', 'real-smoke-checkpoints.json'),
       join(runDir, 'logs', 'stages'),
     ],
+    quick_view: quickView,
     run_id: prepared.envelope.run_id,
     run_dir: runDir,
     case_id: caseId,
