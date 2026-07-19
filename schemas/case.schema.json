@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vis-agent-bench.local/schemas/case.schema.json",
+  "title": "Vis Agent Bench Case",
+  "type": "object",
+  "required": ["id", "title", "status", "suite_role", "source_type", "difficulty", "task_type", "visibility", "initial_prompt", "scenario", "requirement_truth", "clarifications", "acceptance", "rubric", "fixture", "provenance", "quality_gate"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "title": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["draft", "active", "backup", "retired"] },
+    "suite_role": { "enum": ["primary", "backup"] },
+    "source_type": { "enum": ["observed", "inferred", "proposed"] },
+    "difficulty": { "enum": ["basic", "intermediate", "advanced", "expert"] },
+    "task_type": { "type": "string", "minLength": 1 },
+    "visibility": { "enum": ["internal", "restricted", "public"] },
+    "initial_prompt": { "$ref": "#/$defs/relativePath" },
+    "scenario": { "$ref": "#/$defs/relativePath" },
+    "requirement_truth": { "$ref": "#/$defs/relativePath" },
+    "clarifications": { "$ref": "#/$defs/relativePath" },
+    "acceptance": { "$ref": "#/$defs/relativePath" },
+    "rubric": { "$ref": "#/$defs/relativePath" },
+    "fixture": { "$ref": "#/$defs/relativePath" },
+    "provenance": { "$ref": "#/$defs/relativePath" },
+    "source_analysis": { "$ref": "#/$defs/relativePath" },
+    "quality_gate": {
+      "type": "object",
+      "required": ["p0_required", "max_critical_failures"],
+      "properties": {
+        "p0_required": { "type": "boolean" },
+        "max_critical_failures": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "not": { "pattern": "^(?:/|[A-Za-z]:[\\\\/])" }
+    }
+  },
+  "additionalProperties": false
+}

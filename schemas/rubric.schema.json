@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vis-agent-bench.local/schemas/rubric.schema.json",
+  "title": "Vis Agent Bench Rubric",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["weights", "gates", "levels"],
+      "properties": {
+        "weights": { "type": "object", "minProperties": 2, "additionalProperties": { "type": "number", "exclusiveMinimum": 0 } },
+        "gates": {
+          "type": "object",
+          "required": ["p0_min_score", "critical_failure_cap"],
+          "properties": {
+            "p0_min_score": { "type": "number", "minimum": 0, "maximum": 100 },
+            "critical_failure_cap": { "type": "number", "minimum": 0, "maximum": 100 }
+          },
+          "additionalProperties": false
+        },
+        "levels": { "type": "object", "required": ["p0", "p1", "p2"] }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["version", "total", "hard_gates", "categories", "caps"],
+      "properties": {
+        "version": { "const": 1 },
+        "total": { "const": 100 },
+        "hard_gates": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "categories": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "required": ["weight", "checks"],
+            "properties": {
+              "weight": { "type": "number", "exclusiveMinimum": 0 },
+              "checks": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+            },
+            "additionalProperties": false
+          }
+        },
+        "caps": { "type": "object", "minProperties": 1, "additionalProperties": { "type": "number", "minimum": 0, "maximum": 100 } }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

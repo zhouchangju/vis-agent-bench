@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vis-agent-bench.local/schemas/scenario.schema.json",
+  "title": "Vis Agent Bench Progressive Disclosure Scenario",
+  "type": "object",
+  "required": ["version", "mode", "requirement_truth", "stages"],
+  "properties": {
+    "version": { "const": 1 },
+    "mode": { "const": "progressive-disclosure" },
+    "requirement_truth": { "type": "string", "minLength": 1 },
+    "stages": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "$ref": "#/$defs/stage" }
+    }
+  },
+  "$defs": {
+    "stage": {
+      "type": "object",
+      "required": ["id", "name", "checkpoint", "observe"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^S[0-9]+$" },
+        "name": { "type": "string", "minLength": 1 },
+        "input": { "type": "string", "minLength": 1 },
+        "stakeholder_message": { "type": "string", "minLength": 1 },
+        "checkpoint": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "observe": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

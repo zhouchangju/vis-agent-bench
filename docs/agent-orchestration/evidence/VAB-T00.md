@@ -1,0 +1,37 @@
+# VAB-T00 Evidence
+
+- Status: DONE
+- Baseline: `12e17d2` (`chore: initialize vis agent benchmark baseline`)
+- Branch: `codex/vab-t00-contracts`
+- Changed paths:
+  - `schemas/case.schema.json`
+  - `schemas/scenario.schema.json`
+  - `schemas/run-spec.schema.json`
+  - `schemas/result-envelope.schema.json`
+  - `schemas/rubric.schema.json`
+  - `src/contracts/index.mjs`
+  - `scripts/validate-structure.mjs`
+  - `tests/contracts/run.mjs`
+  - `package.json`
+  - this evidence file
+- Acceptance commands and results:
+  - `npm run test:contracts` → PASS, 8/8 checks.
+  - `node scripts/validate-structure.mjs` → PASS, 4 cases / 3 primary cases / example RunSpec.
+  - `npm test` → PASS.
+  - `git diff --check` → PASS.
+- Produced artifacts:
+  - executable Case, Scenario, RunSpec, Result Envelope and Rubric schemas;
+  - `src/contracts/index.mjs`, which produces structured validation errors with paths and recovery metadata;
+  - contract regression tests.
+- Not proven:
+  - JSON Schema documents are published as canonical contracts, but no generic JSON Schema runtime has been added; current enforcement uses the narrow JavaScript validator.
+  - Existing Runner commands do not yet call every individual RunSpec validation boundary; VAB-T08 owns CLI integration.
+  - This task does not validate future fixture manifests, evaluator result files or human reviews beyond their existing schema.
+- Remaining risks:
+  - Kimi/Codex/Claude adapter identifiers are accepted in both current shorthand and profile names until VAB-T01 freezes adapter normalization.
+  - The present progressive-disclosure rule detects S0/later-stage input leakage structurally; runtime copy isolation remains VAB-T08 responsibility.
+- Integration notes:
+  - VAB-T01, T02, T04, T06 and T07 can use `src/contracts/index.mjs` and the schema documents after this commit is merged.
+  - Do not change current Case YAML solely to satisfy future implementation preferences; extend validators compatibly or use a migration task.
+- Rollback:
+  - Revert the single VAB-T00 commit; it only adds contract artifacts and replaces the former narrow structure check.
