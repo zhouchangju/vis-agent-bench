@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "capture_id": "vab-t11-product-failure",
+  "run_id": "vab-t11-local",
+  "case_id": "playwright-local-intentional-failure",
+  "viewport": { "width": 960, "height": 640 },
+  "default_timeout_ms": 5000,
+  "steps": [
+    { "kind": "goto", "label": "open", "url": "http://127.0.0.1:41771/?errors=1" },
+    { "kind": "click", "label": "missing-control", "selector": "#does-not-exist", "timeout_ms": 300 },
+    { "kind": "assert-text", "label": "wrong-copy", "selector": "#title", "text": "Not the title", "match": "exact" },
+    { "kind": "collect-state", "label": "failure-state", "selectors": ["#title", "#chart"] },
+    { "kind": "screenshot", "label": "failure" }
+  ]
+}

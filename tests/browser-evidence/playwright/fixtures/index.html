@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VAB T11 Local Smoke</title>
+  <style>
+    body { font-family: sans-serif; margin: 24px; }
+    #tooltip { visibility: hidden; }
+    #chart:hover + #tooltip { visibility: visible; }
+    canvas { border: 1px solid #333; }
+  </style>
+</head>
+<body>
+  <h1 id="title">Ready</h1>
+  <button id="increment">Count: 0</button>
+  <input id="mode" aria-label="Mode">
+  <canvas id="chart" width="120" height="60"></canvas>
+  <p id="tooltip">Canvas details</p>
+  <script>
+    const button = document.querySelector('#increment');
+    button.addEventListener('click', () => {
+      const next = Number(button.textContent.split(': ')[1]) + 1;
+      button.textContent = `Count: ${next}`;
+    });
+    document.querySelector('#mode').addEventListener('keydown', event => {
+      if (event.key === 'Enter') document.querySelector('#title').textContent = 'Keyboard accepted';
+    });
+    const context = document.querySelector('#chart').getContext('2d');
+    context.fillStyle = '#2563eb';
+    context.fillRect(10, 10, 90, 35);
+    console.log('fixture-ready');
+    if (new URLSearchParams(location.search).has('errors')) {
+      console.error('intentional-console-error');
+      fetch('/missing.json');
+      setTimeout(() => { throw new Error('intentional-page-error'); }, 0);
+    }
+  </script>
+</body>
+</html>

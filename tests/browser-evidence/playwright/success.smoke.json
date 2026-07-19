@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "capture_id": "vab-t11-success",
+  "run_id": "vab-t11-local",
+  "case_id": "playwright-local-success",
+  "viewport": { "width": 960, "height": 640 },
+  "steps": [
+    { "kind": "goto", "label": "open", "url": "http://127.0.0.1:41771/" },
+    { "kind": "wait", "selector": "#chart", "state": "visible" },
+    { "kind": "click", "selector": "#increment" },
+    { "kind": "assert-text", "selector": "#increment", "text": "Count: 1", "match": "exact" },
+    { "kind": "hover", "selector": "#chart" },
+    { "kind": "assert-visible", "selector": "#tooltip" },
+    { "kind": "keyboard", "selector": "#mode", "key": "Enter" },
+    { "kind": "assert-text", "selector": "#title", "text": "Keyboard accepted" },
+    { "kind": "resize", "width": 800, "height": 500 },
+    { "kind": "collect-state", "label": "final-state", "selectors": ["#title", "#increment", "#chart"] },
+    { "kind": "screenshot", "label": "final", "full_page": false }
+  ]
+}
