@@ -56,23 +56,22 @@ check('codex adapter builds a fresh-session exec command deterministically', () 
     stageId: 'S0',
     prompt: 'do the thing',
     session: { id: null, started: false },
-    ephemeral: true,
+    reasoningEffort: 'medium',
   });
   assert.equal(command.executable, 'codex');
   assert.equal(command.format, 'jsonl');
   assert.equal(command.stdin, 'do the thing');
   assert.deepEqual(command.args, [
     'exec',
+    '-c', 'model_reasoning_effort="medium"',
     '--cd', '/run/w',
     '--model', 'gpt-example',
     '--sandbox', 'workspace-write',
-    '--ask-for-approval', 'never',
     '--ignore-user-config',
     '--ignore-rules',
     '--json',
     '--output-last-message', '/run/w/artifacts/final-message-S0.md',
     '-',
-    '--ephemeral',
   ]);
 });
 
@@ -86,11 +85,12 @@ check('codex adapter resumes a known session id', () => {
     stageId: 'S1',
     prompt: 'next',
     session: { id: 'sess-1234567890', started: true },
-    ephemeral: true,
+    reasoningEffort: 'high',
   });
   assert.equal(command.args[0], 'exec');
   assert.equal(command.args[1], 'resume');
   assert.ok(command.args.includes('sess-1234567890'));
+  assert.ok(command.args.includes('model_reasoning_effort="high"'));
   assert.ok(command.args.includes('--ignore-user-config'));
   assert.ok(command.args.includes('--ignore-rules'));
   // resume path 不带 --cd / --sandbox

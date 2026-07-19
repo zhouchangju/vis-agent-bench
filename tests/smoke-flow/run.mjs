@@ -83,6 +83,25 @@ try {
   assert.equal(kimiEnvelope.resolved_config.cost_cap_enforcement, 'unavailable');
   assert.equal(kimiEnvelope.resolved_config.permission_mode, 'prompt-mode-auto');
 
+  const codexDryRun = spawnSync(
+    process.execPath,
+    [
+      'scripts/real-model-smoke-flow.mjs',
+      '--case', 'narrative-equity-relationship',
+      '--engine', 'codex',
+      '--model', 'gpt-5.6-sol',
+      '--reasoning-effort', 'medium',
+      '--dry-run',
+    ],
+    { cwd: repoRoot, encoding: 'utf8', shell: false },
+  );
+  assert.equal(codexDryRun.status, 0, codexDryRun.stderr || codexDryRun.stdout);
+  const codexEnvelope = JSON.parse(codexDryRun.stdout);
+  assert.equal(codexEnvelope.resolved_config.model, 'gpt-5.6-sol');
+  assert.equal(codexEnvelope.resolved_config.reasoning_effort, 'medium');
+  assert.equal(codexEnvelope.resolved_config.provider, 'openai-codex-configured-provider');
+  assert.equal(codexEnvelope.resolved_config.permission_mode, 'exec-noninteractive-workspace-write');
+
   process.stdout.write('development smoke flow passed\n');
 } finally {
   rmSync(outDir, { recursive: true, force: true });

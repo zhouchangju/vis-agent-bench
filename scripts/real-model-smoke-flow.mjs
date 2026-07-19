@@ -372,13 +372,26 @@ function generateReport(runDir, caseMeta, outcome) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!['claude', 'kimi'].includes(args.engine)) {
-    throw new Error('当前真实模型统一入口支持 --engine claude 或 --engine kimi。');
+  if (!['codex', 'claude', 'kimi'].includes(args.engine)) {
+    throw new Error('当前真实模型统一入口支持 --engine codex、--engine claude 或 --engine kimi。');
   }
-  const provider = args.provider || (args.engine === 'kimi'
-    ? 'kimi-code-managed-provider'
-    : 'claude-code-configured-provider');
-  const model = args.model || (args.engine === 'kimi' ? 'kimi-code/k3' : 'deepseek-v4-flash');
+  const provider = args.provider || ({
+    codex: 'openai-codex-configured-provider',
+    kimi: 'kimi-code-managed-provider',
+    claude: 'claude-code-configured-provider',
+  }[args.engine]);
+  const model = args.model || ({
+    codex: 'gpt-5.6-sol',
+    kimi: 'kimi-code/k3',
+    claude: 'deepseek-v4-flash',
+  }[args.engine]);
+  const reasoningEffort = args.engine === 'codex' ? (args.reasoning_effort || 'medium') : null;
+  if (args.reasoning_effort && args.engine !== 'codex') {
+    throw new Error('--reasoning-effort 当前仅支持 Codex；Claude 和 Kimi 不接受该参数。');
+  }
+  if (reasoningEffort && !['low', 'medium', 'high', 'xhigh'].includes(reasoningEffort)) {
+    throw new Error('--reasoning-effort 只支持 low、medium、high 或 xhigh。');
+  }
   const caseId = String(args.case);
   const caseDir = join(projectRoot, 'cases', caseId);
   const caseMetaPath = join(caseDir, 'case.yaml');
@@ -402,11 +415,11 @@ async function main() {
   if (args.engine === 'claude' && !isDevelopmentSmoke && maxStageCostUsd == null && !args.dry_run) {
     throw new Error('正式 Case 必须显式设置 --max-stage-cost-usd，避免无人值守运行失控。');
   }
-  if (args.engine === 'kimi' && args.max_stage_cost_usd != null) {
-    throw new Error('Kimi Code CLI 不支持原生费用上限，请移除 --max-stage-cost-usd，并显式传入 --acknowledge-no-cost-cap。');
+  if (['kimi', 'codex'].includes(args.engine) && args.max_stage_cost_usd != null) {
+    throw new Error(`${args.engine === 'kimi' ? 'Kimi Code' : 'Codex'} CLI 不支持原生费用上限，请移除 --max-stage-cost-usd，并显式传入 --acknowledge-no-cost-cap。`);
   }
-  if (args.engine === 'kimi' && !args.acknowledge_no_cost_cap && !args.dry_run) {
-    throw new Error('Kimi Code CLI 不支持原生费用上限；真实运行必须显式传入 --acknowledge-no-cost-cap。');
+  if (['kimi', 'codex'].includes(args.engine) && !args.acknowledge_no_cost_cap && !args.dry_run) {
+    throw new Error(`${args.engine === 'kimi' ? 'Kimi Code' : 'Codex'} CLI 不支持原生费用上限；真实运行必须显式传入 --acknowledge-no-cost-cap。`);
   }
   const effectiveMaxStageCostUsd = args.engine === 'claude' ? maxStageCostUsd : null;
 
@@ -427,7 +440,8 @@ async function main() {
       ? null
       : Number(effectiveMaxStageCostUsd) * stageCount,
     cost_cap_enforcement: args.engine === 'claude' ? 'native-cli-per-stage' : 'unavailable',
-    permission_mode: args.engine === 'kimi' ? 'prompt-mode-auto' : 'auto',
+    permission_mode: args.engine === 'codex' ? 'exec-noninteractive-workspace-write' : (args.engine === 'kimi' ? 'prompt-mode-auto' : 'auto'),
+    reasoning_effort: reasoningEffort,
     business_acceptance_requires_human_review: !isDevelopmentSmoke,
   };
   if (args.dry_run) {
@@ -448,6 +462,7 @@ async function main() {
     '--engine', args.engine,
     '--model', model,
     '--provider', provider,
+    ...(reasoningEffort ? ['--reasoning-effort', reasoningEffort] : []),
     '--wall-time-minutes', wallTimeMinutes,
     '--workspace-source', workspaceSource,
   ];

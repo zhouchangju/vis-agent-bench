@@ -138,6 +138,20 @@ npm run bench:case -- \
 Kimi CLI 没有原生费用上限，必须显式确认这一点；建议先增加 `--dry-run` 做零费用配置检查。
 所有参数的含义和默认值见[评测运行手册](docs/operations/RUNBOOK.md#参数说明)。
 
+使用 Codex 测试 GPT-5.6 Sol，并固定思考强度：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine codex \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --wall-time-minutes 180 \
+  --acknowledge-no-cost-cap
+```
+
+建议先附加 `--dry-run`；Codex 的思考强度可用 `low`、`medium`、`high`、`xhigh`。
+
 运行中查看阶段、日志增长和独立工作区：
 
 ```bash

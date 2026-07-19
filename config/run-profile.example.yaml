@@ -6,6 +6,7 @@ engine:
   adapter: codex-cli
   executable: codex
   configured_model: gpt-example
+  reasoning_effort: medium
   provider: openai
   credential_ref: secret://codex/default
 

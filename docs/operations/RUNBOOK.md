@@ -91,16 +91,51 @@ npm run bench:case -- \
 | 参数 | 必填情况 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `--case <id>` | 建议显式传入 | `dev-workflow-smoke` | Case 目录名，例如 `narrative-equity-relationship`。 |
-| `--engine <claude\|kimi>` | 否 | `claude` | 选择实际 CLI Adapter。当前一键入口支持 Claude Code 和 Kimi Code。 |
-| `--model <id>` | 否 | 按引擎推导 | 传给对应 CLI 的模型标识。Claude 默认 `deepseek-v4-flash`；Kimi 默认使用本机已配置别名 `kimi-code/k3`。 |
-| `--provider <label>` | 否 | 按引擎推导 | 记录用的脱敏 Provider 标签，不是 API endpoint；Claude 默认为 `claude-code-configured-provider`，Kimi 默认为 `kimi-code-managed-provider`。 |
+| `--engine <codex\|claude\|kimi>` | 否 | `claude` | 选择实际 CLI Adapter。当前一键入口支持 Codex、Claude Code 和 Kimi Code。 |
+| `--model <id>` | 否 | 按引擎推导 | 传给对应 CLI 的模型标识。Codex 默认 `gpt-5.6-sol`；Claude 默认 `deepseek-v4-flash`；Kimi 默认 `kimi-code/k3`。 |
+| `--reasoning-effort <low\|medium\|high\|xhigh>` | Codex 可选 | `medium` | 仅用于 Codex；映射为 `-c model_reasoning_effort=\"…\"`，会写入 RunSpec 和命令日志。 |
+| `--provider <label>` | 否 | 按引擎推导 | 记录用的脱敏 Provider 标签，不是 API endpoint；Codex 默认为 `openai-codex-configured-provider`。 |
 | `--wall-time-minutes <n>` | 否 | Smoke 为 10，正式 Case 为 180 | 整个 Run 的墙钟时间硬上限，不是每阶段上限。超时后终止当前进程并保留证据。 |
 | `--max-stage-cost-usd <n>` | Claude 正式 Case 必填 | Smoke 为 0.50 | Claude CLI 的单阶段原生费用上限；理论 Run 上限为该值乘以阶段数。Kimi 不支持该参数。 |
-| `--acknowledge-no-cost-cap` | Kimi 真实运行必填 | 无 | 明确确认 Kimi CLI 没有可由 Harness 强制执行的费用上限；仅用于防误操作，不代表费用为零。 |
+| `--acknowledge-no-cost-cap` | Codex/Kimi 真实运行必填 | 无 | 明确确认 CLI 没有可由 Harness 强制执行的费用上限；仅用于防误操作，不代表费用为零。 |
 | `--workspace-source <path>` | 否 | 自动选择 Case Fixture | 覆盖输入工作区。必须是脱敏且不含答案实现的绝对路径。 |
 | `--dry-run` | 否 | 关闭 | 只解析并展示配置，不准备 Run、不调用模型、不产生费用。 |
 
 兼容参数 `--max-cost-usd` 等价于 `--max-stage-cost-usd`，只建议旧脚本继续使用。
+
+## 使用 Codex（GPT-5.6 Sol + 思考强度）
+
+先零费用检查命令和配置：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine codex \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --wall-time-minutes 180 \
+  --dry-run
+```
+
+确认后执行真实运行：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine codex \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --wall-time-minutes 180 \
+  --acknowledge-no-cost-cap
+```
+
+`--reasoning-effort` 可用值为 `low`、`medium`、`high`、`xhigh`。它不是 Prompt 文本，而是 Codex
+运行配置：Harness 传递 `-c model_reasoning_effort=\"medium\"`，并在 `run-spec.json` 和
+`logs/commands.json` 留存。Codex 的 `exec` 是非交互入口；它使用 `workspace-write` Sandbox，阶段间
+保留 Session，以便后续 `resume` 延续需求澄清上下文。
+
+Codex CLI 当前同样没有原生费用硬上限，因此真实运行也必须加入
+`--acknowledge-no-cost-cap`；Harness 会强制墙钟时间，Token/费用仅在 JSONL 事件明确上报时记录。
 
 ## 使用 Kimi K3
 

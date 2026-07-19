@@ -72,6 +72,7 @@ RunSpec 至少包含：
 - 事件输出：`--json` JSONL
 - 最终消息：`--output-last-message`
 - 模型：`--model`
+- 思考强度：`-c model_reasoning_effort=\"<low|medium|high|xhigh>\"`
 - 工作目录：`--cd`
 - CLI 内层权限：`--sandbox workspace-write --ask-for-approval never`
 - 净化：`--ephemeral --ignore-user-config --ignore-rules`
@@ -81,10 +82,9 @@ RunSpec 至少包含：
 ```bash
 codex exec \
   --cd /workspace \
+  -c 'model_reasoning_effort="medium"' \
   --model "$MODEL_ID" \
   --sandbox workspace-write \
-  --ask-for-approval never \
-  --ephemeral \
   --ignore-user-config \
   --ignore-rules \
   --json \
@@ -92,7 +92,9 @@ codex exec \
   - < /task/prompt.md
 ```
 
-CLI Sandbox 是 Worker 内的第二层限制，不能替代外层容器。
+`codex exec` 本身是非交互入口，不使用交互式 `--ask-for-approval`。多阶段评测必须保留 Session，
+因此不能使用 `--ephemeral`；后续阶段使用 `codex exec resume`。CLI Sandbox 是 Worker 内的第二层
+限制，不能替代外层容器。
 
 ## Claude Code Adapter
 

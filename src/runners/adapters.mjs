@@ -58,15 +58,19 @@ export function parseSemverVersion(text) {
  *           会话状态：{ id, started, resumeFrom }。
  * @property {number|null} maxCostUsd        可选费用上限。
  * @property {string} emptySkillsDir         Kimi 的空 Skill 目录。
- * @property {boolean} ephemeral             Codex 净化开关，默认 true。
+ * @property {string|null} reasoningEffort   Codex 思考强度（low / medium / high / xhigh）。
  */
 
 function buildCodexCommand(ctx) {
   const args = ['exec'];
   const session = ctx.session || {};
+  const reasoningConfig = ctx.reasoningEffort
+    ? ['-c', `model_reasoning_effort=${JSON.stringify(ctx.reasoningEffort)}`]
+    : [];
   if (session.started && (session.id || session.resumeFrom)) {
     args.push(
       'resume',
+      ...reasoningConfig,
       '--model', ctx.model,
       '--ignore-user-config',
       '--ignore-rules',
@@ -77,17 +81,16 @@ function buildCodexCommand(ctx) {
     );
   } else {
     args.push(
+      ...reasoningConfig,
       '--cd', ctx.workspace,
       '--model', ctx.model,
       '--sandbox', 'workspace-write',
-      '--ask-for-approval', 'never',
       '--ignore-user-config',
       '--ignore-rules',
       '--json',
       '--output-last-message', join(ctx.outputDir, `final-message-${ctx.stageId}.md`),
       '-',
     );
-    if (ctx.ephemeral !== false) args.push('--ephemeral');
   }
   return {
     executable: ctx.executable,
@@ -172,7 +175,7 @@ const adapters = {
         stageId,
         prompt,
         session: session || {},
-        ephemeral: true,
+        reasoningEffort: spec.engine.reasoning_effort || null,
       });
     },
     buildCommand: buildCodexCommand,

@@ -176,6 +176,7 @@ function prepare(args) {
       executable: args.executable || getAdapter(engine).executable,
       model,
       provider: args.provider || 'unspecified',
+      reasoning_effort: args.reasoning_effort || null,
     },
     budget: {
       wall_time_minutes: Number(args.wall_time_minutes || 180),

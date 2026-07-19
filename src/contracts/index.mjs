@@ -220,9 +220,10 @@ export function validateRunSpec(value) {
 function validateEngine(value, errors) {
   if (!isObject(value)) return errors.push(diagnostic('$.engine', 'OBJECT', 'engine must be an object.'));
   requireFields(value, ['adapter', 'executable', 'configured_model', 'provider', 'credential_ref'], '$.engine', errors);
-  validateNoUnexpectedFields(value, new Set(['adapter', 'executable', 'configured_model', 'provider', 'credential_ref']), '$.engine', errors);
+  validateNoUnexpectedFields(value, new Set(['adapter', 'executable', 'configured_model', 'reasoning_effort', 'provider', 'credential_ref']), '$.engine', errors);
   if (!ADAPTERS.has(value.adapter)) errors.push(diagnostic('$.engine.adapter', 'ENUM', 'adapter is unsupported.'));
   for (const field of ['executable', 'configured_model', 'provider']) if (!isNonEmptyString(value[field])) errors.push(diagnostic(`$.engine.${field}`, 'STRING', 'Field must be non-empty.'));
+  if (value.reasoning_effort != null && !['low', 'medium', 'high', 'xhigh'].includes(value.reasoning_effort)) errors.push(diagnostic('$.engine.reasoning_effort', 'ENUM', 'reasoning_effort must be low, medium, high, xhigh or null.'));
   if (!isNonEmptyString(value.credential_ref) || !/^[a-z][a-z0-9+.-]*:\/\//.test(value.credential_ref)) errors.push(diagnostic('$.engine.credential_ref', 'CREDENTIAL_REF', 'credential_ref must be a reference URI.'));
 }
 
