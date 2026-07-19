@@ -345,9 +345,37 @@ try {
     const result = JSON.parse(readFileSync(join(prepared.run_dir, 'result.json'), 'utf8'));
     assert.equal(result.stages[0].failure_source, 'agent-status');
     assert.equal(result.stages[0].agent_status, 'blocked');
+
+    const kimiExecutable = join(outputRoot, 'blocked-kimi.mjs');
+    writeFileSync(kimiExecutable, [
+      '#!/usr/bin/env node',
+      'if (process.argv.includes("--version")) { process.stdout.write("blocked-kimi 1.0.0\\n"); process.exit(0); }',
+      'process.stdout.write(JSON.stringify({ event: "message.delta", text: "status: `blo" }) + "\\n");',
+      'process.stdout.write(JSON.stringify({ event: "message.delta", text: "cked`\\nsummary: cannot continue" }) + "\\n");',
+      '',
+    ].join('\n'));
+    chmodSync(kimiExecutable, 0o755);
+    const kimiPrepare = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'), 'prepare',
+      '--case', 'narrative-equity-relationship',
+      '--engine', 'kimi',
+      '--model', 'blocked-kimi-model',
+      '--executable', kimiExecutable,
+      '--run-id', `bench-blocked-kimi-${process.pid}`,
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.equal(kimiPrepare.status, 0, kimiPrepare.stderr || kimiPrepare.stdout);
+    const kimiPrepared = JSON.parse(kimiPrepare.stdout);
+    localRunDirs.push(kimiPrepared.run_dir);
+    const kimiRun = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'), 'run', '--run-dir', kimiPrepared.run_dir,
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.notEqual(kimiRun.status, 0);
+    const kimiResult = JSON.parse(readFileSync(join(kimiPrepared.run_dir, 'result.json'), 'utf8'));
+    assert.equal(kimiResult.stages[0].failure_source, 'agent-status');
+    assert.equal(kimiResult.stages[0].agent_status, 'blocked');
   });
 
-  await check('final gate rejects deletion of baseline package scripts', () => {
+  await check('final gate rejects no-op replacement of baseline package scripts, including old RunState', () => {
     const executable = join(outputRoot, 'script-deleting-codex.mjs');
     writeFileSync(executable, [
       '#!/usr/bin/env node',
@@ -355,7 +383,7 @@ try {
       'import path from "node:path";',
       'if (process.argv.includes("--version")) { process.stdout.write("script-deleting-codex 1.0.0\\n"); process.exit(0); }',
       ...checkpointWriterLines(),
-      'if (stage === "S5") { const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); pkg.scripts = {}; fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2)); }',
+      `if (stage === "S5") { const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); for (const name of ["build", "typecheck", "test"]) pkg.scripts[name] = ${JSON.stringify('node -e "process.exit(0)"')}; fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2)); }`,
       'process.stdout.write(JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "status: success" }, session_id: "delete-session-000001" }) + "\\n");',
       '',
     ].join('\n'));
@@ -371,6 +399,10 @@ try {
     assert.equal(prepare.status, 0, prepare.stderr || prepare.stdout);
     const prepared = JSON.parse(prepare.stdout);
     localRunDirs.push(prepared.run_dir);
+    const statePath = join(prepared.run_dir, 'run-state.json');
+    const oldState = JSON.parse(readFileSync(statePath, 'utf8'));
+    delete oldState.package_gate;
+    writeFileSync(statePath, `${JSON.stringify(oldState, null, 2)}\n`);
     const run = spawnSync(process.execPath, [
       join(projectRoot, 'scripts/bench.mjs'), 'run', '--run-dir', prepared.run_dir,
     ], { cwd: projectRoot, encoding: 'utf8' });
@@ -378,9 +410,9 @@ try {
     const result = JSON.parse(readFileSync(join(prepared.run_dir, 'result.json'), 'utf8'));
     const finalStage = result.stages.at(-1);
     assert.equal(finalStage.failure_source, 'checkpoint-gate');
-    assert.match(finalStage.error, /scripts\.build/);
-    assert.match(finalStage.error, /scripts\.typecheck/);
-    assert.match(finalStage.error, /scripts\.test/);
+    assert.match(finalStage.error, /scripts\.build \(changed\)/);
+    assert.match(finalStage.error, /scripts\.typecheck \(changed\)/);
+    assert.match(finalStage.error, /scripts\.test \(changed\)/);
   });
 
   await check('report command automatically quarantines demo and ineligible evidence', () => {

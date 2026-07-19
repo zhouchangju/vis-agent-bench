@@ -181,7 +181,7 @@ function stagePrompt(caseDir, scenario, stage) {
   ].join('\n');
 }
 
-function verifyStageDeliverables(workspace, stage, logsDir, timeoutMs, env, requiredPackageScripts = []) {
+function verifyStageDeliverables(workspace, stage, logsDir, timeoutMs, env, packageGate = null) {
   const required = Array.isArray(stage.checkpoint) ? stage.checkpoint : [];
   const missing = [];
   const artifacts = [];
@@ -238,13 +238,20 @@ function verifyStageDeliverables(workspace, stage, logsDir, timeoutMs, env, requ
       missing.push('package.json');
     } else {
       const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
-      const commands = [...requiredPackageScripts];
-      for (const name of commands) {
-        if (!pkg.scripts?.[name]) missing.push(`package.json scripts.${name}`);
+      const trustedGate = packageGate || baselinePackageGateFromGit(workspace);
+      const commands = Object.keys(trustedGate.scripts);
+      for (const [name, command] of Object.entries(trustedGate.scripts)) {
+        if (pkg.scripts?.[name] !== command) missing.push(`package.json scripts.${name} (changed)`);
+      }
+      for (const file of trustedGate.protected_files) {
+        const target = containedWorkspacePath(workspace, file.path);
+        if (!existsSync(target) || sha256File(target) !== file.sha256) {
+          missing.push(`${file.path} (baseline gate changed)`);
+        }
       }
       const perCommandTimeout = Math.max(1_000, Math.floor(timeoutMs / Math.max(commands.length, 1)));
       for (const name of commands) {
-        if (!pkg.scripts?.[name]) continue;
+        if (pkg.scripts?.[name] !== trustedGate.scripts[name]) continue;
         const command = spawnSync('npm', ['run', name], {
           cwd: workspace,
           encoding: 'utf8',
@@ -285,15 +292,59 @@ function verifyStageDeliverables(workspace, stage, logsDir, timeoutMs, env, requ
   return { ...gate, gate_path: gatePath };
 }
 
-function baselinePackageScripts(workspace) {
+function baselinePackageGate(workspace) {
   const packagePath = join(workspace, 'package.json');
-  if (!existsSync(packagePath)) return [];
+  if (!existsSync(packagePath)) return { scripts: {}, protected_files: [] };
   const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
-  return ['build', 'typecheck', 'test'].filter(name => typeof pkg.scripts?.[name] === 'string');
+  return {
+    scripts: Object.fromEntries(
+      ['build', 'typecheck', 'test']
+        .filter(name => typeof pkg.scripts?.[name] === 'string')
+        .map(name => [name, pkg.scripts[name]]),
+    ),
+    protected_files: listFiles(join(workspace, 'scripts'))
+      .map(file => ({ path: `scripts/${file.path}`, sha256: file.sha256 })),
+  };
+}
+
+function baselinePackageGateFromGit(workspace) {
+  const packageResult = spawnSync('git', ['show', 'HEAD:package.json'], {
+    cwd: workspace,
+    encoding: 'utf8',
+    shell: false,
+  });
+  if (packageResult.status !== 0) return { scripts: {}, protected_files: [] };
+  const pkg = JSON.parse(packageResult.stdout);
+  const tree = spawnSync('git', ['ls-tree', '-r', '--name-only', 'HEAD', '--', 'scripts'], {
+    cwd: workspace,
+    encoding: 'utf8',
+    shell: false,
+  });
+  const protectedFiles = (tree.stdout || '').split(/\r?\n/).filter(Boolean).map(path => {
+    const content = spawnSync('git', ['show', `HEAD:${path}`], {
+      cwd: workspace,
+      encoding: null,
+      shell: false,
+    });
+    return { path, sha256: createHash('sha256').update(content.stdout || Buffer.alloc(0)).digest('hex') };
+  });
+  return {
+    scripts: Object.fromEntries(
+      ['build', 'typecheck', 'test']
+        .filter(name => typeof pkg.scripts?.[name] === 'string')
+        .map(name => [name, pkg.scripts[name]]),
+    ),
+    protected_files: protectedFiles,
+  };
+}
+
+function sha256File(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
 function explicitAgentStatus(runDir, stageId, rawStdout) {
   const candidates = [];
+  const kimiDeltas = [];
   const finalMessagePath = join(runDir, 'artifacts', `final-message-${stageId}.md`);
   if (existsSync(finalMessagePath)) candidates.push(readFileSync(finalMessagePath, 'utf8'));
   for (const line of rawStdout.split(/\r?\n/).filter(Boolean)) {
@@ -304,6 +355,9 @@ function explicitAgentStatus(runDir, stageId, rawStdout) {
       }
       if (event.role === 'assistant' && typeof event.content === 'string') {
         candidates.push(event.content);
+      }
+      if (event.event === 'message.delta' && typeof event.text === 'string') {
+        kimiDeltas.push(event.text);
       }
       if (event.type === 'result' && typeof event.result === 'string') {
         candidates.push(event.result);
@@ -318,6 +372,7 @@ function explicitAgentStatus(runDir, stageId, rawStdout) {
       // Plain output is preserved as evidence but is not trusted as a final status envelope.
     }
   }
+  if (kimiDeltas.length) candidates.push(kimiDeltas.join(''));
   const finalText = candidates.at(-1) || '';
   const match = finalText.match(/(?:^|\n)\s*(?:[-*]\s*)?status\s*:\s*[`"']?(success|warning|blocked|error)\b/i);
   return match ? { status: match[1].toLowerCase(), source: finalMessagePath, text: finalText } : null;
@@ -469,7 +524,7 @@ function prepare(args, emit = true) {
       started: false,
     },
     run_spec_sha256: jsonDigest(spec),
-    required_package_scripts: baselinePackageScripts(join(runDir, 'workspace')),
+    package_gate: baselinePackageGate(join(runDir, 'workspace')),
   };
 
   writeFileSync(join(runDir, 'run-spec.json'), JSON.stringify(spec, null, 2));
@@ -681,7 +736,7 @@ async function run(args) {
             VIS_AGENT_BENCH_STAGE_ID: stage.id,
             VIS_AGENT_BENCH_ISOLATION: 'file-isolated-development',
           }),
-          state.required_package_scripts || [],
+          state.package_gate || baselinePackageGateFromGit(join(runDir, 'workspace')),
         );
       } catch (error) {
         effectiveResult = {
