@@ -204,18 +204,36 @@ function evaluateCheckpoints(runDir, caseDir) {
   const runnerStages = existsSync(runnerResultPath)
     ? new Map((readJson(runnerResultPath).stages || []).map(stage => [stage.stage_id, stage]))
     : new Map();
+  const latestCheckpointGate = stageId => {
+    const stageLogDir = join(runDir, 'logs', 'stages', stageId);
+    if (!existsSync(stageLogDir)) return null;
+    const gatePaths = readdirSync(stageLogDir)
+      .sort()
+      .reverse()
+      .map(attempt => join(stageLogDir, attempt, 'checkpoint-gate.json'))
+      .filter(existsSync);
+    if (!gatePaths.length) return null;
+    try {
+      return { ...readJson(gatePaths[0]), gate_path: gatePaths[0] };
+    } catch {
+      return null;
+    }
+  };
   const checks = scenario.stages.map(stage => {
     const runnerStage = runnerStages.get(stage.id);
+    // 恢复运行的 result.json 会将既有阶段压缩为 { resumed_from_checkpoint: true }，
+    // 但它们的正式门禁证据仍保存在各 attempt 的 checkpoint-gate.json 中。
+    const checkpointGate = runnerStage?.checkpoint_gate || latestCheckpointGate(stage.id);
     // 主 Runner 已验证符号型 checkpoint 对应的 manifest 与其引用文件。后处理器不能再把
     // runnable-poc 之类的符号名误当成 workspace 下的同名物理文件，否则会产生假阴性。
-    if (runnerStage?.status === 'success' && runnerStage.checkpoint_gate?.status === 'success') {
+    if (runnerStage?.status === 'success' && checkpointGate?.status === 'success') {
       return {
         id: `checkpoint-${stage.id}`,
         stage_id: stage.id,
         status: 'pass',
         expected: stage.checkpoint,
         missing: [],
-        evidence: ['result.json', runnerStage.checkpoint_gate.gate_path],
+        evidence: ['result.json', checkpointGate.gate_path],
       };
     }
     const missing = stage.checkpoint.filter(path => !existsSync(join(workspace, path)));

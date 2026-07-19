@@ -351,6 +351,8 @@ npm run bench:case -- --resume-run <run-id>
 对于旧版 Run（只有 `run-spec.json`，没有 `run-state.json`），首次恢复会自动保存
 `run-spec.legacy-v2.json` 和 `result.pre-resume.json`，然后仅补齐当前 Runner 所需的状态文件。迁移不删除
 旧日志、旧结果或已完成阶段。恢复时不接受新的 `--engine`、`--model` 或预算参数，避免混入不同模型或配置。
+恢复后的 `result.json` 会简化已完成阶段的信息；报告生成会自动复用
+`logs/stages/<stage-id>/attempt-*/checkpoint-gate.json` 中的原始门禁证据，避免把已通过阶段误判为失败。
 
 ### 独立目录与文件级隔离
 
