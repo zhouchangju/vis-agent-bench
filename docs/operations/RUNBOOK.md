@@ -279,6 +279,26 @@ HTML 和 Markdown 报告默认使用中文；JSON 保留稳定的英文枚举与
 交付说明、自动化测试结果、性能证据和 Requirement Ledger 都以可直接打开的 `file://` 地址给出；
 同一清单也写入最终 JSON 输出的 `quick_view` 字段。
 
+### 完成 Run 后先看什么
+
+1. `reports/report.html`：评测总览、机器事实、Token、流程门禁和缺失证据；
+2. `workspace/dist/index.html`：模型实际生成的、可由浏览器加载的最终构建网页；
+3. `workspace/automated-test-results/summary.json`：模型自行留下的构建与测试声明；
+4. `artifacts/workspace.diff`：相对初始 Fixture 的完整代码变化；
+5. `logs/stages/S0...Sn/`：各阶段 Prompt、原始 JSONL 输出与 stderr，用于回溯需求澄清和失败。
+
+不要优先打开 `workspace/index.html`：它可能是引用 `.ts` 源文件的开发入口。应优先打开
+`workspace/dist/index.html`。若浏览器对本地 module 有限制，在该工作区启动静态服务后访问：
+
+```bash
+cd .local/runs/<run-id>/workspace
+npm start
+# 浏览器打开 http://localhost:4173
+```
+
+`report.html` 的 `success` 只表示流程门禁通过；只有在人工评审补齐后，才会出现可用于管理判断的
+业务验收结论。
+
 ### 查看是否正在执行
 
 新启动的 `bench:case` 会直接在原终端输出：
@@ -330,7 +350,8 @@ tail -f .local/runs/<run-id>/logs/stages/<stage-id>/stdout.raw
 │   ├── leakage-scan.json  # 运行前答案泄漏扫描
 │   └── stages/            # 每阶段 stdout、stderr 和归一化事件
 ├── artifacts/             # workspace.diff 等机器证据
-├── review/                # 后续人工评审
+├── browser-evidence.json  # 浏览器证据（完成真实浏览器采集后覆盖/补齐）
+├── human-review.json      # 人工评分、结论和人工投入记录
 ├── .empty-skills/         # Kimi Skill 隔离目录
 ├── run-spec.json          # 当前阶段、预算、引擎和隔离信息
 └── ISOLATION.md           # 本次隔离能力声明
@@ -366,13 +387,7 @@ node scripts/generate-report.mjs \
 
 ## 适配器边界
 
-底层 `bench prepare/run` 已有 Codex、Kimi、Claude 的统一 Runner 协议；`bench:case` 当前开放
-Claude 和 Kimi。Claude + DeepSeek 已完成一次真实开发 Smoke；Kimi 已完成 CLI 版本、配置、
-Adapter 契约和 Dry Run 验证，尚需第一次真实 Smoke 形成 E2 运行证据。Codex 一键入口应在完成
-以下验证后开放：
-
-- 非交互确认和权限策略；
-- Session 连续性；
-- 流式事件与退出码；
-- Token、费用和实际模型信息；
-- 超时、预算和失败恢复。
+底层 `bench prepare/run` 与 `bench:case` 均已接入 Codex、Kimi、Claude 和 Pi。各 Adapter 的
+非交互确认、Session 连续性、流式事件、超时、预算及失败证据均使用统一 Runner 协议；具体模型
+是否完成真实试跑，仍以对应 Run 的 `result.json`、日志和人工评审为准，不能以 Adapter 已接入替代
+实际能力结论。

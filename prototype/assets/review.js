@@ -12,7 +12,7 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 let machineEvidence = null;
 let machineEvidenceRef = null;
 
-const ADAPTER_TOKENS = ['codex', 'kimi', 'claude'];
+const ADAPTER_TOKENS = ['codex', 'kimi', 'claude', 'pi'];
 function looksLikeModelIdentifier(value) {
   if (typeof value !== 'string' || !value) return false;
   const lower = value.toLowerCase();
@@ -152,7 +152,7 @@ function refreshEvidenceSummary() {
   if (!machineEvidence) {
     $status.textContent = "未加载";
     $status.className = "status info";
-    $summary.textContent = "尚未加载机器证据。选择 .local/runs/<id>/review/browser-evidence.json 开始。";
+    $summary.textContent = "尚未加载机器证据。选择 .local/runs/<id>/browser-evidence.json 开始。";
     return;
   }
   const bk = machineEvidence;

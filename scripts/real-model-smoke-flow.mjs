@@ -373,9 +373,16 @@ function generateReport(runDir, caseMeta, outcome) {
 
 function collectQuickViewArtifacts(runDir, reportArtifacts) {
   const workspace = join(runDir, 'workspace');
+  // 优先选择可直接在浏览器运行的构建产物；workspace/index.html 往往是源码入口，
+  // 可能引用 TypeScript，不能作为最终交付页直接打开。
+  const deliveryPage = [
+    join(workspace, 'dist', 'index.html'),
+    join(workspace, 'candidate-delivery', 'index.html'),
+    join(workspace, 'index.html'),
+  ].find(existsSync);
   const candidates = [
     ['评测报告（HTML）', reportArtifacts[0]],
-    ['最终交付网页', join(workspace, 'index.html')],
+    ...(deliveryPage ? [['最终交付网页（构建产物）', deliveryPage]] : []),
     ['候选交付说明', join(workspace, 'candidate-delivery.md')],
     ['自动化测试结果', join(workspace, 'automated-test-results.md')],
     ['性能证据', join(workspace, 'performance-evidence.md')],

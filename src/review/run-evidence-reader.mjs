@@ -16,7 +16,8 @@ import { validateEvidencePackage } from '../browser-evidence/evidence-package.mj
  *     logs/stages/<stage>/stdout.raw
  *     logs/stages/<stage>/stderr.raw
  *     logs/stages/<stage>/normalized-events.jsonl
- *     review/browser-evidence.json   ← produced by capture-browser-evidence.mjs
+ *     browser-evidence.json          ← produced by the Runner or browser capture
+ *     review/browser-evidence.json   ← legacy browser capture location (fallback)
  */
 
 function readJson(path) {
@@ -85,7 +86,11 @@ export function readRunEvidence(runDir) {
   const stageIds = listStageIds(stageLogsRoot);
   const stageLogs = stageIds.map(id => summarizeStageLogs(stageLogsRoot, id));
 
-  const browserEvidencePath = join(root, 'review', 'browser-evidence.json');
+  const canonicalBrowserEvidencePath = join(root, 'browser-evidence.json');
+  const legacyBrowserEvidencePath = join(root, 'review', 'browser-evidence.json');
+  const browserEvidencePath = existsSync(canonicalBrowserEvidencePath)
+    ? canonicalBrowserEvidencePath
+    : legacyBrowserEvidencePath;
   let browserEvidence = null;
   let browserEvidenceErrors = [];
   if (existsSync(browserEvidencePath)) {
@@ -127,7 +132,7 @@ export function summarizeRunEvidence(evidence) {
     return {
       available: false,
       summary: 'No machine evidence available for this Run.',
-      hints: ['Run the CLI first, then capture browser evidence into <runDir>/review/.'],
+      hints: ['Run the CLI first, then capture browser evidence into <runDir>/browser-evidence.json.'],
     };
   }
   const run = evidence.result ?? {};

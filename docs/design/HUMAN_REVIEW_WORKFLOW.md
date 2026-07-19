@@ -65,6 +65,17 @@ CLI Run
 
 缺少人工评审时只生成“机器证据报告”，不计算 Accepted Delivery 和有效人工加速比。
 
+## 当前 Run 的人工评审落位
+
+人工评审文件固定写到 Run 根目录：`<run-dir>/human-review.json`；浏览器证据固定为
+`<run-dir>/browser-evidence.json`。不要创建第二套 `review/` 子目录作为报告输入，避免报告生成器
+找不到人工结论。
+
+评审时先打开 `workspace/dist/index.html`（或在 `workspace/` 下执行 `npm start` 后访问
+`http://localhost:4173`），再结合 `reports/report.html`、`artifacts/workspace.diff` 与阶段日志填写
+人工评分。完成后将符合 `schemas/human-review.schema.json` 的 JSON 覆盖写入 Run 根目录，并重新运行
+`scripts/generate-report.mjs` 更新报告。
+
 ## 报告中的事实分层
 
 - 机器事实：运行时间、代码变化、测试、截图、性能；
