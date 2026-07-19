@@ -1,0 +1,40 @@
+# VAB-T05 Evidence
+
+- Status: DONE
+- Baseline: `01c0137d76f0ce2c4d4452d5dd24b4580cc52a4a`
+- Branch: `codex/vab-t05-equity-evaluator`
+- Changed paths:
+  - `src/evaluators/cases/narrative-equity/**`
+  - `tests/evaluators/narrative-equity/**`
+  - `cases/narrative-equity-relationship/evaluator/OBSERVATION_CONTRACT.md`
+  - `cases/narrative-equity-relationship/evaluator/rubric.yaml`
+  - this evidence file
+- Acceptance commands and results:
+  - `node tests/evaluators/narrative-equity/run.mjs` → PASS, 6/6 checks.
+  - Minimal compliant observation double → PASS, 39/39 deterministic rubric checks and score 100.
+  - Intentional failure overlay → expected FAIL for build/typecheck, severe layout overlap, direct-vs-sequential navigation, and lifecycle cleanup hard gates; score capped at 0.
+  - `npm test` → PASS: contracts 8/8, Evaluator Core 42/42, Fixture Framework 23/23, structure and syntax gates passed.
+  - `git diff --check` → PASS.
+- Produced artifacts:
+  - Case evaluator composed on the VAB-T04 public API, with exact rubric/check/hard-gate mapping validation.
+  - Hidden-control input registry covering public valid/boundary inputs and `fixture/control/invalid-input.json`.
+  - Fixed-viewport geometry checks for severe node overlap, edge-node intersection, endpoint boundary, fit/title offset, alignment, and position drift.
+  - Canonical state equality for direct/sequential chapter entry, rerender persistence, and Resize persistence.
+  - Deterministic command, DSL, event, animation, navigation, timing, stale-transition, duplicate-event, and destroy resource checks.
+  - Observation contract with business-explained tolerances and screenshot/state artifact paths on every result.
+  - `tests/evaluators/narrative-equity/samples/minimal-compliant.json`.
+  - `tests/evaluators/narrative-equity/samples/intentional-failure.json`.
+- Not proven:
+  - No real candidate implementation was available in this task, so browser execution against a worker fixture and existence/content of real screenshot artifacts are not proven; VAB-T11/VAB-T08 must produce the normalized observation document.
+  - Driver-reported semantic facts (for example animation terminal facts and event payload validity) remain dependent on the trusted browser driver collecting them correctly; this task proves evaluator interpretation and failure behavior with test doubles.
+  - Narrative clarity, camera comfort, animation restraint, glance readability, and long-term maintainability remain human judgments for VAB-T06.
+  - Resource counters prove deterministic cleanup signals, not long-duration heap stability or absence of every browser-engine leak.
+- Remaining risks:
+  - `npm test` cannot include the VAB-T05 runner until an integration owner edits `package.json`; that file is explicitly outside VAB-T05 `allowed_paths`. The task test is therefore run directly.
+  - Rubric IDs were normalized from underscore form to kebab-case because the frozen VAB-T04 `defineCheck` contract only accepts its documented kebab/snake segment pattern; mapping tests freeze the resulting one-to-one contract.
+- Integration notes:
+  - VAB-T11 should collect the fields in `evaluator/OBSERVATION_CONTRACT.md` and attach real screenshot/state paths by check ID.
+  - VAB-T08 should call `evaluateNarrativeEquity()` and persist `result.bundle`; it should also wire the direct task test into the repository test entry point.
+  - The hidden invalid fixture path is exported only by the evaluator-side module and must never be copied into the worker workspace.
+- Rollback:
+  - Revert the single VAB-T05 commit; no shared entry point, package manifest, task catalog, fixture, or source repository was modified.

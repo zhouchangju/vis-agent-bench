@@ -1,0 +1,47 @@
+{
+  "description": "Overlay applied to minimal-compliant.json. It deliberately violates four hard gates.",
+  "overrides": {
+    "commands": {
+      "typecheck": { "exitCode": 2 }
+    },
+    "overview": {
+      "nodes": [
+        {
+          "id": "alpha",
+          "layer": 0,
+          "visible": true,
+          "bounds": { "x": 100, "y": 100, "width": 80, "height": 60 },
+          "imageBounds": { "x": 100, "y": 100, "width": 80, "height": 60 }
+        },
+        {
+          "id": "beta",
+          "layer": 0,
+          "visible": true,
+          "bounds": { "x": 110, "y": 105, "width": 80, "height": 60 },
+          "imageBounds": { "x": 110, "y": 105, "width": 80, "height": 60 }
+        }
+      ]
+    },
+    "states": {
+      "directChapter": {
+        "view": "chapter",
+        "chapterIndex": 2,
+        "stepIndex": 0,
+        "playing": false,
+        "visibleIds": ["alpha"]
+      }
+    },
+    "lifecycle": {
+      "afterDestroy": {
+        "timers": 1,
+        "rafs": 0,
+        "audio": 0,
+        "resizeObservers": 1,
+        "subscriptions": 0
+      },
+      "callbacksAfterDestroy": 2,
+      "hostChildrenAfterDestroy": 1,
+      "duplicateBindings": 1
+    }
+  }
+}

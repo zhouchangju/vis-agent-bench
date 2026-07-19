@@ -1,0 +1,178 @@
+{
+  "commands": {
+    "build": { "exitCode": 0 },
+    "typecheck": { "exitCode": 0 },
+    "test": { "exitCode": 0 }
+  },
+  "dsl": {
+    "validAccepted": true,
+    "invalidRejected": true,
+    "hiddenInvalidSampleUsed": true,
+    "optionalAudioAccepted": true,
+    "invalidCausedUncaughtError": false
+  },
+  "overview": {
+    "status": "ready",
+    "viewport": { "width": 800, "height": 600 },
+    "titleBounds": { "x": 20, "y": 10, "width": 300, "height": 40 },
+    "graphBounds": { "x": 80, "y": 80, "width": 520, "height": 300 },
+    "uncaughtErrors": [],
+    "semantics": {
+      "nodeKinds": ["organization", "person", "metric"],
+      "edgeDirections": ["forward", "bidirectional", "mutual"],
+      "edgeStyles": ["solid", "dashed"],
+      "missingAssetFallbacks": 1,
+      "orphanEdgesRendered": 0
+    },
+    "edgeLabels": {
+      "collisions": 0,
+      "protectedTokensBroken": 0,
+      "overflowCount": 0,
+      "opaqueBackground": true
+    },
+    "nodes": [
+      {
+        "id": "alpha",
+        "layer": 0,
+        "visible": true,
+        "bounds": { "x": 100, "y": 100, "width": 80, "height": 60 },
+        "imageBounds": { "x": 100, "y": 100, "width": 80, "height": 60 }
+      },
+      {
+        "id": "beta",
+        "layer": 0,
+        "visible": true,
+        "bounds": { "x": 300, "y": 100, "width": 80, "height": 60 },
+        "imageBounds": { "x": 300, "y": 100, "width": 80, "height": 60 }
+      },
+      {
+        "id": "gamma",
+        "layer": 1,
+        "visible": true,
+        "bounds": { "x": 200, "y": 260, "width": 80, "height": 60 },
+        "imageBounds": { "x": 200, "y": 260, "width": 80, "height": 60 }
+      }
+    ],
+    "edges": [
+      {
+        "id": "alpha-beta",
+        "source": "alpha",
+        "target": "beta",
+        "visible": true,
+        "path": [{ "x": 180, "y": 130 }, { "x": 300, "y": 130 }]
+      }
+    ]
+  },
+  "events": {
+    "requiredTypesPresent": true,
+    "invalidPayloads": 0,
+    "duplicateDispatches": 0
+  },
+  "states": {
+    "directChapter": {
+      "view": "chapter",
+      "chapterIndex": 2,
+      "stepIndex": 0,
+      "playing": false,
+      "visibleIds": ["alpha", "beta"],
+      "hiddenIds": ["gamma"],
+      "opacities": { "alpha": 1, "beta": 1 }
+    },
+    "sequentialChapter": {
+      "view": "chapter",
+      "chapterIndex": 2,
+      "stepIndex": 0,
+      "playing": false,
+      "visibleIds": ["beta", "alpha"],
+      "hiddenIds": ["gamma"],
+      "opacities": { "beta": 1, "alpha": 1 }
+    },
+    "beforeRerender": {
+      "view": "chapter",
+      "chapterIndex": 1,
+      "stepIndex": 2,
+      "visibleIds": ["alpha"],
+      "dimmedIds": ["beta"],
+      "opacities": { "beta": 0.35 }
+    },
+    "afterRerender": {
+      "view": "chapter",
+      "chapterIndex": 1,
+      "stepIndex": 2,
+      "visibleIds": ["alpha"],
+      "dimmedIds": ["beta"],
+      "opacities": { "beta": 0.35 }
+    },
+    "beforeResize": {
+      "view": "chapter",
+      "chapterIndex": 1,
+      "stepIndex": 2,
+      "playing": false,
+      "visibleIds": ["alpha", "beta"],
+      "groups": [{ "id": "cluster", "members": ["alpha", "beta"] }]
+    },
+    "afterResize": {
+      "view": "chapter",
+      "chapterIndex": 1,
+      "stepIndex": 2,
+      "playing": false,
+      "visibleIds": ["beta", "alpha"],
+      "groups": [{ "members": ["beta", "alpha"], "id": "cluster" }]
+    }
+  },
+  "positions": {
+    "overview": [
+      { "id": "alpha", "bounds": { "x": 100, "y": 100, "width": 80, "height": 60 } },
+      { "id": "beta", "bounds": { "x": 300, "y": 100, "width": 80, "height": 60 } }
+    ],
+    "chapterShared": [
+      { "id": "alpha", "bounds": { "x": 101, "y": 100, "width": 80, "height": 60 } },
+      { "id": "beta", "bounds": { "x": 300, "y": 101, "width": 80, "height": 60 } }
+    ]
+  },
+  "timing": {
+    "animationMs": 800,
+    "audioMs": 1000,
+    "actualStepMs": 1000,
+    "invalidAudioBlocked": false,
+    "noAudioBlocked": false
+  },
+  "behavior": {
+    "overview_chapter_to_show_contract": true,
+    "label_aware_node_spacing": true,
+    "node_type_status_focus_encoding": true,
+    "edge_style_direction_encoding": true,
+    "label_and_tag_readability": true,
+    "subtitle_panel_and_popup_layering": true,
+    "small_container_degradation": true,
+    "basic_animation_semantics": true,
+    "grow_and_move_sequence": true,
+    "replace_without_flash": true,
+    "group_group_grow_ungroup": true,
+    "camera_focus": true,
+    "overview_to_chapter": true,
+    "chapter_inheritance": true,
+    "arbitrary_chapter_start": true,
+    "previous_next_and_pause_resume": true,
+    "completion_returns_overview": true,
+    "component_api_and_types": true,
+    "staleTransitionWrites": 0,
+    "automated_tests": true,
+    "examples_and_documentation": true
+  },
+  "lifecycle": {
+    "afterDestroy": {
+      "timers": 0,
+      "rafs": 0,
+      "audio": 0,
+      "resizeObservers": 0,
+      "subscriptions": 0
+    },
+    "callbacksAfterDestroy": 0,
+    "hostChildrenAfterDestroy": 0,
+    "duplicateBindings": 0
+  },
+  "artifact_paths": {
+    "default": ["artifacts/state-snapshot.json", "artifacts/fixed-viewport.png"]
+  }
+}
