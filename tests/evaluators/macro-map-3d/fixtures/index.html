@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Macro Map 3D evaluator browser observation</title>
+    <style>
+      html, body { margin: 0; background: #08111f; color: white; font: 14px sans-serif; }
+      #scene { width: 720px; height: 420px; }
+      #tooltip { position: absolute; left: 20px; top: 20px; padding: 6px; background: #152844; }
+    </style>
+  </head>
+  <body>
+    <button id="select-node">Select node</button>
+    <button id="view-mode">sphere-3d</button>
+    <output id="selection">none</output>
+    <canvas id="scene" width="720" height="420"></canvas>
+    <div id="tooltip" hidden>Factor tooltip</div>
+    <script>
+      const canvas = document.querySelector('#scene');
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#08111f';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = '#57d0ff';
+      context.beginPath();
+      context.arc(210, 210, 72, 0, Math.PI * 2);
+      context.fill();
+      context.strokeStyle = '#ffb84d';
+      context.lineWidth = 6;
+      context.beginPath();
+      context.moveTo(282, 210);
+      context.lineTo(510, 120);
+      context.stroke();
+      canvas.addEventListener('mouseenter', () => {
+        document.querySelector('#tooltip').hidden = false;
+      });
+      document.querySelector('#select-node').addEventListener('click', () => {
+        document.querySelector('#selection').textContent = 'factor-core-001';
+      });
+      document.querySelector('#view-mode').addEventListener('click', event => {
+        event.currentTarget.textContent = 'relation-2d';
+      });
+    </script>
+  </body>
+</html>

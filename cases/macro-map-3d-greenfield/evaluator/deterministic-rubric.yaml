@@ -1,0 +1,61 @@
+version: 1
+total: 100
+hard_gates:
+  - build-and-test
+  - input-validation
+  - scale-ladder-data-completeness
+  - deterministic-layer-layout
+  - browser-runtime-clean
+  - browser-canvas-observable-state
+  - repeated-mount-dispose-cleanup
+categories:
+  business_correctness:
+    weight: 20
+    checks:
+      - build-and-test
+      - input-validation
+      - scale-ladder-data-completeness
+      - deterministic-layer-layout
+      - importance-size-mapping
+      - relation-semantics-mapping
+  visual_quality:
+    weight: 15
+    checks:
+      - browser-canvas-observable-state
+      - spatial-layer-encoding-state
+      - relation-encoding-state
+      - language-label-runtime-state
+      - theme-depth-runtime-state
+  interaction_state_machine:
+    weight: 25
+    checks:
+      - browser-runtime-clean
+      - camera-auto-rotation-state
+      - pointer-camera-controls
+      - drag-click-disambiguation
+      - node-selection-and-clear
+      - relation-selection-and-tooltip
+      - view-mode-operation-switch
+      - runtime-aggregation-switches
+      - visible-offset-hit-state
+  performance_stability:
+    weight: 20
+    checks:
+      - scale-ladder-operability
+      - performance-budget-and-stats
+      - resize-stability
+      - context-loss-and-degradation
+      - repeated-mount-dispose-cleanup
+      - hot-path-resource-bounds
+  engineering_quality:
+    weight: 15
+    checks:
+      - adapter-api-and-runtime-updates
+      - automated-tests-and-docs
+  evidence_documentation:
+    weight: 5
+    checks:
+      - real-browser-observation-provenance
+      - automated-human-review-boundary
+caps:
+  p0_failure_max_score: 49

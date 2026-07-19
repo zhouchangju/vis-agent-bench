@@ -1,0 +1,50 @@
+# VAB-T12 Evidence
+
+- Status: DONE
+- Baseline: `13b5e3b4ec454190e971b6cf69bfe66942fa7475`
+- Branch: `codex/vab-t12-macro-3d-evaluator`
+- Changed paths:
+  - `src/evaluators/cases/macro-map-3d/index.mjs`
+  - `src/evaluators/cases/macro-map-3d/rubric.mjs`
+  - `src/evaluators/cases/macro-map-3d/checks.mjs`
+  - `tests/evaluators/macro-map-3d/run.mjs`
+  - `tests/evaluators/macro-map-3d/samples.mjs`
+  - `tests/evaluators/macro-map-3d/fixtures/index.html`
+  - `cases/macro-map-3d-greenfield/evaluator/deterministic-rubric.yaml`
+  - `cases/macro-map-3d-greenfield/evaluator/OBSERVATION_CONTRACT.md`
+  - this evidence file
+- Acceptance commands and results:
+  - `npm ci --ignore-scripts` → PASS; installed the existing locked `yaml` dependency without modifying `package.json` or `package-lock.json`.
+  - `node tests/evaluators/macro-map-3d/run.mjs` → PASS, 6/6 tests using real Playwright Chromium `149.0.7827.55`.
+  - One-to-one mapping → PASS, 30 unique deterministic rubric IDs / 30 registered assertions / 7 declared hard gates.
+  - Minimal compliant sample → PASS, 30/30 checks, score 100.
+  - Intentional failure sample → PASS as negative evidence; failed build, hidden input rejection, full-data mapping, deterministic layout, browser runtime, performance, context recovery, and lifecycle cleanup checks; hard-gate cap produced score 0.
+  - Canvas proof-boundary assertion → PASS; non-empty observable bytes and screenshot were recorded while `canvas_webgl_proven=false` remained explicit.
+  - `npm test` → PASS; contracts 8/8, evaluator core 42/42, fixtures 23/23, repository structure and syntax checks passed.
+  - `git diff --check` → PASS.
+  - allowed-path audit over `git status --short` → PASS; every changed path is under the VAB-T12 catalog boundary.
+- Produced artifacts:
+  - `src/evaluators/cases/macro-map-3d/**` — Case evaluator, exact rubric/check mapping, control-input paths, observation validation, scoring lifecycle, and evidence packaging.
+  - `deterministic-rubric.yaml` — 30 exact check IDs across the six legacy category weights. The existing `rubric.yaml` remains unchanged for repository contract compatibility.
+  - `OBSERVATION_CONTRACT.md` — deterministic fields, stable coarse budgets, and the browser/human proof boundary.
+  - `tests/evaluators/macro-map-3d/samples.mjs` — minimal compliant and intentionally faulty observation builders.
+  - `/tmp/vis-agent-bench-vab-t12/browser/browser-evidence.json` — real Chromium VAB-T11 manifest.
+  - `/tmp/vis-agent-bench-vab-t12/browser/macro-final.png` — real Chromium screenshot for human inspection, not machine aesthetic scoring.
+- Not proven:
+  - No real benchmark candidate was supplied or evaluated. The positive and negative observations are evaluator test doubles, and the local HTML exists only to exercise the real-browser evidence intake.
+  - Spatial hierarchy aesthetics, camera comfort, animation feel, label aesthetics, and overall visual desirability remain human review.
+  - A non-empty Canvas signature does not prove WebGL correctness, 3D semantics, pixel correctness, or visual quality.
+  - Detailed adapter-state observation assembly is not wired into the benchmark runner; VAB-T08 must collect candidate state and call `evaluateMacroMap3d()`.
+  - Cross-browser behavior, physical touch hardware, GPU-specific context recovery, production device performance, and long-running leak behavior were not exercised.
+  - The direct VAB-T12 test is intentionally not wired into `package.json`, which is outside this task's allowed paths; it must be added by VAB-T08.
+- Remaining risks:
+  - Semantic state evidence is only as trustworthy as the future control-plane collector; VAB-T08 should keep the observation hidden from the worker and correlate adapter state with browser actions.
+  - The coarse performance budgets require a unified test profile. Results from materially different hardware should not be compared without recording the profile.
+  - DOM selectors in the Playwright smoke are test-fixture-local. Candidate integration should prefer stable harness adapter hooks rather than product class names.
+- Integration notes:
+  - Import `evaluateMacroMap3d`, `createMacroMap3dEvaluator`, or `validateCheckMapping` from `src/evaluators/cases/macro-map-3d/index.mjs`.
+  - The Evaluator expects the VAB-T11 evidence manifest unchanged in `observation.browser`; it checks real-driver provenance and declared actions/errors but never turns screenshot pixels into aesthetic scores.
+  - VAB-T08 should persist `evaluation.bundle`, wire `node tests/evaluators/macro-map-3d/run.mjs` into the repository test entry point, and supply the candidate-specific observation collector.
+  - `rubric.yaml` remains the Case-governance legacy rubric because repository contract tests target that shape. `deterministic-rubric.yaml` uses the same category weights and is the executable one-to-one rubric.
+- Rollback:
+  - Revert the single VAB-T12 commit. All changes are additive within VAB-T12 allowed paths; no package manifest, task catalog, public Evaluator Core, browser driver, or other Case was modified.
