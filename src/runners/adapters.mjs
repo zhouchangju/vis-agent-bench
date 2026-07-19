@@ -209,7 +209,7 @@ const adapters = {
     id: 'codex',
     executable: defaultExecutables.codex,
     versionArgs: ['--version'],
-    session_continuity: 'native-working-directory',
+    session_continuity: 'native',
     parseVersion(output) {
       return parseSemverVersion(output || '');
     },
@@ -284,7 +284,7 @@ const adapters = {
     id: 'pi',
     executable: defaultExecutables.pi,
     versionArgs: ['--version'],
-    session_continuity: 'native',
+    session_continuity: 'native-working-directory',
     parseVersion(output) {
       return parseSemverVersion(output || '');
     },

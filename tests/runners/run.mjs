@@ -244,6 +244,8 @@ check('adapter.parseVersion delegates to parseSemverVersion', () => {
 
 check('listAdapters returns the four supported engines with stable ids', () => {
   assert.deepEqual(listAdapters().map(a => a.id), ['codex', 'kimi', 'claude', 'pi']);
+  assert.equal(getAdapter('codex').session_continuity, 'native');
+  assert.equal(getAdapter('pi').session_continuity, 'native-working-directory');
 });
 
 check('getAdapter throws on unknown engine', () => {

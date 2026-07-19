@@ -48,6 +48,10 @@ RunSpec 至少包含：
 若某 CLI 无法可靠恢复会话，Adapter 可用“阶段摘要 + workspace 状态”启动新会话，但必须
 记录 `session_continuity=synthetic`，不能与原生连续会话混为一谈。
 
+`requirement-ledger.yaml` 是机器读取的阶段产物：统一要求 Agent 使用 JSON 语法（JSON 是合法 YAML），
+并使用 `confirmed`、`decisions`、`assumptions`、`open_questions` 对象数组。这样中文引号、冒号等自然语言
+内容不会破坏 YAML 解析；不接受多文档 YAML 或 `- dec:` 等自由格式简写。
+
 标准阶段事件至少包含：
 
 ```json
