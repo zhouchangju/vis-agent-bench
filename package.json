@@ -15,7 +15,8 @@
     "bench": "node scripts/bench.mjs",
     "bench:doctor": "node scripts/bench.mjs doctor",
     "smoke:flow": "node scripts/dev-smoke-flow.mjs",
-    "smoke:flow:real": "node scripts/real-model-smoke-flow.mjs"
+    "smoke:flow:real": "node scripts/real-model-smoke-flow.mjs",
+    "bench:case": "node scripts/real-model-smoke-flow.mjs"
   },
   "engines": {
     "node": ">=20"

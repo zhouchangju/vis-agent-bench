@@ -129,9 +129,9 @@ const checks = [
       reportId: 'accepted-without-baseline',
       generatedAt: '2026-07-19T10:30:00Z',
     });
-    assert.match(report.leadership_summary.headline, /A delivery was accepted/);
-    assert.match(report.leadership_summary.headline, /baseline/);
-    assert.doesNotMatch(report.leadership_summary.headline, /no delivery has been accepted/);
+    assert.match(report.leadership_summary.headline, /已有交付通过验收/);
+    assert.match(report.leadership_summary.headline, /人工基线/);
+    assert.doesNotMatch(report.leadership_summary.headline, /尚无交付通过验收/);
   }],
 
   ['accepted delivery rate excludes unreviewed runs from the denominator', () => {
@@ -160,7 +160,7 @@ const checks = [
     assert.equal(summary.availability, 'unavailable');
     assert.equal(summary.reported_cost_usd, null);
     assert.equal(summary.reported_tokens, null);
-    assert.match(summary.currency_note, /No CLI reported token usage/);
+    assert.match(summary.currency_note, /CLI 未上报 Token 用量/);
   }],
 
   ['cost summary marks partial when some runs report usage', () => {
@@ -211,8 +211,8 @@ const checks = [
       reportId: 'demo-failed',
       generatedAt: '2026-07-19T10:30:00Z',
     });
-    assert.ok(report.failure_modes.some(f => f.source === 'machine' && f.title.includes('did not complete')));
-    assert.ok(report.failure_modes.some(f => f.source === 'machine' && /Automated evaluator flagged/.test(f.title)));
+    assert.ok(report.failure_modes.some(f => f.source === 'machine' && f.title.includes('未正常完成')));
+    assert.ok(report.failure_modes.some(f => f.source === 'machine' && /自动评估器/.test(f.title)));
     const caseConclusion = report.case_conclusions[0];
     assert.equal(caseConclusion.p0_state, 'failed');
     assert.equal(caseConclusion.decision, null);
@@ -221,11 +221,11 @@ const checks = [
   ['markdown renderer includes demo ribbon and unavailable markers', () => {
     const report = makeSingleRunReport();
     const md = renderMarkdown(report);
-    assert.match(md, /DEMO DATA/);
-    assert.match(md, /## Leadership summary/);
-    assert.match(md, /## Human touch time/);
-    assert.match(md, /## Fact layers/);
-    assert.match(md, /## Data provenance/);
+    assert.match(md, /演示数据/);
+    assert.match(md, /## 管理结论/);
+    assert.match(md, /## 人工介入时间/);
+    assert.match(md, /## 事实分层/);
+    assert.match(md, /## 数据来源/);
   }],
 
   ['markdown renderer handles reports with no human review', () => {
@@ -235,8 +235,8 @@ const checks = [
       generatedAt: '2026-07-19T10:30:00Z',
     });
     const md = renderMarkdown(report);
-    assert.match(md, /No accepted human review yet/);
-    assert.match(md, /Effective speedup is not eligible/);
+    assert.match(md, /尚无已完成的人工评审/);
+    assert.match(md, /暂不能计算有效提效倍数/);
   }],
 
   ['html renderer produces a self-contained document', () => {

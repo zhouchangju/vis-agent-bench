@@ -6,128 +6,128 @@
 // formats the structured report it was given.
 
 const VERDICT_LABEL = {
-  'replaceable-delivery': 'Replaceable delivery',
-  'high-value-assist': 'High-value assist',
-  'limited-assist': 'Limited assist',
-  'not-applicable': 'Not applicable',
+  'replaceable-delivery': '可替代交付',
+  'high-value-assist': '高价值辅助',
+  'limited-assist': '有限辅助',
+  'not-applicable': '暂不适用',
 };
 
 const JUDGMENT_LABEL = {
-  'replaceable-delivery': 'Replaceable delivery',
-  'high-value-assist': 'High-value assist',
-  'limited-assist': 'Limited assist',
-  'not-applicable': 'Not applicable',
-  'unknown': 'Unknown',
+  'replaceable-delivery': '可替代交付',
+  'high-value-assist': '高价值辅助',
+  'limited-assist': '有限辅助',
+  'not-applicable': '暂不适用',
+  'unknown': '未知',
 };
 
 const P0_LABEL = {
-  passed: 'P0 passed',
-  partial: 'P0 partial',
-  failed: 'P0 failed',
-  unknown: 'P0 unknown',
+  passed: 'P0 已通过',
+  partial: 'P0 部分通过',
+  failed: 'P0 未通过',
+  unknown: 'P0 待评审',
 };
 
 const FACT_LAYER_LABEL = {
-  machine: 'Machine facts',
-  human: 'Human observations',
-  inferred: 'Computed inferences',
-  unverified: 'Unverified claims',
+  machine: '机器事实',
+  human: '人工观察',
+  inferred: '计算推断',
+  unverified: '未验证陈述',
 };
 
 export function renderMarkdown(report) {
   validateReportShape(report);
   const lines = [];
-  const title = report.title || `Report ${report.report_id}`;
+  const title = report.title || `评测报告 ${report.report_id}`;
   lines.push(`# ${title}`);
   lines.push('');
   if (report.view?.demo) {
-    lines.push('> ⚠️ **DEMO DATA** — at least one input run is marked DEMO. Numbers below must not be mixed into the real leaderboard.');
+    lines.push('> ⚠️ **演示数据** — 至少一个输入运行被标记为 DEMO，以下数据不得计入正式排行榜。');
     lines.push('');
   }
-  lines.push(`- Report ID: \`${report.report_id}\``);
-  lines.push(`- Generated: ${report.generated_at}`);
-  lines.push(`- View: ${report.view?.kind} (runs: ${report.view?.scope?.run_ids?.length ?? 0})`);
-  lines.push(`- Evidence completeness: ${report.evidence_completeness.percent}%`);
+  lines.push(`- 报告 ID：\`${report.report_id}\``);
+  lines.push(`- 生成时间：${report.generated_at}`);
+  lines.push(`- 视图：${report.view?.kind}（运行数：${report.view?.scope?.run_ids?.length ?? 0}）`);
+  lines.push(`- 证据完整度：${report.evidence_completeness.percent}%`);
   if (report.evidence_completeness.missing.length) {
-    lines.push(`- Missing evidence: ${report.evidence_completeness.missing.join(', ')}`);
+    lines.push(`- 缺失证据：${report.evidence_completeness.missing.join(', ')}`);
   }
   lines.push('');
 
-  lines.push('## Leadership summary');
+  lines.push('## 管理结论');
   lines.push('');
   const summary = report.leadership_summary;
-  lines.push(`**Verdict:** ${summary.verdict ? VERDICT_LABEL[summary.verdict] || summary.verdict : 'unavailable'}`);
+  lines.push(`**综合判断：** ${summary.verdict ? VERDICT_LABEL[summary.verdict] || summary.verdict : '暂无'}`);
   lines.push('');
   lines.push(summary.headline);
   lines.push('');
-  lines.push('| Metric | Value | Notes |');
+  lines.push('| 指标 | 数值 | 说明 |');
   lines.push('| --- | --- | --- |');
-  lines.push(`| Effective speedup | ${formatSpeedup(summary.effective_speedup)} | ${summary.effective_speedup.eligible ? 'accepted runs only' : 'not eligible until at least one run is accepted'} |`);
-  lines.push(`| Accepted delivery rate | ${formatRate(summary.accepted_delivery_rate)} | source: ${summary.accepted_delivery_rate.source} |`);
+  lines.push(`| 有效提效倍数 | ${formatSpeedup(summary.effective_speedup)} | ${summary.effective_speedup.eligible ? '仅统计已验收运行' : '至少一个运行验收后才可计算'} |`);
+  lines.push(`| 可验收交付率 | ${formatRate(summary.accepted_delivery_rate)} | 来源：${labelForEnum(summary.accepted_delivery_rate.source)} |`);
   lines.push('');
 
-  lines.push('## Human touch time');
+  lines.push('## 人工介入时间');
   lines.push('');
   const ht = report.human_touch_breakdown;
   if (ht.source === 'unavailable') {
-    lines.push('_No accepted human review yet; Human Touch Time cannot be computed._');
+    lines.push('_尚无已完成的人工评审，无法计算人工介入时间。_');
   } else {
-    lines.push('| Bucket | Minutes |');
+    lines.push('| 环节 | 分钟 |');
     lines.push('| --- | --- |');
     for (const [key, value] of Object.entries(ht)) {
       if (key === 'source' || key === 'total_minutes') continue;
       lines.push(`| ${labelForBucket(key)} | ${formatMinutes(value)} |`);
     }
-    lines.push(`| **Total** | ${formatMinutes(ht.total_minutes)} |`);
+    lines.push(`| **合计** | ${formatMinutes(ht.total_minutes)} |`);
     if (ht.source === 'partial') {
       lines.push('');
-      lines.push('_Partial source: some runs lack a human review; totals may undercount._');
+      lines.push('_数据不完整：部分运行缺少人工评审，合计值可能偏低。_');
     }
   }
   lines.push('');
 
   if (report.cost_summary) {
-    lines.push('## Cost & token availability');
+    lines.push('## 费用与 Token');
     lines.push('');
     const cost = report.cost_summary;
-    lines.push(`- Availability: ${cost.availability}`);
-    lines.push(`- Reported USD cost: ${cost.reported_cost_usd == null ? 'unavailable' : `$${cost.reported_cost_usd.toFixed(4)}`}`);
+    lines.push(`- 数据状态：${labelForEnum(cost.availability)}`);
+    lines.push(`- 已上报美元费用：${cost.reported_cost_usd == null ? '暂无' : `$${cost.reported_cost_usd.toFixed(4)}`}`);
     if (cost.reported_tokens) {
-      lines.push(`- Reported tokens: input ${cost.reported_tokens.input_tokens}, output ${cost.reported_tokens.output_tokens}, cached ${cost.reported_tokens.cached_tokens}`);
+      lines.push(`- 已上报 Token：输入 ${cost.reported_tokens.input_tokens}，输出 ${cost.reported_tokens.output_tokens}，缓存读取 ${cost.reported_tokens.cached_tokens}`);
     } else {
-      lines.push('- Reported tokens: unavailable');
+      lines.push('- 已上报 Token：暂无');
     }
     lines.push(`- ${cost.currency_note}`);
     lines.push('');
   }
 
   if (report.capability_boundaries?.length) {
-    lines.push('## Capability boundaries');
+    lines.push('## 能力边界');
     lines.push('');
     for (const boundary of report.capability_boundaries) {
       lines.push(`### ${JUDGMENT_LABEL[boundary.judgment] || boundary.judgment}`);
       lines.push('');
-      lines.push(`Scope: ${boundary.scope}`);
+      lines.push(`适用范围：${boundary.scope}`);
       lines.push('');
       lines.push(boundary.detail);
       lines.push('');
       if (boundary.evidence_refs?.length) {
-        lines.push(`Evidence: ${boundary.evidence_refs.join(', ')}`);
+        lines.push(`证据：${boundary.evidence_refs.join(', ')}`);
         lines.push('');
       }
     }
   }
 
   if (report.case_conclusions?.length) {
-    lines.push('## Case conclusions');
+    lines.push('## Case 结论');
     lines.push('');
-    lines.push('| Case | Decision | P0 | Judgment | Scores (B/V/I/U) |');
+    lines.push('| Case | 人工决策 | P0 | 能力判断 | 得分（业务/视觉/交互/可用性） |');
     lines.push('| --- | --- | --- | --- | --- |');
     for (const conclusion of report.case_conclusions) {
       const scores = conclusion.scores
         ? `${scoreOrDash(conclusion.scores.business)}/${scoreOrDash(conclusion.scores.visual)}/${scoreOrDash(conclusion.scores.interaction)}/${scoreOrDash(conclusion.scores.usability)}`
         : '—';
-      lines.push(`| ${conclusion.case_id} | ${conclusion.decision || '—'} | ${P0_LABEL[conclusion.p0_state]} | ${JUDGMENT_LABEL[conclusion.judgment] || conclusion.judgment} | ${scores} |`);
+      lines.push(`| ${conclusion.case_id} | ${labelForEnum(conclusion.decision) || '—'} | ${P0_LABEL[conclusion.p0_state]} | ${JUDGMENT_LABEL[conclusion.judgment] || conclusion.judgment} | ${scores} |`);
     }
     lines.push('');
     for (const conclusion of report.case_conclusions) {
@@ -139,32 +139,32 @@ export function renderMarkdown(report) {
   }
 
   if (report.failure_modes?.length) {
-    lines.push('## Failure modes');
+    lines.push('## 失败模式');
     lines.push('');
     for (const failure of report.failure_modes) {
-      lines.push(`- **${failure.title}** _(${failure.source})_`);
+      lines.push(`- **${failure.title}** _(${labelForEnum(failure.source)})_`);
       if (failure.detail) lines.push(`  - ${failure.detail}`);
-      if (failure.evidence_refs?.length) lines.push(`  - Evidence: ${failure.evidence_refs.join(', ')}`);
+      if (failure.evidence_refs?.length) lines.push(`  - 证据：${failure.evidence_refs.join(', ')}`);
     }
     lines.push('');
   } else {
-    lines.push('## Failure modes');
+    lines.push('## 失败模式');
     lines.push('');
-    lines.push('_No failure modes recorded._');
+    lines.push('_未记录失败模式。_');
     lines.push('');
   }
 
   if (report.recommended_actions?.length) {
-    lines.push('## Recommended actions');
+    lines.push('## 建议动作');
     lines.push('');
     for (const action of report.recommended_actions) {
-      lines.push(`- **[${action.priority.toUpperCase()}]** ${action.title}`);
+      lines.push(`- **[${labelForEnum(action.priority)}]** ${action.title}`);
       lines.push(`  - ${action.rationale}`);
     }
     lines.push('');
   }
 
-  lines.push('## Fact layers');
+  lines.push('## 事实分层');
   lines.push('');
   for (const [layer, facts] of Object.entries(report.fact_layers || {})) {
     if (!facts?.length) continue;
@@ -172,31 +172,31 @@ export function renderMarkdown(report) {
     lines.push('');
     for (const fact of facts) {
       lines.push(`- \`${fact.id}\` ${fact.statement}`);
-      if (fact.evidence_refs?.length) lines.push(`  - Evidence: ${fact.evidence_refs.join(', ')}`);
+      if (fact.evidence_refs?.length) lines.push(`  - 证据：${fact.evidence_refs.join(', ')}`);
     }
     lines.push('');
   }
 
   if (report.evidence_index?.length) {
-    lines.push('## Evidence index');
+    lines.push('## 证据索引');
     lines.push('');
-    lines.push('| Handle | Kind | Label |');
+    lines.push('| 引用标识 | 类型 | 名称 |');
     lines.push('| --- | --- | --- |');
     for (const item of report.evidence_index) {
-      lines.push(`| \`${item.handle}\` | ${item.kind} | ${item.label} |`);
+      lines.push(`| \`${item.handle}\` | ${labelForEnum(item.kind)} | ${item.label} |`);
     }
     lines.push('');
   }
 
-  lines.push('## Data provenance');
+  lines.push('## 数据来源');
   lines.push('');
-  lines.push(`- Demo inputs present: ${report.data_provenance.demo_inputs_present ? 'yes' : 'no'}`);
-  lines.push(`- Leaderboard eligible: ${report.data_provenance.leaderboard_eligible ? 'yes' : 'no'}`);
+  lines.push(`- 包含演示输入：${report.data_provenance.demo_inputs_present ? '是' : '否'}`);
+  lines.push(`- 可计入排行榜：${report.data_provenance.leaderboard_eligible ? '是' : '否'}`);
   lines.push('');
-  lines.push('| Run | Case | Model | Human review | Evaluator | Accepted | Demo |');
+  lines.push('| 运行 | Case | 模型 | 人工评审 | 自动评估 | 已验收 | 演示 |');
   lines.push('| --- | --- | --- | --- | --- | --- | --- |');
   for (const input of report.data_provenance.inputs) {
-    lines.push(`| ${input.run_id} | ${input.case_id} | ${input.model_label} | ${input.has_human_review ? 'yes' : 'no'} | ${input.has_evaluator ? 'yes' : 'no'} | ${input.accepted ? 'yes' : 'no'} | ${input.demo ? 'yes' : 'no'} |`);
+    lines.push(`| ${input.run_id} | ${input.case_id} | ${input.model_label} | ${input.has_human_review ? '是' : '否'} | ${input.has_evaluator ? '是' : '否'} | ${input.accepted ? '是' : '否'} | ${input.demo ? '是' : '否'} |`);
   }
   lines.push('');
 
@@ -214,35 +214,59 @@ function validateReportShape(report) {
 
 function labelForBucket(key) {
   return {
-    clarification_minutes: 'Requirement clarification',
-    context_prep_minutes: 'Context / spec preparation',
-    poc_review_minutes: 'POC review',
-    micro_adjustment_minutes: 'Visual / interaction micro-adjustment',
-    fix_minutes: 'Defect & regression fixes',
-    final_review_minutes: 'Final acceptance',
+    clarification_minutes: '需求澄清',
+    context_prep_minutes: '上下文与规格准备',
+    poc_review_minutes: 'POC 评审',
+    micro_adjustment_minutes: '视觉与交互微调',
+    fix_minutes: '缺陷与回归修复',
+    final_review_minutes: '最终验收',
   }[key] || key;
 }
 
 function formatMinutes(value) {
-  if (value == null) return 'unavailable';
+  if (value == null) return '暂无';
   if (value === 0) return '0';
-  if (value < 60) return `${value} min`;
+  if (value < 60) return `${value} 分钟`;
   const hours = Math.floor(value / 60);
   const minutes = value % 60;
-  return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
+  return minutes === 0 ? `${hours} 小时` : `${hours} 小时 ${minutes} 分钟`;
 }
 
 function formatSpeedup(speedup) {
-  if (!speedup) return 'unavailable';
-  if (!speedup.eligible || speedup.ratio == null) return 'not eligible';
-  return `${speedup.ratio}× (baseline ${formatMinutes(speedup.baseline_minutes)} / candidate ${formatMinutes(speedup.candidate_minutes)})`;
+  if (!speedup) return '暂无';
+  if (!speedup.eligible || speedup.ratio == null) return '暂不可计算';
+  return `${speedup.ratio}×（人工基线 ${formatMinutes(speedup.baseline_minutes)} / AI 协作 ${formatMinutes(speedup.candidate_minutes)}）`;
 }
 
 function formatRate(rate) {
-  if (!rate || rate.percent == null) return 'unavailable';
+  if (!rate || rate.percent == null) return '暂无';
   return `${rate.percent}% (${rate.accepted}/${rate.reviewed})`;
 }
 
 function scoreOrDash(value) {
   return typeof value === 'number' ? String(value) : '—';
+}
+
+function labelForEnum(value) {
+  return {
+    accepted: '已验收',
+    'accepted-with-fixes': '修复后验收',
+    partial: '部分',
+    rejected: '拒绝验收',
+    'invalid-run': '无效运行',
+    unavailable: '暂无',
+    reported: '已上报',
+    'human-review': '人工评审',
+    machine: '机器',
+    human: '人工',
+    inferred: '推断',
+    unverified: '未验证',
+    now: '立即',
+    next: '下一步',
+    watch: '持续观察',
+    run: '运行',
+    evaluator: '自动评估',
+    isolation: '隔离信息',
+    browser: '浏览器证据',
+  }[value] || value;
 }

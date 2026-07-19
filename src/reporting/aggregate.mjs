@@ -241,13 +241,13 @@ export function summarizeCost(entries) {
 
 function buildCurrencyNote(totalRuns, costRuns, tokenRuns, reportingRuns) {
   const parts = [];
-  if (costRuns === 0) parts.push('No CLI reported a precise USD cost.');
-  else parts.push(`${costRuns}/${totalRuns} run(s) reported precise USD cost.`);
-  if (tokenRuns > 0) parts.push(`${tokenRuns}/${totalRuns} run(s) reported token usage.`);
-  else parts.push('No CLI reported token usage.');
+  if (costRuns === 0) parts.push('CLI 未上报精确美元费用。');
+  else parts.push(`${costRuns}/${totalRuns} 次运行上报了精确美元费用。`);
+  if (tokenRuns > 0) parts.push(`${tokenRuns}/${totalRuns} 次运行上报了 Token 用量。`);
+  else parts.push('CLI 未上报 Token 用量。');
   if (reportingRuns < totalRuns) {
     const missing = totalRuns - reportingRuns;
-    parts.push(missing + ' run(s) had no usage event; treat missing values as unavailable, do not interpolate.');
+    parts.push(`${missing} 次运行没有用量事件；缺失值按“暂无”处理，不进行估算。`);
   }
   return parts.join(' ');
 }
@@ -282,20 +282,20 @@ export function buildFactLayers(entries, aggregates) {
     const review = entry?.human_review;
 
     if (run?.status) {
-      push('machine', 'machine', `Run ${runId} ended with status ${run.status}.`, [`run:${runId}`]);
+      push('machine', 'machine', `运行 ${runId} 的最终状态为 ${run.status}。`, [`run:${runId}`]);
     }
     if (run?.duration_ms != null) {
-      push('machine', 'machine', `Run ${runId} CLI wall time was ${Math.round(run.duration_ms / 60000)} min.`, [`run:${runId}`]);
+      push('machine', 'machine', `运行 ${runId} 的 CLI 墙钟时间为 ${Math.round(run.duration_ms / 60000)} 分钟。`, [`run:${runId}`]);
     }
     if (evaluator) {
       const p0 = p0StateFromEvaluator(evaluator);
-      push('machine', 'machine', `Evaluator recorded P0 state ${p0} for run ${runId}.`, [`evaluator:${runId}`]);
+      push('machine', 'machine', `自动评估器记录运行 ${runId} 的 P0 状态为 ${p0}。`, [`evaluator:${runId}`]);
     } else {
-      push('unverified', 'unverified', `Run ${runId} has no evaluator output; automated P0 state is unknown.`, [`run:${runId}`]);
+      push('unverified', 'unverified', `运行 ${runId} 缺少自动评估输出，P0 状态未知。`, [`run:${runId}`]);
     }
 
     if (review?.decision) {
-      push('human', 'human', `Reviewer marked run ${runId} as ${review.decision}.`, [`human-review:${runId}`]);
+      push('human', 'human', `评审人将运行 ${runId} 标记为 ${review.decision}。`, [`human-review:${runId}`]);
     }
     if (review?.observations?.management_judgment) {
       push('human', 'human', review.observations.management_judgment, [`human-review:${runId}`]);
@@ -305,15 +305,15 @@ export function buildFactLayers(entries, aggregates) {
   // Aggregated inferences (clearly flagged as derived, not measured).
   if (aggregates.accepted_delivery_rate.percent != null) {
     const r = aggregates.accepted_delivery_rate;
-    push('inferred', 'inferred', `Accepted delivery rate ${r.percent}% (${r.accepted}/${r.reviewed} reviewed runs).`);
+    push('inferred', 'inferred', `可验收交付率为 ${r.percent}%（${r.accepted}/${r.reviewed} 次已评审运行）。`);
   } else {
-    push('inferred', 'inferred', 'Accepted delivery rate is unavailable until at least one run is reviewed.');
+    push('inferred', 'inferred', '至少完成一次人工评审后，才能计算可验收交付率。');
   }
   if (aggregates.effective_speedup.eligible && aggregates.effective_speedup.ratio != null) {
     const s = aggregates.effective_speedup;
-    push('inferred', 'inferred', `Effective speedup ${s.ratio}× (baseline ${s.baseline_minutes} min / candidate ${s.candidate_minutes} min, accepted runs only).`);
+    push('inferred', 'inferred', `有效提效倍数为 ${s.ratio}×（人工基线 ${s.baseline_minutes} 分钟 / AI 协作 ${s.candidate_minutes} 分钟，仅统计已验收运行）。`);
   } else {
-    push('inferred', 'inferred', 'Effective speedup is not eligible because no run has been accepted yet.');
+    push('inferred', 'inferred', '尚无运行通过验收，暂不能计算有效提效倍数。');
   }
 
   return layers;
@@ -400,13 +400,13 @@ function describeJudgment(judgment, conclusions) {
   const cases = conclusions.map(c => c.case_id).join(', ');
   const detail = conclusions.find(c => c.detail)?.detail || '';
   const prefix = {
-    'replaceable-delivery': 'P0 stable and accepted; human role limited to conventional review.',
-    'high-value-assist': 'Cannot deliver alone but visibly reduces coding or triage effort.',
-    'limited-assist': 'Rework dominates; savings are localized.',
-    'not-applicable': 'Quality unstable or human takeover cost approaches baseline.',
-    'unknown': 'No reviewed run yet; capability boundary cannot be derived.',
-  }[judgment] || 'Capability boundary could not be derived from the evidence.';
-  return `${prefix}${detail ? ` ${detail}` : ''} (cases: ${cases})`;
+    'replaceable-delivery': 'P0 稳定且已验收，人工主要承担常规评审。',
+    'high-value-assist': '尚不能独立交付，但能明显减少编码或问题定位工作量。',
+    'limited-assist': '返工仍占主导，提效集中在局部环节。',
+    'not-applicable': '质量不稳定，或人工接管成本接近原始基线。',
+    'unknown': '尚无已评审运行，无法判断能力边界。',
+  }[judgment] || '现有证据不足以判断能力边界。';
+  return `${prefix}${detail ? ` ${detail}` : ''}（Cases：${cases}）`;
 }
 
 // ---- Failure modes ---------------------------------------------------------
@@ -419,8 +419,8 @@ export function buildFailureModes(entries, caseConclusions) {
     const runStatus = entry?.run?.status;
     if (runStatus && runStatus !== 'success') {
       failures.push({
-        title: `Run ${runId} did not complete cleanly (status: ${runStatus})`,
-        detail: entry?.run?.error?.root_cause_hint || 'CLI run ended without success; check stage logs.',
+        title: `运行 ${runId} 未正常完成（状态：${runStatus}）`,
+        detail: entry?.run?.error?.root_cause_hint || 'CLI 运行未成功结束，请检查阶段日志。',
         source: 'machine',
         evidence_refs: [`run:${runId}`],
       });
@@ -428,7 +428,7 @@ export function buildFailureModes(entries, caseConclusions) {
     const review = entry?.human_review;
     if (review?.observations?.problems) {
       failures.push({
-        title: `Reviewer reported problems on run ${runId}`,
+        title: `评审人报告运行 ${runId} 存在问题`,
         detail: review.observations.problems,
         source: 'human',
         evidence_refs: [`human-review:${runId}`],
@@ -436,7 +436,7 @@ export function buildFailureModes(entries, caseConclusions) {
     }
     if (review?.observations?.required_fixes) {
       failures.push({
-        title: `Required fixes recorded on run ${runId}`,
+        title: `运行 ${runId} 记录了必须修复项`,
         detail: review.observations.required_fixes,
         source: 'human',
         evidence_refs: [`human-review:${runId}`],
@@ -444,7 +444,7 @@ export function buildFailureModes(entries, caseConclusions) {
     }
     if (entry?.evaluator?.failures?.length) {
       failures.push({
-        title: `Automated evaluator flagged ${entry.evaluator.failures.length} item(s) on run ${runId}`,
+        title: `自动评估器在运行 ${runId} 中标记了 ${entry.evaluator.failures.length} 个问题`,
         detail: entry.evaluator.failures.map(f => f.message || f).join('; '),
         source: 'machine',
         evidence_refs: [`evaluator:${runId}`],
@@ -455,8 +455,8 @@ export function buildFailureModes(entries, caseConclusions) {
   for (const conclusion of caseConclusions) {
     if (conclusion.p0_state === 'failed' || conclusion.decision === 'rejected' || conclusion.decision === 'invalid-run') {
       failures.push({
-        title: `Case ${conclusion.case_id} did not reach acceptance`,
-        detail: conclusion.detail || `P0 state: ${conclusion.p0_state}; decision: ${conclusion.decision || 'none'}.`,
+        title: `Case ${conclusion.case_id} 未达到验收条件`,
+        detail: conclusion.detail || `P0 状态：${conclusion.p0_state}；人工决策：${conclusion.decision || '无'}。`,
         source: 'inferred',
         evidence_refs: conclusion.evidence_refs,
       });
@@ -511,22 +511,22 @@ export function deriveVerdict(caseConclusions, speedup) {
 export function deriveHeadline(verdict, speedup, acceptedRate) {
   let speedText;
   if (speedup.eligible && speedup.ratio != null) {
-    speedText = `Effective speedup ${speedup.ratio}× over accepted deliveries only.`;
+    speedText = `已验收交付的有效提效倍数为 ${speedup.ratio}×。`;
   } else if ((acceptedRate?.accepted ?? 0) === 0) {
-    speedText = 'Effective speedup is not yet eligible because no delivery has been accepted.';
+    speedText = '尚无交付通过验收，暂不能计算有效提效倍数。';
   } else if (speedup.source === 'baseline-missing') {
-    speedText = 'A delivery was accepted, but effective speedup cannot be calculated until a comparable baseline is provided.';
+    speedText = '已有交付通过验收，但缺少可比人工基线，暂不能计算有效提效倍数。';
   } else {
-    speedText = 'A delivery was accepted, but effective speedup cannot be calculated from the available human-touch-time evidence.';
+    speedText = '已有交付通过验收，但现有人工介入时间证据不足，暂不能计算有效提效倍数。';
   }
   const rateText = acceptedRate.percent != null
-    ? `Accepted delivery rate ${acceptedRate.percent}% (${acceptedRate.accepted}/${acceptedRate.reviewed}).`
-    : 'Accepted delivery rate is unavailable until reviews are complete.';
+    ? `可验收交付率为 ${acceptedRate.percent}%（${acceptedRate.accepted}/${acceptedRate.reviewed}）。`
+    : '人工评审完成前无法计算可验收交付率。';
   const verdictText = {
-    'replaceable-delivery': 'Candidate is approaching a replaceable delivery profile; review boundaries before scaling.',
-    'high-value-assist': 'Candidate shows high-value-assist characteristics; keep humans in the convergence and visual review loop.',
-    'limited-assist': 'Candidate is currently a limited assist; savings are localized and rework remains material.',
-    'not-applicable': 'Candidate is not yet applicable for delivery decisions; complete human review before judging.',
-  }[verdict] || 'Verdict could not be derived from the available evidence.';
+    'replaceable-delivery': '候选模型已接近可替代交付，应在扩大使用前确认适用边界。',
+    'high-value-assist': '候选模型表现出高价值辅助特征，需求收敛和视觉评审仍需人工参与。',
+    'limited-assist': '候选模型目前仅能有限辅助，提效集中在局部，返工仍较明显。',
+    'not-applicable': '候选模型暂不适合用于交付决策，应完成人工评审后再判断。',
+  }[verdict] || '现有证据不足以形成综合判断。';
   return `${verdictText} ${speedText} ${rateText}`;
 }

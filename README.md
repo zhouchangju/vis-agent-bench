@@ -33,6 +33,7 @@ StandardChart 产业链双向树保留为备选 Case；StandardChart TODO / 存�
 - [Run 日志规范](docs/design/RUN_LOG_SPEC.md)
 - [人工评审与最终报告](docs/design/HUMAN_REVIEW_WORKFLOW.md)
 - [开发阶段快速闭环](docs/design/DEVELOPMENT_SMOKE_FLOW.md)
+- [评测运行手册：测试、真实模型与指定 Case](docs/operations/RUNBOOK.md)
 - [多 Agent 开发总控](docs/agent-orchestration/README.md)
 - [可直接派发的任务目录](docs/agent-orchestration/task-catalog.yaml)
 - [首批候选池](docs/candidates/README.md)
@@ -86,7 +87,7 @@ npm test
 npm run smoke:flow
 ```
 
-该命令只产生带 `DEMO DATA` 标识的开发证据，不进入模型比较或正式排行榜。
+该命令只产生带“演示数据”标识的开发证据，不进入模型比较或正式排行榜。
 
 按需使用真实 Claude Code 模型验证同一闭环（默认模型为 `deepseek-v4-flash`）：
 
@@ -104,6 +105,24 @@ npm run smoke:flow:real -- \
 
 这里的费用上限是每个阶段的 Claude CLI 上限；三阶段理论 Run 上限为其三倍。
 旧参数 `--max-cost-usd` 暂时保留为兼容别名。
+
+指定正式 Case 使用同一套真实模型流程。建议先用 `--dry-run` 零费用检查配置：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine claude \
+  --model deepseek-v4-flash \
+  --max-stage-cost-usd 2 \
+  --wall-time-minutes 180 \
+  --dry-run
+```
+
+确认后移除 `--dry-run` 即可运行。正式 Case 的流程门禁通过不代表业务验收通过；报告会保持
+P0 待评审，直到补齐浏览器证据和人工评审。完整说明见
+[评测运行手册](docs/operations/RUNBOOK.md)。
+
+生成的 HTML、Markdown 和管理结论文案默认使用中文；JSON 字段名和枚举保持稳定，便于程序处理。
 
 ## Runner MVP
 

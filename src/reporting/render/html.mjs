@@ -20,22 +20,22 @@ const P0_STATUS_CLASS = {
 };
 
 const P0_LABEL = {
-  passed: 'P0 passed',
-  partial: 'P0 partial',
-  failed: 'P0 failed',
-  unknown: 'P0 unknown',
+  passed: 'P0 已通过',
+  partial: 'P0 部分通过',
+  failed: 'P0 未通过',
+  unknown: 'P0 待评审',
 };
 
 const VERDICT_LABEL = {
-  'replaceable-delivery': 'Replaceable delivery',
-  'high-value-assist': 'High-value assist',
-  'limited-assist': 'Limited assist',
-  'not-applicable': 'Not applicable',
+  'replaceable-delivery': '可替代交付',
+  'high-value-assist': '高价值辅助',
+  'limited-assist': '有限辅助',
+  'not-applicable': '暂不适用',
 };
 
 export function renderHtml(report) {
   validateReportShape(report);
-  const title = escapeHtml(report.title || `Report ${report.report_id}`);
+  const title = escapeHtml(report.title || `评测报告 ${report.report_id}`);
   const parts = [htmlHead(title), htmlBodyStart(report, title)];
   parts.push(htmlLeadership(report));
   parts.push(htmlMetrics(report));
@@ -63,7 +63,7 @@ function validateReportShape(report) {
 
 function htmlHead(title) {
   return `<!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -76,36 +76,36 @@ function htmlHead(title) {
 
 function htmlBodyStart(report, title) {
   const demoBanner = report.view?.demo
-    ? `<div class="demo-ribbon"><b>DEMO DATA</b> At least one input run is marked DEMO. Do not mix these numbers into the real leaderboard.</div>`
+    ? `<div class="demo-ribbon"><b>演示数据</b> 至少一个输入运行被标记为 DEMO，不得将以下数据计入正式排行榜。</div>`
     : '';
   const verdict = report.leadership_summary?.verdict;
   const verdictClass = VERDICT_STATUS_CLASS[verdict] || 'info';
-  const verdictLabel = verdict ? (VERDICT_LABEL[verdict] || verdict) : 'Verdict unavailable';
+  const verdictLabel = verdict ? (VERDICT_LABEL[verdict] || verdict) : '暂无综合判断';
   const evidenceStatus = report.evidence_completeness?.percent === 100 ? 'good' : (report.evidence_completeness?.percent >= 50 ? 'warn' : 'bad');
   return `<main class="shell">
 <header class="topbar">
-  <div class="brand"><span class="brand-mark">VAB</span>Vis Agent Bench Report</div>
-  <div class="top-meta">REPORT / ${escapeHtml(report.report_id)} / ${escapeHtml(report.generated_at)}</div>
+  <div class="brand"><span class="brand-mark">VAB</span>可视化 Agent 评测报告</div>
+  <div class="top-meta">报告 / ${escapeHtml(report.report_id)} / ${escapeHtml(report.generated_at)}</div>
 </header>
 ${demoBanner}
 <section class="report-hero">
   <div class="verdict">
-    <span class="status ${verdictClass}">Verdict: ${escapeHtml(verdictLabel)}</span>
+    <span class="status ${verdictClass}">综合判断：${escapeHtml(verdictLabel)}</span>
     <h1>${escapeHtml(report.leadership_summary?.headline || title)}</h1>
-    <p>View: ${escapeHtml(report.view?.kind || 'unknown')} · ${report.view?.scope?.run_ids?.length ?? 0} run(s) · Evidence completeness ${report.evidence_completeness?.percent ?? 0}%.</p>
-    <div class="speed-number"><b>${formatSpeedupShort(report.leadership_summary?.effective_speedup)}</b><span>Effective speedup · ${report.leadership_summary?.effective_speedup?.eligible ? 'accepted deliveries only' : 'not eligible until a delivery is accepted'}</span></div>
+    <p>视图：${escapeHtml(report.view?.kind || '未知')} · ${report.view?.scope?.run_ids?.length ?? 0} 次运行 · 证据完整度 ${report.evidence_completeness?.percent ?? 0}%。</p>
+    <div class="speed-number"><b>${formatSpeedupShort(report.leadership_summary?.effective_speedup)}</b><span>有效提效倍数 · ${report.leadership_summary?.effective_speedup?.eligible ? '仅统计已验收交付' : '验收后才可计算'}</span></div>
   </div>
   <aside class="decision-panel">
     <div>
-      <div class="eyebrow">Executive summary</div>
-      <h2>What this report answers</h2>
+      <div class="eyebrow">管理摘要</div>
+      <h2>这份报告回答什么</h2>
       <div class="decision-list">
-        <div class="decision-item"><b>1</b><span>${escapeHtml(report.leadership_summary?.accepted_delivery_rate?.source === 'human-review' ? `Accepted delivery rate ${report.leadership_summary.accepted_delivery_rate.percent}%.` : 'Accepted delivery rate unavailable until reviews are complete.')}</span></div>
-        <div class="decision-item"><b>2</b><span>Effective speedup is only computed over accepted deliveries.</span></div>
-        <div class="decision-item"><b>3</b><span>${report.view?.demo ? 'DEMO inputs present — keep this report out of the real leaderboard.' : 'No DEMO inputs detected in this report.'}</span></div>
+        <div class="decision-item"><b>1</b><span>${escapeHtml(report.leadership_summary?.accepted_delivery_rate?.source === 'human-review' ? `可验收交付率 ${report.leadership_summary.accepted_delivery_rate.percent}%。` : '人工评审完成前无法计算可验收交付率。')}</span></div>
+        <div class="decision-item"><b>2</b><span>有效提效倍数只基于已验收交付计算。</span></div>
+        <div class="decision-item"><b>3</b><span>${report.view?.demo ? '包含 DEMO 输入——本报告不得进入正式排行榜。' : '本报告未检测到 DEMO 输入。'}</span></div>
       </div>
     </div>
-    <span class="status ${evidenceStatus}">Evidence completeness ${report.evidence_completeness?.percent ?? 0}%</span>
+    <span class="status ${evidenceStatus}">证据完整度 ${report.evidence_completeness?.percent ?? 0}%</span>
   </aside>
 </section>
 `;
@@ -114,13 +114,13 @@ ${demoBanner}
 function htmlLeadership(report) {
   const summary = report.leadership_summary;
   return `<section class="card">
-  <header class="card-head"><h2>Leadership summary</h2><span class="status info">decision inputs</span></header>
+  <header class="card-head"><h2>管理结论</h2><span class="status info">决策输入</span></header>
   <div class="card-body">
     <p class="lead">${escapeHtml(summary?.headline || '')}</p>
     <dl class="kv">
-      <dt>Verdict</dt><dd>${escapeHtml(VERDICT_LABEL[summary?.verdict] || summary?.verdict || 'unavailable')}</dd>
-      <dt>Effective speedup</dt><dd>${escapeHtml(formatSpeedup(summary?.effective_speedup))}</dd>
-      <dt>Accepted delivery rate</dt><dd>${escapeHtml(formatRate(summary?.accepted_delivery_rate))}</dd>
+      <dt>综合判断</dt><dd>${escapeHtml(VERDICT_LABEL[summary?.verdict] || summary?.verdict || '暂无')}</dd>
+      <dt>有效提效倍数</dt><dd>${escapeHtml(formatSpeedup(summary?.effective_speedup))}</dd>
+      <dt>可验收交付率</dt><dd>${escapeHtml(formatRate(summary?.accepted_delivery_rate))}</dd>
     </dl>
   </div>
 </section>
@@ -133,10 +133,10 @@ function htmlMetrics(report) {
   const totalMinutes = ht?.total_minutes;
   const acceptedPercent = summary?.accepted_delivery_rate?.percent;
   return `<section class="metric-grid">
-  <div class="metric"><div class="label">Effective speedup</div><div class="value">${formatSpeedupShort(summary?.effective_speedup)}</div><div class="delta">${summary?.effective_speedup?.eligible ? 'accepted runs only' : 'not eligible yet'}</div></div>
-  <div class="metric"><div class="label">Accepted delivery rate</div><div class="value">${acceptedPercent == null ? '—' : acceptedPercent + '%'}</div><div class="delta">${summary?.accepted_delivery_rate?.accepted ?? 0}/${summary?.accepted_delivery_rate?.reviewed ?? 0} reviewed</div></div>
-  <div class="metric"><div class="label">Human touch time</div><div class="value">${formatMinutesShort(totalMinutes)}</div><div class="delta">source: ${escapeHtml(ht?.source || 'unavailable')}</div></div>
-  <div class="metric"><div class="label">Evidence completeness</div><div class="value">${report.evidence_completeness?.percent ?? 0}%</div><div class="delta">${report.evidence_completeness?.missing?.length ? 'missing: ' + escapeHtml(report.evidence_completeness.missing.join(', ')) : 'all required evidence present'}</div></div>
+  <div class="metric"><div class="label">有效提效倍数</div><div class="value">${formatSpeedupShort(summary?.effective_speedup)}</div><div class="delta">${summary?.effective_speedup?.eligible ? '仅统计已验收运行' : '暂不可计算'}</div></div>
+  <div class="metric"><div class="label">可验收交付率</div><div class="value">${acceptedPercent == null ? '—' : acceptedPercent + '%'}</div><div class="delta">已评审 ${summary?.accepted_delivery_rate?.accepted ?? 0}/${summary?.accepted_delivery_rate?.reviewed ?? 0}</div></div>
+  <div class="metric"><div class="label">人工介入时间</div><div class="value">${formatMinutesShort(totalMinutes)}</div><div class="delta">来源：${escapeHtml(labelForEnum(ht?.source) || '暂无')}</div></div>
+  <div class="metric"><div class="label">证据完整度</div><div class="value">${report.evidence_completeness?.percent ?? 0}%</div><div class="delta">${report.evidence_completeness?.missing?.length ? '缺失：' + escapeHtml(report.evidence_completeness.missing.join(', ')) : '所需证据齐全'}</div></div>
 </section>
 `;
 }
@@ -145,8 +145,8 @@ function htmlHumanTouch(report) {
   const ht = report.human_touch_breakdown;
   if (!ht || ht.source === 'unavailable') {
     return `<section class="card">
-  <header class="card-head"><h2>Human touch time</h2><span class="status bad">unavailable</span></header>
-  <div class="card-body"><p class="muted">No accepted human review yet. Human Touch Time cannot be computed.</p></div>
+  <header class="card-head"><h2>人工介入时间</h2><span class="status bad">暂无</span></header>
+  <div class="card-body"><p class="muted">尚无已完成的人工评审，无法计算人工介入时间。</p></div>
 </section>
 `;
   }
@@ -161,13 +161,13 @@ function htmlHumanTouch(report) {
     })
     .join('');
   const partialNote = ht.source === 'partial'
-    ? '<p class="footnote">Partial source: some runs lack a human review; totals may undercount.</p>'
+    ? '<p class="footnote">数据不完整：部分运行缺少人工评审，合计值可能偏低。</p>'
     : '';
   return `<section class="card">
-  <header class="card-head"><h2>Human touch time</h2><span class="status info">human touch breakdown</span></header>
+  <header class="card-head"><h2>人工介入时间</h2><span class="status info">分环节统计</span></header>
   <div class="card-body bar-list">
     ${rows}
-    <div class="bar-row"><span><b>Total</b></span><div class="bar-track"></div><span class="bar-value"><b>${escapeHtml(formatMinutes(ht.total_minutes))}</b></span></div>
+    <div class="bar-row"><span><b>合计</b></span><div class="bar-track"></div><span class="bar-value"><b>${escapeHtml(formatMinutes(ht.total_minutes))}</b></span></div>
     ${partialNote}
   </div>
 </section>
@@ -179,15 +179,15 @@ function htmlCost(report) {
   if (!cost) return '';
   const availabilityClass = cost.availability === 'reported' ? 'good' : (cost.availability === 'partial' ? 'warn' : 'bad');
   const tokenText = cost.reported_tokens
-    ? `input ${cost.reported_tokens.input_tokens.toLocaleString()} · output ${cost.reported_tokens.output_tokens.toLocaleString()} · cached ${cost.reported_tokens.cached_tokens.toLocaleString()}`
-    : 'unavailable';
-  const costText = cost.reported_cost_usd == null ? 'unavailable' : `$${cost.reported_cost_usd.toFixed(4)}`;
+    ? `输入 ${cost.reported_tokens.input_tokens.toLocaleString()} · 输出 ${cost.reported_tokens.output_tokens.toLocaleString()} · 缓存读取 ${cost.reported_tokens.cached_tokens.toLocaleString()}`
+    : '暂无';
+  const costText = cost.reported_cost_usd == null ? '暂无' : `$${cost.reported_cost_usd.toFixed(4)}`;
   return `<section class="card">
-  <header class="card-head"><h2>Cost &amp; token availability</h2><span class="status ${availabilityClass}">${escapeHtml(cost.availability)}</span></header>
+  <header class="card-head"><h2>费用与 Token</h2><span class="status ${availabilityClass}">${escapeHtml(labelForEnum(cost.availability))}</span></header>
   <div class="card-body">
     <dl class="kv">
-      <dt>Reported USD cost</dt><dd>${escapeHtml(costText)}</dd>
-      <dt>Reported tokens</dt><dd>${escapeHtml(tokenText)}</dd>
+      <dt>已上报美元费用</dt><dd>${escapeHtml(costText)}</dd>
+      <dt>已上报 Token</dt><dd>${escapeHtml(tokenText)}</dd>
     </dl>
     <p class="footnote">${escapeHtml(cost.currency_note || '')}</p>
   </div>
@@ -200,12 +200,12 @@ function htmlCapability(report) {
   const items = report.capability_boundaries.map(b => `
     <div class="finding">
       <small>${escapeHtml(b.judgment.toUpperCase())}</small>
-      <h3>Scope: ${escapeHtml(b.scope)}</h3>
+      <h3>适用范围：${escapeHtml(b.scope)}</h3>
       <p>${escapeHtml(b.detail || '')}</p>
-      ${b.evidence_refs?.length ? `<p class="footnote">Evidence: ${escapeHtml(b.evidence_refs.join(', '))}</p>` : ''}
+      ${b.evidence_refs?.length ? `<p class="footnote">证据：${escapeHtml(b.evidence_refs.join(', '))}</p>` : ''}
     </div>`).join('');
   return `<section class="card">
-  <header class="card-head"><h2>Capability boundaries</h2><span class="status info">task-typed</span></header>
+  <header class="card-head"><h2>能力边界</h2><span class="status info">按任务分类</span></header>
   <div class="card-body">${items}</div>
 </section>
 `;
@@ -213,20 +213,20 @@ function htmlCapability(report) {
 
 function htmlCaseConclusions(report) {
   if (!report.case_conclusions?.length) return '';
-  const header = '<tr><th>Case</th><th>Decision</th><th>P0</th><th>Judgment</th><th>Scores (B/V/I/U)</th></tr>';
+  const header = '<tr><th>Case</th><th>人工决策</th><th>P0</th><th>能力判断</th><th>得分（业务/视觉/交互/可用性）</th></tr>';
   const rows = report.case_conclusions.map(c => {
     const scores = c.scores
       ? `${scoreOrDash(c.scores.business)}/${scoreOrDash(c.scores.visual)}/${scoreOrDash(c.scores.interaction)}/${scoreOrDash(c.scores.usability)}`
       : '—';
     const p0Class = P0_STATUS_CLASS[c.p0_state] || 'info';
-    return `<tr><td class="model">${escapeHtml(c.case_id)}</td><td>${escapeHtml(c.decision || '—')}</td><td class="score ${p0Class}">${escapeHtml(P0_LABEL[c.p0_state] || c.p0_state)}</td><td>${escapeHtml(c.judgment || '—')}</td><td>${escapeHtml(scores)}</td></tr>`;
+    return `<tr><td class="model">${escapeHtml(c.case_id)}</td><td>${escapeHtml(labelForEnum(c.decision) || '—')}</td><td class="score ${p0Class}">${escapeHtml(P0_LABEL[c.p0_state] || c.p0_state)}</td><td>${escapeHtml(VERDICT_LABEL[c.judgment] || labelForEnum(c.judgment) || '—')}</td><td>${escapeHtml(scores)}</td></tr>`;
   }).join('');
   const details = report.case_conclusions
     .filter(c => c.detail)
     .map(c => `<p class="footnote"><b>${escapeHtml(c.case_id)}:</b> ${escapeHtml(c.detail)}</p>`)
     .join('');
   return `<section class="card">
-  <header class="card-head"><h2>Case conclusions</h2><span class="status info">${report.case_conclusions.length} case(s)</span></header>
+  <header class="card-head"><h2>Case 结论</h2><span class="status info">${report.case_conclusions.length} 个 Case</span></header>
   <div class="card-body">
     <table class="matrix"><thead>${header}</thead><tbody>${rows}</tbody></table>
     ${details}
@@ -238,20 +238,20 @@ function htmlCaseConclusions(report) {
 function htmlFailureModes(report) {
   if (!report.failure_modes?.length) {
     return `<section class="card">
-  <header class="card-head"><h2>Failure modes</h2><span class="status good">none recorded</span></header>
-  <div class="card-body"><p class="muted">No failure modes recorded.</p></div>
+  <header class="card-head"><h2>失败模式</h2><span class="status good">无记录</span></header>
+  <div class="card-body"><p class="muted">未记录失败模式。</p></div>
 </section>
 `;
   }
   const items = report.failure_modes.map(f => `
     <div class="finding">
-      <small>${escapeHtml(f.source.toUpperCase())}</small>
+      <small>${escapeHtml(labelForEnum(f.source))}</small>
       <h3>${escapeHtml(f.title)}</h3>
       ${f.detail ? `<p>${escapeHtml(f.detail)}</p>` : ''}
-      ${f.evidence_refs?.length ? `<p class="footnote">Evidence: ${escapeHtml(f.evidence_refs.join(', '))}</p>` : ''}
+      ${f.evidence_refs?.length ? `<p class="footnote">证据：${escapeHtml(f.evidence_refs.join(', '))}</p>` : ''}
     </div>`).join('');
   return `<section class="card">
-  <header class="card-head"><h2>Failure modes</h2><span class="status warn">${report.failure_modes.length} recorded</span></header>
+  <header class="card-head"><h2>失败模式</h2><span class="status warn">${report.failure_modes.length} 条</span></header>
   <div class="card-body">${items}</div>
 </section>
 `;
@@ -261,12 +261,12 @@ function htmlRecommendedActions(report) {
   if (!report.recommended_actions?.length) return '';
   const items = report.recommended_actions.map(action => `
     <div class="finding">
-      <small>${escapeHtml(action.priority.toUpperCase())}</small>
+      <small>${escapeHtml(labelForEnum(action.priority))}</small>
       <h3>${escapeHtml(action.title)}</h3>
       <p>${escapeHtml(action.rationale)}</p>
     </div>`).join('');
   return `<section class="card">
-  <header class="card-head"><h2>Recommended actions</h2><span class="status good">actionable</span></header>
+  <header class="card-head"><h2>建议动作</h2><span class="status good">可执行</span></header>
   <div class="card-body">${items}</div>
 </section>
 `;
@@ -277,9 +277,9 @@ function htmlFactLayers(report) {
   const sections = [];
   for (const [layer, facts] of Object.entries(report.fact_layers)) {
     if (!facts?.length) continue;
-    const items = facts.map(f => `<li><b>${escapeHtml(f.id)}</b> ${escapeHtml(f.statement)}${f.evidence_refs?.length ? ` <small>Evidence: ${escapeHtml(f.evidence_refs.join(', '))}</small>` : ''}</li>`).join('');
+    const items = facts.map(f => `<li><b>${escapeHtml(f.id)}</b> ${escapeHtml(f.statement)}${f.evidence_refs?.length ? ` <small>证据：${escapeHtml(f.evidence_refs.join(', '))}</small>` : ''}</li>`).join('');
     sections.push(`<section class="card">
-  <header class="card-head"><h2>${escapeHtml(labelForLayer(layer))}</h2><span class="status info">${facts.length} item(s)</span></header>
+  <header class="card-head"><h2>${escapeHtml(labelForLayer(layer))}</h2><span class="status info">${facts.length} 条</span></header>
   <div class="card-body"><ul class="fact-list">${items}</ul></div>
 </section>`);
   }
@@ -288,22 +288,22 @@ function htmlFactLayers(report) {
 
 function htmlEvidenceIndex(report) {
   if (!report.evidence_index?.length) return '';
-  const rows = report.evidence_index.map(item => `<tr><td><code>${escapeHtml(item.handle)}</code></td><td>${escapeHtml(item.kind)}</td><td>${escapeHtml(item.label)}</td></tr>`).join('');
+  const rows = report.evidence_index.map(item => `<tr><td><code>${escapeHtml(item.handle)}</code></td><td>${escapeHtml(labelForEnum(item.kind))}</td><td>${escapeHtml(item.label)}</td></tr>`).join('');
   return `<section class="card">
-  <header class="card-head"><h2>Evidence index</h2><span class="status info">${report.evidence_index.length} reference(s)</span></header>
-  <div class="card-body"><table class="matrix"><thead><tr><th>Handle</th><th>Kind</th><th>Label</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <header class="card-head"><h2>证据索引</h2><span class="status info">${report.evidence_index.length} 个引用</span></header>
+  <div class="card-body"><table class="matrix"><thead><tr><th>引用标识</th><th>类型</th><th>名称</th></tr></thead><tbody>${rows}</tbody></table></div>
 </section>
 `;
 }
 
 function htmlDataProvenance(report) {
   if (!report.data_provenance) return '';
-  const rows = report.data_provenance.inputs.map(input => `<tr><td>${escapeHtml(input.run_id)}</td><td>${escapeHtml(input.case_id)}</td><td>${escapeHtml(input.model_label)}</td><td>${yesNo(input.has_human_review)}</td><td>${yesNo(input.has_evaluator)}</td><td>${yesNo(input.accepted)}</td><td>${input.demo ? '<b>DEMO</b>' : 'no'}</td></tr>`).join('');
+  const rows = report.data_provenance.inputs.map(input => `<tr><td>${escapeHtml(input.run_id)}</td><td>${escapeHtml(input.case_id)}</td><td>${escapeHtml(input.model_label)}</td><td>${yesNo(input.has_human_review)}</td><td>${yesNo(input.has_evaluator)}</td><td>${yesNo(input.accepted)}</td><td>${input.demo ? '<b>DEMO</b>' : '否'}</td></tr>`).join('');
   return `<section class="card">
-  <header class="card-head"><h2>Data provenance</h2><span class="status ${report.data_provenance.demo_inputs_present ? 'warn' : 'good'}">${report.data_provenance.demo_inputs_present ? 'demo present' : 'no demo'}</span></header>
+  <header class="card-head"><h2>数据来源</h2><span class="status ${report.data_provenance.demo_inputs_present ? 'warn' : 'good'}">${report.data_provenance.demo_inputs_present ? '包含演示数据' : '无演示数据'}</span></header>
   <div class="card-body">
-    <p class="footnote">Leaderboard eligible: <b>${report.data_provenance.leaderboard_eligible ? 'yes' : 'no'}</b></p>
-    <table class="matrix"><thead><tr><th>Run</th><th>Case</th><th>Model</th><th>Review</th><th>Evaluator</th><th>Accepted</th><th>Demo</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="footnote">可计入排行榜：<b>${report.data_provenance.leaderboard_eligible ? '是' : '否'}</b></p>
+    <table class="matrix"><thead><tr><th>运行</th><th>Case</th><th>模型</th><th>人工评审</th><th>自动评估</th><th>已验收</th><th>演示</th></tr></thead><tbody>${rows}</tbody></table>
   </div>
 </section>
 `;
@@ -328,56 +328,56 @@ function escapeHtml(value) {
 
 function labelForBucket(key) {
   return {
-    clarification_minutes: 'Requirement clarification',
-    context_prep_minutes: 'Context / spec preparation',
-    poc_review_minutes: 'POC review',
-    micro_adjustment_minutes: 'Visual / interaction micro-adjustment',
-    fix_minutes: 'Defect & regression fixes',
-    final_review_minutes: 'Final acceptance',
+    clarification_minutes: '需求澄清',
+    context_prep_minutes: '上下文与规格准备',
+    poc_review_minutes: 'POC 评审',
+    micro_adjustment_minutes: '视觉与交互微调',
+    fix_minutes: '缺陷与回归修复',
+    final_review_minutes: '最终验收',
   }[key] || key;
 }
 
 function labelForLayer(layer) {
   return {
-    machine: 'Machine facts',
-    human: 'Human observations',
-    inferred: 'Computed inferences',
-    unverified: 'Unverified claims',
+    machine: '机器事实',
+    human: '人工观察',
+    inferred: '计算推断',
+    unverified: '未验证陈述',
   }[layer] || layer;
 }
 
 function formatMinutes(value) {
-  if (value == null) return 'unavailable';
-  if (value === 0) return '0 min';
-  if (value < 60) return `${value} min`;
+  if (value == null) return '暂无';
+  if (value === 0) return '0 分钟';
+  if (value < 60) return `${value} 分钟`;
   const hours = Math.floor(value / 60);
   const minutes = value % 60;
-  return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
+  return minutes === 0 ? `${hours} 小时` : `${hours} 小时 ${minutes} 分钟`;
 }
 
 function formatMinutesShort(value) {
   if (value == null) return '—';
   if (value === 0) return '0';
-  if (value < 60) return `${value}m`;
+  if (value < 60) return `${value}分`;
   const hours = Math.floor(value / 60);
   const minutes = value % 60;
-  return minutes === 0 ? `${hours}h` : `${hours}.${String(Math.round((minutes / 60) * 10)).padStart(1, '0')}h`;
+  return minutes === 0 ? `${hours}小时` : `${hours}.${String(Math.round((minutes / 60) * 10)).padStart(1, '0')}小时`;
 }
 
 function formatSpeedup(speedup) {
-  if (!speedup) return 'unavailable';
-  if (!speedup.eligible || speedup.ratio == null) return 'not eligible until a delivery is accepted';
-  return `${speedup.ratio}× (baseline ${formatMinutes(speedup.baseline_minutes)} / candidate ${formatMinutes(speedup.candidate_minutes)})`;
+  if (!speedup) return '暂无';
+  if (!speedup.eligible || speedup.ratio == null) return '交付验收前暂不可计算';
+  return `${speedup.ratio}×（人工基线 ${formatMinutes(speedup.baseline_minutes)} / AI 协作 ${formatMinutes(speedup.candidate_minutes)}）`;
 }
 
 function formatSpeedupShort(speedup) {
-  if (!speedup || !speedup.eligible || speedup.ratio == null) return 'n/a';
+  if (!speedup || !speedup.eligible || speedup.ratio == null) return '待评估';
   return `${speedup.ratio}×`;
 }
 
 function formatRate(rate) {
-  if (!rate || rate.percent == null) return 'unavailable';
-  return `${rate.percent}% (${rate.accepted}/${rate.reviewed}) — source: ${rate.source}`;
+  if (!rate || rate.percent == null) return '暂无';
+  return `${rate.percent}%（${rate.accepted}/${rate.reviewed}）— 来源：${rate.source}`;
 }
 
 function scoreOrDash(value) {
@@ -385,7 +385,31 @@ function scoreOrDash(value) {
 }
 
 function yesNo(value) {
-  return value ? 'yes' : 'no';
+  return value ? '是' : '否';
+}
+
+function labelForEnum(value) {
+  return {
+    accepted: '已验收',
+    'accepted-with-fixes': '修复后验收',
+    partial: '部分',
+    rejected: '拒绝验收',
+    'invalid-run': '无效运行',
+    unavailable: '暂无',
+    reported: '已上报',
+    'human-review': '人工评审',
+    machine: '机器',
+    human: '人工',
+    inferred: '推断',
+    unverified: '未验证',
+    now: '立即',
+    next: '下一步',
+    watch: '持续观察',
+    run: '运行',
+    evaluator: '自动评估',
+    isolation: '隔离信息',
+    browser: '浏览器证据',
+  }[value] || value;
 }
 
 const STYLES = `

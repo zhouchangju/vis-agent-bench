@@ -2,7 +2,7 @@
   "schema_version": 1,
   "report_id": "demo-single",
   "generated_at": "2026-07-19T10:30:00Z",
-  "title": "Single-run report · kimi/k3-coder · macro-map-3d-greenfield",
+  "title": "单次运行报告 · kimi/k3-coder · macro-map-3d-greenfield",
   "view": {
     "kind": "single-run",
     "scope": {
@@ -33,7 +33,7 @@
       {
         "id": "M01",
         "source": "machine",
-        "statement": "Run demo-accepted-001 ended with status success.",
+        "statement": "运行 demo-accepted-001 的最终状态为 success。",
         "evidence_refs": [
           "run:demo-accepted-001"
         ]
@@ -41,7 +41,7 @@
       {
         "id": "M02",
         "source": "machine",
-        "statement": "Run demo-accepted-001 CLI wall time was 60 min.",
+        "statement": "运行 demo-accepted-001 的 CLI 墙钟时间为 60 分钟。",
         "evidence_refs": [
           "run:demo-accepted-001"
         ]
@@ -49,7 +49,7 @@
       {
         "id": "M03",
         "source": "machine",
-        "statement": "Evaluator recorded P0 state passed for run demo-accepted-001.",
+        "statement": "自动评估器记录运行 demo-accepted-001 的 P0 状态为 passed。",
         "evidence_refs": [
           "evaluator:demo-accepted-001"
         ]
@@ -59,7 +59,7 @@
       {
         "id": "H01",
         "source": "human",
-        "statement": "Reviewer marked run demo-accepted-001 as accepted-with-fixes.",
+        "statement": "评审人将运行 demo-accepted-001 标记为 accepted-with-fixes。",
         "evidence_refs": [
           "human-review:demo-accepted-001"
         ]
@@ -77,18 +77,18 @@
       {
         "id": "I01",
         "source": "inferred",
-        "statement": "Accepted delivery rate 100% (1/1 reviewed runs)."
+        "statement": "可验收交付率为 100%（1/1 次已评审运行）。"
       },
       {
         "id": "I02",
         "source": "inferred",
-        "statement": "Effective speedup 1.1× (baseline 440 min / candidate 400 min, accepted runs only)."
+        "statement": "有效提效倍数为 1.1×（人工基线 440 分钟 / AI 协作 400 分钟，仅统计已验收运行）。"
       }
     ],
     "unverified": []
   },
   "leadership_summary": {
-    "headline": "Candidate is approaching a replaceable delivery profile; review boundaries before scaling. Effective speedup 1.1× over accepted deliveries only. Accepted delivery rate 100% (1/1).",
+    "headline": "候选模型已接近可替代交付，应在扩大使用前确认适用边界。 已验收交付的有效提效倍数为 1.1×。 可验收交付率为 100%（1/1）。",
     "verdict": "replaceable-delivery",
     "effective_speedup": {
       "ratio": 1.1,
@@ -108,7 +108,7 @@
     {
       "scope": "macro-map-3d-greenfield",
       "judgment": "replaceable-delivery",
-      "detail": "P0 stable and accepted; human role limited to conventional review. (cases: macro-map-3d-greenfield)",
+      "detail": "P0 稳定且已验收，人工主要承担常规评审。（Cases：macro-map-3d-greenfield）",
       "evidence_refs": [
         "run:demo-accepted-001"
       ]
@@ -146,11 +146,11 @@
       "output_tokens": 800,
       "cached_tokens": 0
     },
-    "currency_note": "1/1 run(s) reported precise USD cost. 1/1 run(s) reported token usage."
+    "currency_note": "1/1 次运行上报了精确美元费用。 1/1 次运行上报了 Token 用量。"
   },
   "failure_modes": [
     {
-      "title": "Reviewer reported problems on run demo-accepted-001",
+      "title": "评审人报告运行 demo-accepted-001 存在问题",
       "detail": "Relationship hit-rate and mobile degradation need rework.",
       "source": "human",
       "evidence_refs": [
@@ -158,7 +158,7 @@
       ]
     },
     {
-      "title": "Required fixes recorded on run demo-accepted-001",
+      "title": "运行 demo-accepted-001 记录了必须修复项",
       "detail": "Add regression tests for relationship lookup.",
       "source": "human",
       "evidence_refs": [
@@ -168,9 +168,9 @@
   ],
   "recommended_actions": [
     {
-      "title": "Pilot the candidate in a narrow scope with conventional review",
+      "title": "在有限范围内试点，并保留常规评审",
       "priority": "next",
-      "rationale": "Verdict reached replaceable-delivery; scale only after pilot review."
+      "rationale": "当前判断已达到可替代交付，试点评审稳定后再扩大范围。"
     }
   ],
   "evidence_index": [
@@ -183,19 +183,19 @@
     {
       "handle": "evaluator:demo-accepted-001",
       "kind": "evaluator",
-      "label": "Evaluator demo-accepted-001",
+      "label": "自动评估 demo-accepted-001",
       "path": ""
     },
     {
       "handle": "human-review:demo-accepted-001",
       "kind": "human-review",
-      "label": "Human review demo-accepted-001",
+      "label": "人工评审 demo-accepted-001",
       "path": ""
     },
     {
       "handle": "isolation:demo-accepted-001",
       "kind": "isolation",
-      "label": "Isolation demo-accepted-001",
+      "label": "隔离信息 demo-accepted-001",
       "path": ""
     }
   ],
@@ -216,9 +216,9 @@
   },
   "result_envelope": {
     "status": "warning",
-    "summary": "Report demo-single generated for single-run view (1 run(s)).",
+    "summary": "报告 demo-single 已生成：single-run 视图，共 1 次运行。",
     "next_actions": [
-      "Pilot the candidate in a narrow scope with conventional review"
+      "在有限范围内试点，并保留常规评审"
     ],
     "artifacts": []
   }

@@ -30,11 +30,30 @@ try {
   const report = JSON.parse(readFileSync(join(outDir, 'reports', 'report.json'), 'utf8'));
   assert.equal(report.view.demo, true);
   assert.equal(report.data_provenance.leaderboard_eligible, false);
-  assert.doesNotMatch(report.leadership_summary.headline, /no delivery has been accepted/);
+  assert.doesNotMatch(report.leadership_summary.headline, /尚无交付通过验收/);
   assert.ok(existsSync(join(outDir, 'reports', 'report.md')));
   const html = readFileSync(join(outDir, 'reports', 'report.html'), 'utf8');
-  assert.match(html, /DEMO DATA/);
-  assert.match(html, /Development Smoke Flow Report/);
+  assert.match(html, /演示数据/);
+  assert.match(html, /开发流程 Smoke 报告/);
+
+  const dryRun = spawnSync(
+    process.execPath,
+    [
+      'scripts/real-model-smoke-flow.mjs',
+      '--case', 'narrative-equity-relationship',
+      '--model', 'deepseek-v4-flash',
+      '--max-stage-cost-usd', '2',
+      '--dry-run',
+    ],
+    { cwd: repoRoot, encoding: 'utf8', shell: false },
+  );
+  assert.equal(dryRun.status, 0, dryRun.stderr || dryRun.stdout);
+  const dryRunEnvelope = JSON.parse(dryRun.stdout);
+  assert.equal(dryRunEnvelope.status, 'success');
+  assert.equal(dryRunEnvelope.resolved_config.case_id, 'narrative-equity-relationship');
+  assert.equal(dryRunEnvelope.resolved_config.stage_count, 6);
+  assert.equal(dryRunEnvelope.resolved_config.business_acceptance_requires_human_review, true);
+  assert.match(dryRunEnvelope.resolved_config.workspace_source, /fixture\/starter$/);
 
   process.stdout.write('development smoke flow passed\n');
 } finally {

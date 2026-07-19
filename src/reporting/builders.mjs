@@ -162,16 +162,16 @@ function buildEvidenceIndex(entries) {
     const label = `${modelLabel(entry)} · ${caseIdOf(entry)}`;
     index.push({ handle: `run:${runId}`, kind: 'run', label, path: entry.run?.path || '' });
     if (entry.evaluator) {
-      index.push({ handle: `evaluator:${runId}`, kind: 'evaluator', label: `Evaluator ${runId}`, path: entry.evaluator?.path || '' });
+      index.push({ handle: `evaluator:${runId}`, kind: 'evaluator', label: `自动评估 ${runId}`, path: entry.evaluator?.path || '' });
     }
     if (entry.human_review) {
-      index.push({ handle: `human-review:${runId}`, kind: 'human-review', label: `Human review ${runId}`, path: entry.human_review?.path || '' });
+      index.push({ handle: `human-review:${runId}`, kind: 'human-review', label: `人工评审 ${runId}`, path: entry.human_review?.path || '' });
     }
     if (entry.isolation) {
-      index.push({ handle: `isolation:${runId}`, kind: 'isolation', label: `Isolation ${runId}`, path: entry.isolation?.path || '' });
+      index.push({ handle: `isolation:${runId}`, kind: 'isolation', label: `隔离信息 ${runId}`, path: entry.isolation?.path || '' });
     }
     if (entry.browser) {
-      index.push({ handle: `browser:${runId}`, kind: 'browser', label: `Browser evidence ${runId}`, path: entry.browser?.path || '' });
+      index.push({ handle: `browser:${runId}`, kind: 'browser', label: `浏览器证据 ${runId}`, path: entry.browser?.path || '' });
     }
   }
   return index;
@@ -199,48 +199,48 @@ function recommendedActions(verdict, evidenceCompleteness, humanTouch) {
   const actions = [];
   if (evidenceCompleteness.missing.includes('human-review')) {
     actions.push({
-      title: 'Complete human review before publishing leadership conclusions',
+      title: '形成管理结论前先完成人工评审',
       priority: 'now',
-      rationale: 'Without human review the report cannot compute Accepted Delivery Rate or Effective Speedup.',
+      rationale: '没有人工评审，报告无法计算可验收交付率和有效提效倍数。',
     });
   }
   if (evidenceCompleteness.missing.includes('evaluator')) {
     actions.push({
-      title: 'Run the deterministic evaluator on each Run',
+      title: '对每次运行执行确定性自动评估',
       priority: 'now',
-      rationale: 'P0 state is currently derived from incomplete evidence.',
+      rationale: '当前 P0 状态来自不完整证据。',
     });
   }
   if (verdict === 'replaceable-delivery') {
     actions.push({
-      title: 'Pilot the candidate in a narrow scope with conventional review',
+      title: '在有限范围内试点，并保留常规评审',
       priority: 'next',
-      rationale: 'Verdict reached replaceable-delivery; scale only after pilot review.',
+      rationale: '当前判断已达到可替代交付，试点评审稳定后再扩大范围。',
     });
   } else if (verdict === 'high-value-assist') {
     actions.push({
-      title: 'Position candidate as a high-value assistant, not a replacement',
+      title: '将候选模型定位为高价值助手，而非直接替代',
       priority: 'next',
-      rationale: 'Savings concentrate in first-version work; convergence and visual review still need humans.',
+      rationale: '收益主要集中在首版产出，需求收敛和视觉评审仍需人工参与。',
     });
   } else if (verdict === 'limited-assist') {
     actions.push({
-      title: 'Keep candidate in an exploratory role and continue tuning',
+      title: '保持探索性使用并继续调优',
       priority: 'next',
-      rationale: 'Rework cost dominates; do not move into delivery path yet.',
+      rationale: '返工成本仍占主导，暂不要进入正式交付链路。',
     });
   } else {
     actions.push({
-      title: 'Do not change the main workflow based on this report',
+      title: '暂不依据本报告改变主流程',
       priority: 'next',
-      rationale: 'Evidence is insufficient or quality is unstable.',
+      rationale: '当前证据不足或质量尚不稳定。',
     });
   }
   if (humanTouch.source === 'partial') {
     actions.push({
-      title: 'Backfill missing human-review packages',
+      title: '补齐缺失的人工评审记录',
       priority: 'watch',
-      rationale: 'Human touch numbers are partial and may hide rework.',
+      rationale: '人工介入时间不完整，可能低估返工。',
     });
   }
   return actions;
@@ -347,7 +347,7 @@ export function buildReport({ entries: rawEntries, reportId, generatedAt, scopeH
     data_provenance: dataProvenance,
     result_envelope: {
       status: demoInputsPresent ? 'warning' : 'success',
-      summary: `Report ${reportId} generated for ${viewKind} view (${entries.length} run(s)).`,
+      summary: `报告 ${reportId} 已生成：${viewKind} 视图，共 ${entries.length} 次运行。`,
       next_actions: recommended.slice(0, 3).map(action => action.title),
       artifacts: [],
     },
@@ -360,10 +360,10 @@ function defaultTitle(viewKind, entries) {
   const modelLabels = [...new Set(entries.map(modelLabel))];
   if (viewKind === 'single-run') {
     const entry = entries[0];
-    return `Single-run report · ${modelLabel(entry)} · ${caseIdOf(entry)}`;
+    return `单次运行报告 · ${modelLabel(entry)} · ${caseIdOf(entry)}`;
   }
   if (viewKind === 'case-models') {
-    return `Model comparison · case ${caseIds.join(', ')}`;
+    return `模型对比报告 · Case ${caseIds.join(', ')}`;
   }
-  return `Case coverage · model ${modelLabels.join(', ')}`;
+  return `Case 覆盖报告 · 模型 ${modelLabels.join(', ')}`;
 }

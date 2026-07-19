@@ -17,16 +17,15 @@ import { renderHtml, renderMarkdown } from '../src/reporting/render/index.mjs';
 import { validateReport } from '../src/reporting/validate.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const caseId = 'dev-workflow-smoke';
-const caseDir = join(projectRoot, 'cases', caseId);
 
 function parseArgs(argv) {
   const parsed = {
+    case: 'dev-workflow-smoke',
     engine: 'claude',
     model: 'deepseek-v4-flash',
     provider: 'claude-code-configured-provider',
-    wall_time_minutes: '10',
-    max_stage_cost_usd: '0.50',
+    wall_time_minutes: null,
+    max_stage_cost_usd: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
@@ -75,7 +74,7 @@ function runNode(args, { cwd = projectRoot, timeout = 15 * 60_000 } = {}) {
   return { result, envelope };
 }
 
-function evaluateCheckpoints(runDir) {
+function evaluateCheckpoints(runDir, caseDir) {
   const scenario = parseYaml(readFileSync(join(caseDir, 'scenario', 'stages.yaml'), 'utf8'));
   const workspace = join(runDir, 'workspace');
   const checks = scenario.stages.map(stage => {
@@ -91,12 +90,12 @@ function evaluateCheckpoints(runDir) {
   return { checks, passed: checks.every(check => check.status === 'pass') };
 }
 
-function runFixtureTest(runDir) {
+function runFixtureTest(runDir, required) {
   const workspace = join(runDir, 'workspace');
   const testPath = join(workspace, 'tests', 'smoke.mjs');
   if (!existsSync(testPath)) {
     return {
-      status: 'fail',
+      status: required ? 'fail' : 'skip',
       exit_code: null,
       stdout: '',
       stderr: 'tests/smoke.mjs is missing',
@@ -116,22 +115,27 @@ function runFixtureTest(runDir) {
   };
 }
 
-function createMachineEvidence(runDir, runEnvelope) {
-  const checkpoint = evaluateCheckpoints(runDir);
-  const fixtureTest = runFixtureTest(runDir);
-  const passed = runEnvelope.status === 'success'
+function createMachineEvidence(runDir, runEnvelope, caseDir, isDevelopmentSmoke) {
+  const checkpoint = evaluateCheckpoints(runDir, caseDir);
+  const fixtureTest = runFixtureTest(runDir, isDevelopmentSmoke);
+  const flowPassed = runEnvelope.status === 'success'
     && checkpoint.passed
-    && fixtureTest.status === 'pass';
+    && (!isDevelopmentSmoke || fixtureTest.status === 'pass');
 
   writeText(join(runDir, 'logs', 'real-smoke-fixture-test.stdout'), fixtureTest.stdout);
   writeText(join(runDir, 'logs', 'real-smoke-fixture-test.stderr'), fixtureTest.stderr);
   writeJson(join(runDir, 'logs', 'real-smoke-checkpoints.json'), checkpoint);
   writeJson(join(runDir, 'evaluator-summary.json'), {
-    status: passed ? 'success' : 'error',
+    status: flowPassed ? (isDevelopmentSmoke ? 'success' : 'partial') : 'error',
     summary: {
-      p0_passed: passed,
-      score: passed ? 100 : 0,
-      p0_min_score: 80,
+      p0_state: isDevelopmentSmoke ? (flowPassed ? 'passed' : 'failed') : 'unknown',
+      flow_passed: flowPassed,
+      business_acceptance_pending: !isDevelopmentSmoke,
+      ...(isDevelopmentSmoke ? {
+        p0_passed: flowPassed,
+        score: flowPassed ? 100 : 0,
+        p0_min_score: 80,
+      } : {}),
     },
     checks: [
       ...checkpoint.checks,
@@ -148,7 +152,7 @@ function createMachineEvidence(runDir, runEnvelope) {
     leaderboard_eligible: false,
     network: true,
     real_model: true,
-    note: 'Development smoke only; host-level read isolation is not proven.',
+    note: '文件级隔离运行；未证明宿主机级别的读取隔离，因此不可进入正式排行榜。',
   });
   writeJson(join(runDir, 'browser-evidence.json'), {
     status: existsSync(join(runDir, 'workspace', 'index.html')) ? 'partial' : 'error',
@@ -157,12 +161,12 @@ function createMachineEvidence(runDir, runEnvelope) {
     artifacts: existsSync(join(runDir, 'workspace', 'index.html'))
       ? ['workspace/index.html']
       : [],
-    note: 'A real browser review is outside the fast real-model smoke scope.',
+    note: '尚未完成真实浏览器评审；正式可视化 Case 不能据此判定业务验收通过。',
   });
-  return passed;
+  return { flowPassed, businessAccepted: isDevelopmentSmoke ? flowPassed : null };
 }
 
-function collectReportedUsage(runDir) {
+function collectReportedUsage(runDir, caseDir) {
   const stagesDir = join(runDir, 'logs', 'stages');
   const totals = {
     input_tokens: 0,
@@ -231,19 +235,20 @@ function collectReportedUsage(runDir) {
   return totals;
 }
 
-function generateDemoReport(runDir, passed) {
+function generateReport(runDir, caseMeta, outcome) {
   const reportDir = join(runDir, 'reports');
   mkdirSync(reportDir, { recursive: true });
+  const isDevelopmentSmoke = caseMeta.task_type === 'development-smoke';
   const entry = loadEntry(runDir, {
-    demo: true,
-    caseMeta: { title: '真实模型开发流程 Smoke' },
+    demo: isDevelopmentSmoke,
+    caseMeta: { title: caseMeta.title },
   });
-  const reportId = `real-smoke-${entry.run.run_id}`;
+  const reportId = `${isDevelopmentSmoke ? 'real-smoke' : 'case-run'}-${entry.run.run_id}`;
   const report = buildReport({
     entries: [entry],
     reportId,
     generatedAt: new Date().toISOString(),
-    title: `Real-model Development Smoke · ${entry.run.engine?.model || 'unknown-model'}`,
+    title: `${caseMeta.title} · 真实模型评测报告 · ${entry.run.engine?.model || '未知模型'}`,
   });
   const validation = validateReport(report);
   if (!validation.valid) {
@@ -255,13 +260,65 @@ function generateDemoReport(runDir, passed) {
   writeJson(jsonPath, report);
   writeText(markdownPath, renderMarkdown(report));
   writeText(htmlPath, renderHtml(report));
-  return { passed, artifacts: [htmlPath, jsonPath, markdownPath] };
+  return { outcome, artifacts: [htmlPath, jsonPath, markdownPath] };
 }
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.engine !== 'claude') {
-    throw new Error('Real smoke currently supports --engine claude only; add a tested adapter before enabling another engine.');
+    throw new Error('当前真实模型统一入口仅验证了 --engine claude；启用其他引擎前需先完成适配器验证。');
+  }
+  const caseId = String(args.case);
+  const caseDir = join(projectRoot, 'cases', caseId);
+  const caseMetaPath = join(caseDir, 'case.yaml');
+  if (!existsSync(caseMetaPath)) {
+    throw new Error(`Case 不存在：${caseId}`);
+  }
+  const caseMeta = parseYaml(readFileSync(caseMetaPath, 'utf8'));
+  const scenario = parseYaml(readFileSync(join(caseDir, caseMeta.scenario || 'scenario/stages.yaml'), 'utf8'));
+  const stageCount = scenario.stages?.length || 0;
+  const isDevelopmentSmoke = caseMeta.task_type === 'development-smoke';
+  const workspaceSource = args.workspace_source
+    ? resolve(args.workspace_source)
+    : (existsSync(join(caseDir, 'fixture', 'starter'))
+      ? join(caseDir, 'fixture', 'starter')
+      : join(caseDir, 'fixture'));
+  const wallTimeMinutes = args.wall_time_minutes || (isDevelopmentSmoke ? '10' : '180');
+  const maxStageCostUsd = args.max_stage_cost_usd || (isDevelopmentSmoke ? '0.50' : null);
+  if (!existsSync(workspaceSource)) {
+    throw new Error(`Case 缺少可运行 Fixture：${workspaceSource}`);
+  }
+  if (!isDevelopmentSmoke && maxStageCostUsd == null && !args.dry_run) {
+    throw new Error('正式 Case 必须显式设置 --max-stage-cost-usd，避免无人值守运行失控。');
+  }
+
+  const resolvedConfig = {
+    case_id: caseId,
+    case_title: caseMeta.title,
+    task_type: caseMeta.task_type,
+    engine: args.engine,
+    model: args.model,
+    provider: args.provider,
+    workspace_source: workspaceSource,
+    stage_count: stageCount,
+    wall_time_minutes: Number(wallTimeMinutes),
+    max_stage_cost_usd: maxStageCostUsd === 'none' || maxStageCostUsd == null
+      ? null
+      : Number(maxStageCostUsd),
+    max_possible_run_cost_usd: maxStageCostUsd === 'none' || maxStageCostUsd == null
+      ? null
+      : Number(maxStageCostUsd) * stageCount,
+    business_acceptance_requires_human_review: !isDevelopmentSmoke,
+  };
+  if (args.dry_run) {
+    process.stdout.write(`${JSON.stringify({
+      status: 'success',
+      summary: '配置解析成功；未调用模型。',
+      resolved_config: resolvedConfig,
+      next_actions: ['移除 --dry-run 后执行真实模型评测。'],
+      artifacts: [],
+    }, null, 2)}\n`);
+    return;
   }
 
   const prepareArgs = [
@@ -271,11 +328,11 @@ function main() {
     '--engine', args.engine,
     '--model', args.model,
     '--provider', args.provider,
-    '--wall-time-minutes', args.wall_time_minutes,
-    '--workspace-source', join(caseDir, 'fixture'),
+    '--wall-time-minutes', wallTimeMinutes,
+    '--workspace-source', workspaceSource,
   ];
-  if (args.max_stage_cost_usd !== 'none') {
-    prepareArgs.push('--max-cost-usd', args.max_stage_cost_usd);
+  if (maxStageCostUsd !== 'none') {
+    prepareArgs.push('--max-cost-usd', maxStageCostUsd);
   }
 
   const prepared = runNode(prepareArgs);
@@ -284,33 +341,29 @@ function main() {
   }
   const runDir = prepared.envelope.run_dir;
   writeJson(join(runDir, 'logs', 'real-smoke-orchestrator.json'), {
-    mode: 'real-model-development-smoke',
-    engine: args.engine,
-    configured_model: args.model,
-    configured_provider: args.provider,
-    max_stage_cost_usd: args.max_stage_cost_usd,
-    max_possible_run_cost_usd: args.max_stage_cost_usd === 'none'
-      ? null
-      : Number(args.max_stage_cost_usd) * 3,
+    mode: isDevelopmentSmoke ? 'real-model-development-smoke' : 'real-model-case-benchmark',
+    ...resolvedConfig,
     started_at: new Date().toISOString(),
   });
 
   const executed = runNode(
     ['scripts/bench.mjs', 'run', '--run-dir', runDir],
-    { timeout: Number(args.wall_time_minutes) * 60_000 + 30_000 },
+    { timeout: Number(wallTimeMinutes) * 60_000 + 30_000 },
   );
-  const usage = collectReportedUsage(runDir);
-  const passed = createMachineEvidence(runDir, executed.envelope);
-  const report = generateDemoReport(runDir, passed);
+  const usage = collectReportedUsage(runDir, caseDir);
+  const outcome = createMachineEvidence(runDir, executed.envelope, caseDir, isDevelopmentSmoke);
+  const report = generateReport(runDir, caseMeta, outcome);
 
   process.stdout.write(`${JSON.stringify({
-    status: passed ? 'success' : 'warning',
-    summary: passed
-      ? `Real-model smoke completed with ${args.model}; all three stage checkpoints and the fixture test passed.`
-      : `Real-model smoke completed with ${args.model}, but one or more machine gates failed.`,
-    next_actions: passed
-      ? ['Inspect model events and the DEMO report; do not use this run for leaderboard conclusions.']
-      : ['Inspect real-smoke-checkpoints.json and stage stderr before retrying once.'],
+    status: outcome.flowPassed ? 'success' : 'warning',
+    summary: outcome.flowPassed
+      ? `${caseMeta.title} 已使用 ${args.model} 跑完；流程门禁通过${isDevelopmentSmoke ? '。' : '，业务验收仍待浏览器与人工评审。'}`
+      : `${caseMeta.title} 已使用 ${args.model} 运行，但一个或多个流程门禁失败。`,
+    next_actions: outcome.flowPassed
+      ? [isDevelopmentSmoke
+        ? '检查模型事件和演示报告；该运行不可用于正式排行榜结论。'
+        : '进入浏览器评审并补录人工评分、修改时间和最终验收结论。']
+      : ['检查 real-smoke-checkpoints.json 和各阶段 stderr，修复根因后仅重试一次。'],
     artifacts: [
       ...report.artifacts,
       join(runDir, 'logs', 'real-smoke-checkpoints.json'),
@@ -318,11 +371,13 @@ function main() {
     ],
     run_id: prepared.envelope.run_id,
     run_dir: runDir,
+    case_id: caseId,
+    case_title: caseMeta.title,
     configured_model: args.model,
     configured_provider: args.provider,
-    configured_stage_cost_cap_usd: args.max_stage_cost_usd === 'none'
+    configured_stage_cost_cap_usd: maxStageCostUsd === 'none'
       ? null
-      : Number(args.max_stage_cost_usd),
+      : Number(maxStageCostUsd),
     observed_models: usage.observed_models,
     reported_cost_usd: usage.cost_usd,
     reported_tokens: {
@@ -331,8 +386,9 @@ function main() {
       cached_tokens: usage.cached_tokens,
     },
     leaderboard_eligible: false,
+    business_acceptance: outcome.businessAccepted == null ? 'pending-human-review' : 'accepted',
   }, null, 2)}\n`);
-  if (!passed) process.exitCode = 2;
+  if (!outcome.flowPassed) process.exitCode = 2;
 }
 
 try {
@@ -342,14 +398,14 @@ try {
     status: 'error',
     summary: error.message,
     next_actions: [
-      'Fix the root cause and retry once.',
-      'Stop after two identical failures and preserve the Run directory.',
+      '修复根因后重试一次。',
+      '连续两次出现相同失败时停止，并保留 Run 目录用于回溯。',
     ],
     artifacts: [],
     error: {
       root_cause_hint: error.message,
-      safe_retry: 'Retry once after correcting configuration or adapter arguments.',
-      stop_condition: 'Stop after two identical failures.',
+      safe_retry: '修正配置或适配器参数后仅重试一次。',
+      stop_condition: '连续两次相同失败后停止。',
     },
   }, null, 2)}\n`);
   process.exitCode = 1;

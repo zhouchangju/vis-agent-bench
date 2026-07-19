@@ -374,10 +374,10 @@ function main() {
         first_poc_fitness_percent: 100,
       },
       observations: {
-        strengths: 'Deterministic development pipeline completed.',
-        problems: 'This mock run does not prove real model or browser behavior.',
+        strengths: '确定性的开发流程已完整跑通。',
+        problems: '该 Mock 运行不能证明真实模型或真实浏览器行为。',
         required_fixes: '',
-        management_judgment: 'DEMO only; never use for model or productivity conclusions.',
+        management_judgment: '仅用于 DEMO，不得用于模型能力或提效结论。',
       },
     }],
   });
@@ -385,7 +385,7 @@ function main() {
     mode: 'development-smoke',
     leaderboard_eligible: false,
     network: false,
-    note: 'Deterministic mock run; no model process was started.',
+    note: '确定性 Mock 运行，未启动模型进程。',
   });
   writeJson(join(runDir, 'browser-evidence.json'), {
     status: 'success',
@@ -403,7 +403,7 @@ function main() {
     entries: [entry],
     reportId: `report-${runId}`,
     generatedAt: new Date().toISOString(),
-    title: 'Development Smoke Flow Report',
+    title: '开发流程 Smoke 报告',
   });
   const validation = validateReport(report);
   if (!validation.valid) {
@@ -422,8 +422,8 @@ function main() {
 
   process.stdout.write(`${JSON.stringify({
     status: 'success',
-    summary: `Development smoke flow completed ${scenario.stages.length} stages and generated a DEMO report.`,
-    next_actions: ['Open the HTML report and inspect stage logs when changing orchestration code.'],
+    summary: `开发流程 Smoke 已完成 ${scenario.stages.length} 个阶段，并生成演示报告。`,
+    next_actions: ['修改编排代码后，打开 HTML 报告并检查阶段日志。'],
     artifacts: [reportHtml, reportJson, join(runDir, 'logs', 'stages')],
     run_id: runId,
     run_dir: runDir,
@@ -436,7 +436,7 @@ try {
   process.stdout.write(`${JSON.stringify({
     status: 'error',
     summary: error.message,
-    next_actions: ['Inspect the last completed stage and retry after fixing the root cause.'],
+    next_actions: ['检查最后完成的阶段，修复根因后再重试。'],
     artifacts: [],
   }, null, 2)}\n`);
   process.exitCode = 1;

@@ -62,7 +62,7 @@ function output(status, summary, nextActions = [], artifacts = [], extra = {}) {
 
 function fail(message, nextActions) {
   output('error', message, nextActions || [], [], {
-    error: { root_cause_hint: message, safe_retry: 'Fix the inputs and rerun.', stop_condition: 'Stop after two identical failures.' },
+    error: { root_cause_hint: message, safe_retry: '修正输入后重新运行。', stop_condition: '连续两次相同失败后停止。' },
   });
   process.exitCode = 1;
 }
@@ -71,15 +71,15 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
 
   if (args.help) {
-    output('success', 'Print help.', [], []);
+    output('success', '显示帮助。', [], []);
     return;
   }
 
   if (args.run.length === 0) {
-    return fail('At least one --run <dir> is required.', [
-      'Pass one --run for single-run view.',
-      'Pass multiple --run with the same case for case-models view.',
-      'Pass multiple --run with the same model for model-cases view.',
+    return fail('至少需要一个 --run <dir>。', [
+      '传入一个 --run 生成单次运行报告。',
+      '传入同一 Case 的多个 --run 生成模型对比报告。',
+      '传入同一模型的多个 --run 生成 Case 覆盖报告。',
     ]);
   }
 
@@ -112,13 +112,13 @@ async function main() {
       title: args.title,
     });
   } catch (error) {
-    return fail(`Report build failed: ${error.message}`, ['Inspect --run inputs and retry.']);
+    return fail(`报告构建失败：${error.message}`, ['检查 --run 输入后重试。']);
   }
 
   const validation = validateReport(report);
   if (!validation.valid) {
     return fail(
-      `Report failed schema validation with ${validation.errors.length} issue(s).`,
+      `报告 Schema 校验失败，共 ${validation.errors.length} 个问题。`,
       validation.result.next_actions,
     );
   }
@@ -146,7 +146,7 @@ async function main() {
 
   output(
     'success',
-    `Generated ${formats.join(', ')} report for ${entries.length} run(s) (${report.view.kind}).`,
+    `已为 ${entries.length} 次运行生成 ${formats.join(', ')} 报告（${report.view.kind}）。`,
     report.recommended_actions.slice(0, 3).map(action => action.title),
     artifacts,
     { report_id: reportId, view: report.view.kind, evidence_completeness: report.evidence_completeness.percent },
@@ -154,5 +154,5 @@ async function main() {
 }
 
 main().catch(error => {
-  fail(`Unexpected error: ${error.message}`, ['Re-run with fewer --run entries to isolate the failure.']);
+  fail(`发生未预期错误：${error.message}`, ['减少 --run 输入数量后重试，以定位问题。']);
 });
