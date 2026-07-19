@@ -46,7 +46,7 @@ npm run smoke:flow:real -- \
   --model deepseek-v4-flash \
   --provider claude-code-configured-provider \
   --wall-time-minutes 10 \
-  --max-cost-usd 0.50
+  --max-stage-cost-usd 0.50
 ```
 
 真实模式仍然是开发证据：
@@ -58,6 +58,10 @@ npm run smoke:flow:real -- \
 - 报告会明确显示 human review 缺失，不能得出效率或替代性结论。
 - Smoke Prompt 禁止子 Agent、后台任务和联网，避免为验证管道产生无关成本；
 - Runner 从 stream-json 汇总 reported Token、费用和 observed model，不按文本长度估算。
+
+Claude 的 `--max-budget-usd` 在当前分阶段非交互调用中按单次 Stage 生效，不是整个 Run 总额。
+入口因此使用 `--max-stage-cost-usd`；三阶段理论最大费用为该值的三倍。旧的
+`--max-cost-usd` 仅作为兼容别名，日志同时记录单阶段上限和理论 Run 上限。
 
 Claude Code 使用 `--print --permission-mode auto` 避免审批等待。多阶段评测需要保存 Session，
 因此 Adapter 不得同时传 `--no-session-persistence`。若实际模型配置来自用户侧 Claude

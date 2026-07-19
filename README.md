@@ -99,8 +99,11 @@ npm run smoke:flow:real
 ```bash
 npm run smoke:flow:real -- \
   --model deepseek-v4-flash \
-  --max-cost-usd 0.50
+  --max-stage-cost-usd 0.50
 ```
+
+这里的费用上限是每个阶段的 Claude CLI 上限；三阶段理论 Run 上限为其三倍。
+旧参数 `--max-cost-usd` 暂时保留为兼容别名。
 
 ## Runner MVP
 

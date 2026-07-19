@@ -26,7 +26,7 @@ function parseArgs(argv) {
     model: 'deepseek-v4-flash',
     provider: 'claude-code-configured-provider',
     wall_time_minutes: '10',
-    max_cost_usd: '0.50',
+    max_stage_cost_usd: '0.50',
   };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
@@ -38,6 +38,9 @@ function parseArgs(argv) {
       parsed[key] = next;
       index += 1;
     }
+  }
+  if (parsed.max_cost_usd != null) {
+    parsed.max_stage_cost_usd = parsed.max_cost_usd;
   }
   return parsed;
 }
@@ -271,7 +274,9 @@ function main() {
     '--wall-time-minutes', args.wall_time_minutes,
     '--workspace-source', join(caseDir, 'fixture'),
   ];
-  if (args.max_cost_usd !== 'none') prepareArgs.push('--max-cost-usd', args.max_cost_usd);
+  if (args.max_stage_cost_usd !== 'none') {
+    prepareArgs.push('--max-cost-usd', args.max_stage_cost_usd);
+  }
 
   const prepared = runNode(prepareArgs);
   if (prepared.envelope.status !== 'success') {
@@ -283,7 +288,10 @@ function main() {
     engine: args.engine,
     configured_model: args.model,
     configured_provider: args.provider,
-    max_cost_usd: args.max_cost_usd,
+    max_stage_cost_usd: args.max_stage_cost_usd,
+    max_possible_run_cost_usd: args.max_stage_cost_usd === 'none'
+      ? null
+      : Number(args.max_stage_cost_usd) * 3,
     started_at: new Date().toISOString(),
   });
 
@@ -312,6 +320,9 @@ function main() {
     run_dir: runDir,
     configured_model: args.model,
     configured_provider: args.provider,
+    configured_stage_cost_cap_usd: args.max_stage_cost_usd === 'none'
+      ? null
+      : Number(args.max_stage_cost_usd),
     observed_models: usage.observed_models,
     reported_cost_usd: usage.cost_usd,
     reported_tokens: {
