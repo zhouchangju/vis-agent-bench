@@ -1,0 +1,22 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const root = resolve(import.meta.dirname, '..');
+const assets = resolve(root, 'public/assets');
+mkdirSync(assets, { recursive: true });
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <defs><pattern id="g" width="48" height="48" patternUnits="userSpaceOnUse">
+    <path d="M48 0H0V48" fill="none" stroke="#6f82a3" stroke-width="1"/>
+    <circle cx="0" cy="0" r="2" fill="#b8c4d8"/>
+  </pattern></defs>
+  <rect width="960" height="540" fill="#111827"/>
+  <rect width="960" height="540" fill="url(#g)"/>
+</svg>
+`;
+writeFileSync(resolve(assets, 'generated-grid.svg'), svg);
+console.log(JSON.stringify({
+  status: 'success',
+  summary: 'Deterministic local SVG asset generated.',
+  next_actions: [],
+  artifacts: [resolve(assets, 'generated-grid.svg')],
+}));

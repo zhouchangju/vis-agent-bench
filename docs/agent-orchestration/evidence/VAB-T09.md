@@ -1,0 +1,41 @@
+# VAB-T09 Evidence
+
+- Status: DONE
+- Baseline: `01c0137d76f0ce2c4d4452d5dd24b4580cc52a4a`
+- Branch: `codex/vab-t09-macro-3d-fixture`
+- Changed paths:
+  - `cases/macro-map-3d-greenfield/fixture/**`
+  - `scripts/fixtures/macro-map-3d/**`
+  - `tests/cases/macro-map-3d/**`
+  - this evidence file
+- Acceptance commands and results:
+  - `node scripts/fixtures/macro-map-3d/generate-fixture.mjs` → PASS; regenerated deterministic datasets and local SVG.
+  - `node scripts/fixtures/macro-map-3d/verify-fixture.mjs` → PASS; verified 200/800/1481 nodes, 284/1137/2106 relations, bilingual long labels, two layers, all relation types, switchable metric/time dimensions, and a high-density hub.
+  - `node tests/cases/macro-map-3d/run.mjs` → PASS; generator output remained byte-stable, hidden invalid cases were rejected, Fixture Builder baseline passed, control files stayed excluded, and manifest leakage counts were `{ path: 0, content: 0, canary: 0 }`.
+  - `node scripts/validate-structure.mjs` → PASS; repository structure and contracts valid.
+  - `npm test` → PASS; contracts 8/8, evaluator core 42/42, fixtures 23/23, structure and syntax checks passed.
+  - `git diff --check` → PASS.
+  - allowed-path audit over `git status --short` → PASS; no changed path outside the VAB-T09 catalog boundary.
+- Produced artifacts:
+  - `fixture/starter/` — dependency-free worker starter with a narrow adapter/data contract and no 3D implementation.
+  - `fixture/starter/data/public/graph-{200,800,1481}.json` — synthetic deterministic scale ladder.
+  - `fixture/starter/data/public/boundary-valid.json` — valid extreme weights, long labels, unknown relation, and isolated-node boundary data.
+  - `fixture/control/invalid-inputs.json` — six hidden negative cases.
+  - `fixture/starter/public/assets/generated-grid.svg` — deterministic local generated asset.
+  - `fixture/plan.yaml` — baseline, provenance, exclusion, and leakage rules.
+  - generator, verifier, and Case integration test scripts.
+- Not proven:
+  - Candidate 3D rendering, visual quality, interaction behavior, WebGL fallback/recovery, performance, and resource disposal are not implemented or proven by the starter; those are candidate and VAB-T12 evaluator responsibilities.
+  - No browser screenshots or visual golden answers are shipped, to avoid leaking an expected solution.
+  - Safari, iPhone-size touch behavior, and GPU-specific performance were not exercised.
+  - OS-level source isolation is not claimed; the Fixture Builder provides file-level export isolation.
+  - The synthetic graph preserves required scale and stress shapes, not the distribution or semantics of private business data.
+- Remaining risks:
+  - The full-scale synthetic payload intentionally carries per-node metric/time values; consumers should measure parse cost as part of the benchmark.
+  - Browser-visible accessibility and fallback messaging remain candidate-owned and require VAB-T12 browser checks.
+- Integration notes:
+  - VAB-T08 can build this Case with `fixture/starter` as `source_root` and `fixture/plan.yaml`.
+  - VAB-T12 can use stable dataset IDs, node/relation counts, runtime enum values, and control patches without relying on private source identifiers.
+  - The task intentionally does not modify `package.json` or the task catalog; run the Case test directly.
+- Rollback:
+  - Revert the single VAB-T09 commit. No shared entry point or dependency manifest was changed.

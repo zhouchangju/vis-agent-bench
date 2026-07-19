@@ -1,0 +1,338 @@
+{
+  "meta": {
+    "schema_version": 1,
+    "dataset_id": "synthetic-boundary-valid",
+    "metrics": [
+      "level",
+      "momentum",
+      "stress"
+    ],
+    "periods": [
+      "t0",
+      "t1",
+      "t2",
+      "t3"
+    ],
+    "initial_camera": {
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "distance": 96,
+      "polar": 1.15,
+      "azimuth": 0.65
+    },
+    "supported_runtime_inputs": {
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "languages": [
+        "zh",
+        "en"
+      ],
+      "view_modes": [
+        "sphere-3d",
+        "relation-2d"
+      ],
+      "relation_strategies": [
+        "always",
+        "interaction-only",
+        "primary-emphasis"
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "id": "factor-0001",
+      "labels": {
+        "zh": "合成因子 0001",
+        "en": "Synthetic Factor 0001"
+      },
+      "category": "systems",
+      "layer": "core",
+      "importance": -4,
+      "values": {
+        "level": {
+          "t0": -0.46,
+          "t1": -0.17,
+          "t2": 0.12,
+          "t3": 0.41
+        },
+        "momentum": {
+          "t0": 0.05,
+          "t1": 0.34,
+          "t2": 0.63,
+          "t3": 0.92
+        },
+        "stress": {
+          "t0": 0.56,
+          "t1": 0.85,
+          "t2": -0.87,
+          "t3": -0.58
+        }
+      }
+    },
+    {
+      "id": "factor-0002",
+      "labels": {
+        "zh": "合成因子 0002",
+        "en": "Synthetic Factor 0002"
+      },
+      "category": "resources",
+      "layer": "core",
+      "importance": 25,
+      "values": {
+        "level": {
+          "t0": 0.39,
+          "t1": 0.68,
+          "t2": 0.97,
+          "t3": -0.75
+        },
+        "momentum": {
+          "t0": -0.94,
+          "t1": -0.65,
+          "t2": -0.36,
+          "t3": -0.07
+        },
+        "stress": {
+          "t0": -0.26,
+          "t1": 0.03,
+          "t2": 0.32,
+          "t3": 0.61
+        }
+      }
+    },
+    {
+      "id": "factor-0003",
+      "labels": {
+        "zh": "合成因子 0003",
+        "en": "A valid synthetic label that is intentionally much longer than a conventional label to test readability, truncation, overlap management, and runtime language switching"
+      },
+      "category": "exchange",
+      "layer": "core",
+      "importance": 0.74,
+      "values": {
+        "level": {
+          "t0": -0.77,
+          "t1": -0.48,
+          "t2": -0.19,
+          "t3": 0.1
+        },
+        "momentum": {
+          "t0": 0.08,
+          "t1": 0.37,
+          "t2": 0.66,
+          "t3": 0.95
+        },
+        "stress": {
+          "t0": 0.93,
+          "t1": -0.79,
+          "t2": -0.5,
+          "t3": -0.21
+        }
+      }
+    },
+    {
+      "id": "factor-0004",
+      "labels": {
+        "zh": "合成因子 0004",
+        "en": "Synthetic Factor 0004"
+      },
+      "category": "demand",
+      "layer": "core",
+      "importance": 0.1,
+      "values": {
+        "level": {
+          "t0": 0.08,
+          "t1": 0.37,
+          "t2": 0.66,
+          "t3": 0.95
+        },
+        "momentum": {
+          "t0": -0.91,
+          "t1": -0.62,
+          "t2": -0.33,
+          "t3": -0.04
+        },
+        "stress": {
+          "t0": 0.11,
+          "t1": 0.4,
+          "t2": 0.69,
+          "t3": 0.98
+        }
+      }
+    },
+    {
+      "id": "factor-0005",
+      "labels": {
+        "zh": "合成因子 0005",
+        "en": "Synthetic Factor 0005"
+      },
+      "category": "capacity",
+      "layer": "core",
+      "importance": 0.47,
+      "values": {
+        "level": {
+          "t0": 0.93,
+          "t1": -0.79,
+          "t2": -0.5,
+          "t3": -0.21
+        },
+        "momentum": {
+          "t0": 0.11,
+          "t1": 0.4,
+          "t2": 0.69,
+          "t3": 0.98
+        },
+        "stress": {
+          "t0": -0.71,
+          "t1": -0.42,
+          "t2": -0.13,
+          "t3": 0.16
+        }
+      }
+    },
+    {
+      "id": "factor-0006",
+      "labels": {
+        "zh": "合成因子 0006",
+        "en": "Synthetic Factor 0006"
+      },
+      "category": "sentiment",
+      "layer": "core",
+      "importance": 0.84,
+      "values": {
+        "level": {
+          "t0": -0.23,
+          "t1": 0.06,
+          "t2": 0.35,
+          "t3": 0.64
+        },
+        "momentum": {
+          "t0": -0.88,
+          "t1": -0.59,
+          "t2": -0.3,
+          "t3": -0.01
+        },
+        "stress": {
+          "t0": 0.48,
+          "t1": 0.77,
+          "t2": -0.95,
+          "t3": -0.66
+        }
+      }
+    },
+    {
+      "id": "factor-0007",
+      "labels": {
+        "zh": "合成因子 0007",
+        "en": "Synthetic Factor 0007"
+      },
+      "category": "systems",
+      "layer": "core",
+      "importance": 0.2,
+      "values": {
+        "level": {
+          "t0": 0.62,
+          "t1": 0.91,
+          "t2": -0.81,
+          "t3": -0.52
+        },
+        "momentum": {
+          "t0": 0.14,
+          "t1": 0.43,
+          "t2": 0.72,
+          "t3": -1
+        },
+        "stress": {
+          "t0": -0.34,
+          "t1": -0.05,
+          "t2": 0.24,
+          "t3": 0.53
+        }
+      }
+    },
+    {
+      "id": "factor-0008",
+      "labels": {
+        "zh": "无连接节点",
+        "en": "Synthetic Factor 0008"
+      },
+      "category": "resources",
+      "layer": "core",
+      "importance": 0.57,
+      "values": {
+        "level": {
+          "t0": -0.54,
+          "t1": -0.25,
+          "t2": 0.04,
+          "t3": 0.33
+        },
+        "momentum": {
+          "t0": -0.85,
+          "t1": -0.56,
+          "t2": -0.27,
+          "t3": 0.02
+        },
+        "stress": {
+          "t0": 0.85,
+          "t1": -0.87,
+          "t2": -0.58,
+          "t3": -0.29
+        }
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "relation-00001",
+      "source": "factor-0001",
+      "target": "factor-0002",
+      "type": "unknown",
+      "primary": true,
+      "strength": 0.1
+    },
+    {
+      "id": "relation-00002",
+      "source": "factor-0001",
+      "target": "factor-0007",
+      "type": "negative",
+      "primary": false,
+      "strength": 0.53
+    },
+    {
+      "id": "relation-00003",
+      "source": "factor-0003",
+      "target": "factor-0007",
+      "type": "unknown",
+      "primary": false,
+      "strength": 0.96
+    },
+    {
+      "id": "relation-00004",
+      "source": "factor-0004",
+      "target": "factor-0003",
+      "type": "positive",
+      "primary": false,
+      "strength": 0.48
+    },
+    {
+      "id": "relation-00006",
+      "source": "factor-0001",
+      "target": "factor-0006",
+      "type": "unknown",
+      "primary": false,
+      "strength": 0.43
+    },
+    {
+      "id": "relation-00007",
+      "source": "factor-0001",
+      "target": "factor-0004",
+      "type": "positive",
+      "primary": false,
+      "strength": 0.86
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+source:
+  label: "Synthetic 3D relationship scene starter generated for VAB-T09"
+  type: synthetic
+
+exclusion:
+  paths:
+    - "data/private/**"
+    - "**/*.answer.*"
+    - "**/*.reference.*"
+
+leakage:
+  path:
+    - id: source-scene-file
+      pattern: "GraphScene\\.tsx"
+      recovery: "Remove source scene files; this fixture must remain clean-room."
+    - id: source-manager-path
+      pattern: "scene[\\\\/]managers[\\\\/](Animation|Color|Edge|Interaction|Layout|Node)Manager"
+      recovery: "Remove source manager paths and replace them with a synthetic starter contract."
+  content:
+    - id: local-source-path
+      pattern: "[\\\\/]Users[\\\\/].*[\\\\/]test-vis-case[\\\\/]guidelines"
+      recovery: "Remove local source path traces from worker-visible files."
+    - id: source-scene-identifier
+      pattern: "GraphScene|AnimationManager|ColorManager|EdgeManager|InteractionManager|LayoutManager|NodeManager"
+      recovery: "Remove source-specific implementation identifiers."
+
+baseline:
+  build:
+    command: ["npm", "run", "build"]
+    required: true
+  typecheck:
+    command: ["npm", "run", "typecheck"]
+    required: true
+  test:
+    command: ["npm", "test"]
+    required: true
+
+provenance:
+  - kind: manual
+    label: "Generic constraints distilled from approved 3D source analysis; no source files copied"
+    source_type: observed
+    modified: false
+  - kind: generated
+    label: "Synthetic bilingual graph data and local SVG assets"
+    ref: "scripts/fixtures/macro-map-3d/generate-fixture.mjs"
+    source_type: synthetic
+    modified: false
+
+notes:
+  - "Worker-visible files are exactly the exported starter tree listed by the manifest."
+  - "No node coordinates, expected images, renderer code, or interaction answer is included."
+  - "Control-only invalid inputs stay outside source_root and are not exported."

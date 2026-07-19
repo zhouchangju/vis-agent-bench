@@ -1,0 +1,12 @@
+{
+  "name": "synthetic-3d-relationship-starter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "node scripts/typecheck.mjs",
+    "test": "node scripts/test.mjs",
+    "generate:assets": "node scripts/generate-assets.mjs"
+  }
+}

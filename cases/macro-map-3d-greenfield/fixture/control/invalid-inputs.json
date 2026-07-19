@@ -1,0 +1,52 @@
+{
+  "visibility": "control-only",
+  "cases": [
+    {
+      "id": "duplicate-node-id",
+      "expected_error": "$.nodes[1].id duplicate",
+      "patch": {
+        "path": "$.nodes[1].id",
+        "value_from": "$.nodes[0].id"
+      }
+    },
+    {
+      "id": "dangling-relation",
+      "expected_error": "$.relations[0].target",
+      "patch": {
+        "path": "$.relations[0].target",
+        "value": "missing-node"
+      }
+    },
+    {
+      "id": "invalid-relation-type",
+      "expected_error": "$.relations[0].type",
+      "patch": {
+        "path": "$.relations[0].type",
+        "value": "ambiguous"
+      }
+    },
+    {
+      "id": "malformed-importance",
+      "expected_error": "$.nodes[0].importance",
+      "patch": {
+        "path": "$.nodes[0].importance",
+        "value": "not-a-number"
+      }
+    },
+    {
+      "id": "answer-bearing-coordinate",
+      "expected_error": "$.nodes[0].x is answer-bearing",
+      "patch": {
+        "path": "$.nodes[0].x",
+        "value": 0
+      }
+    },
+    {
+      "id": "invalid-view-mode",
+      "expected_error": "$.runtime.viewMode",
+      "runtime": {
+        "viewMode": "volume-4d"
+      }
+    }
+  ]
+}
