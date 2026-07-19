@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "report_id": "sample-single-run-v1",
+  "generated_at": "2026-07-19T10:30:00Z",
+  "title": "Single-run report · kimi/k3-coder · macro-map-3d-greenfield",
+  "view": {
+    "kind": "single-run",
+    "scope": {
+      "run_ids": [
+        "demo-accepted-001"
+      ],
+      "case_ids": [
+        "macro-map-3d-greenfield"
+      ],
+      "model_labels": [
+        "kimi/k3-coder"
+      ]
+    },
+    "demo": true
+  },
+  "evidence_completeness": {
+    "percent": 100,
+    "present": [
+      "evaluator",
+      "human-review",
+      "isolation",
+      "run"
+    ],
+    "missing": []
+  },
+  "fact_layers": {
+    "machine": [
+      {
+        "id": "M01",
+        "source": "machine",
+        "statement": "Run demo-accepted-001 ended with status success.",
+        "evidence_refs": [
+          "run:demo-accepted-001"
+        ]
+      },
+      {
+        "id": "M02",
+        "source": "machine",
+        "statement": "Run demo-accepted-001 CLI wall time was 60 min.",
+        "evidence_refs": [
+          "run:demo-accepted-001"
+        ]
+      },
+      {
+        "id": "M03",
+        "source": "machine",
+        "statement": "Evaluator recorded P0 state passed for run demo-accepted-001.",
+        "evidence_refs": [
+          "evaluator:demo-accepted-001"
+        ]
+      }
+    ],
+    "human": [
+      {
+        "id": "H01",
+        "source": "human",
+        "statement": "Reviewer marked run demo-accepted-001 as accepted-with-fixes.",
+        "evidence_refs": [
+          "human-review:demo-accepted-001"
+        ]
+      },
+      {
+        "id": "H02",
+        "source": "human",
+        "statement": "High-value assist for first-version; humans still drive convergence.",
+        "evidence_refs": [
+          "human-review:demo-accepted-001"
+        ]
+      }
+    ],
+    "inferred": [
+      {
+        "id": "I01",
+        "source": "inferred",
+        "statement": "Accepted delivery rate 100% (1/1 reviewed runs)."
+      },
+      {
+        "id": "I02",
+        "source": "inferred",
+        "statement": "Effective speedup 1.1× (baseline 440 min / candidate 400 min, accepted runs only)."
+      }
+    ],
+    "unverified": []
+  },
+  "leadership_summary": {
+    "headline": "Candidate is approaching a replaceable delivery profile; review boundaries before scaling. Effective speedup 1.1× over accepted deliveries only. Accepted delivery rate 100% (1/1).",
+    "verdict": "replaceable-delivery",
+    "effective_speedup": {
+      "ratio": 1.1,
+      "baseline_minutes": 440,
+      "candidate_minutes": 400,
+      "source": "human-review",
+      "eligible": true
+    },
+    "accepted_delivery_rate": {
+      "percent": 100,
+      "accepted": 1,
+      "reviewed": 1,
+      "source": "human-review"
+    }
+  },
+  "capability_boundaries": [
+    {
+      "scope": "macro-map-3d-greenfield",
+      "judgment": "replaceable-delivery",
+      "detail": "P0 stable and accepted; human role limited to conventional review. (cases: macro-map-3d-greenfield)",
+      "evidence_refs": [
+        "run:demo-accepted-001"
+      ]
+    }
+  ],
+  "case_conclusions": [
+    {
+      "case_id": "macro-map-3d-greenfield",
+      "title": "demo-accepted-001",
+      "decision": "accepted-with-fixes",
+      "p0_state": "passed",
+      "judgment": "replaceable-delivery",
+      "scores": null,
+      "detail": "",
+      "evidence_refs": [
+        "run:demo-accepted-001"
+      ]
+    }
+  ],
+  "human_touch_breakdown": {
+    "clarification_minutes": 90,
+    "context_prep_minutes": 70,
+    "poc_review_minutes": 35,
+    "micro_adjustment_minutes": 120,
+    "fix_minutes": 55,
+    "final_review_minutes": 30,
+    "total_minutes": 400,
+    "source": "human-review"
+  },
+  "cost_summary": {
+    "availability": "reported",
+    "reported_cost_usd": 0.12,
+    "reported_tokens": {
+      "input_tokens": 1200,
+      "output_tokens": 800,
+      "cached_tokens": 0
+    },
+    "currency_note": "1/1 run(s) reported precise USD cost. 1/1 run(s) reported token usage."
+  },
+  "failure_modes": [
+    {
+      "title": "Reviewer reported problems on run demo-accepted-001",
+      "detail": "Relationship hit-rate and mobile degradation need rework.",
+      "source": "human",
+      "evidence_refs": [
+        "human-review:demo-accepted-001"
+      ]
+    },
+    {
+      "title": "Required fixes recorded on run demo-accepted-001",
+      "detail": "Add regression tests for relationship lookup.",
+      "source": "human",
+      "evidence_refs": [
+        "human-review:demo-accepted-001"
+      ]
+    }
+  ],
+  "recommended_actions": [
+    {
+      "title": "Pilot the candidate in a narrow scope with conventional review",
+      "priority": "next",
+      "rationale": "Verdict reached replaceable-delivery; scale only after pilot review."
+    }
+  ],
+  "evidence_index": [
+    {
+      "handle": "run:demo-accepted-001",
+      "kind": "run",
+      "label": "kimi/k3-coder · macro-map-3d-greenfield",
+      "path": ""
+    },
+    {
+      "handle": "evaluator:demo-accepted-001",
+      "kind": "evaluator",
+      "label": "Evaluator demo-accepted-001",
+      "path": ""
+    },
+    {
+      "handle": "human-review:demo-accepted-001",
+      "kind": "human-review",
+      "label": "Human review demo-accepted-001",
+      "path": ""
+    },
+    {
+      "handle": "isolation:demo-accepted-001",
+      "kind": "isolation",
+      "label": "Isolation demo-accepted-001",
+      "path": ""
+    }
+  ],
+  "data_provenance": {
+    "inputs": [
+      {
+        "run_id": "demo-accepted-001",
+        "case_id": "macro-map-3d-greenfield",
+        "model_label": "kimi/k3-coder",
+        "demo": true,
+        "has_human_review": true,
+        "has_evaluator": true,
+        "accepted": true
+      }
+    ],
+    "demo_inputs_present": true,
+    "leaderboard_eligible": false
+  },
+  "result_envelope": {
+    "status": "warning",
+    "summary": "Report sample-single-run-v1 generated for single-run view (1 run(s)).",
+    "next_actions": [
+      "Pilot the candidate in a narrow scope with conventional review"
+    ],
+    "artifacts": []
+  }
+}

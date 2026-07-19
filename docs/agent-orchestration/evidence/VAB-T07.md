@@ -1,0 +1,54 @@
+# VAB-T07 Evidence
+
+- Status: DONE
+- Baseline: `3492a47` (`chore: mark VAB-T00 accepted`)
+- Branch: `codex/vab-t07-reporting`
+- Changed paths:
+  - `schemas/report.schema.json`
+  - `src/reporting/aggregate.mjs`
+  - `src/reporting/builders.mjs`
+  - `src/reporting/load.mjs`
+  - `src/reporting/validate.mjs`
+  - `src/reporting/render/index.mjs`
+  - `src/reporting/render/markdown.mjs`
+  - `src/reporting/render/html.mjs`
+  - `scripts/generate-report.mjs`
+  - `tests/reporting/run.mjs`
+  - `tests/reporting/fixtures.mjs`
+  - `tests/reporting/snapshots/single-run.report.json`
+  - `prototype/report.html`
+  - `docs/reports/README.md`
+  - `docs/reports/sample-single-run-v1.report.json`
+  - `docs/agent-orchestration/evidence/VAB-T07.md`
+- Acceptance commands and results:
+  - `node tests/reporting/run.mjs` → PASS, 27/27 checks.
+  - `npm test` → PASS.
+  - Report schema validation → PASS (narrow JS validator + JSON Schema document).
+  - Sample JSON generated from fixed fixtures → validates against `schemas/report.schema.json`.
+  - `git diff --check` → PASS.
+- Produced artifacts:
+  - `schemas/report.schema.json` — canonical report output contract (JSON Schema draft 2020-12).
+  - `src/reporting/aggregate.mjs` — pure aggregation primitives (accepted delivery rate, human touch breakdown, effective speedup, cost summary, P0 state, fact layering, case conclusions, capability boundaries, failure modes, evidence completeness, verdict derivation).
+  - `src/reporting/builders.mjs` — report builder that produces a valid report JSON from entry arrays. Three views: single-run / case-models / model-cases.
+  - `src/reporting/validate.mjs` — narrow JS validator matching the JSON Schema (same diagnostic vocabulary as `src/contracts/index.mjs`).
+  - `src/reporting/render/markdown.mjs` and `src/reporting/render/html.mjs` — self-contained renderers.
+  - `scripts/generate-report.mjs` — CLI that loads run directories, builds the report, validates it, and writes JSON / Markdown / HTML.
+  - `tests/reporting/run.mjs` — 27 checks covering snapshot invariance, schema validation, missing/conflict inputs, unavailable markers, demo gating, CLI integration, renderer correctness, and XSS safety.
+  - Demo fixtures in `tests/reporting/fixtures.mjs` — hand-authored, deterministic, all marked `demo: true`.
+- Not proven:
+  - The report generator consumes "on-disk evidence" from run directories, but only the demo fixtures (not real runs) have been tested end-to-end via CLI.
+  - The generator expects `evaluator-summary.json` and `human-review.json` to exist; the exact file names and shapes are not yet stabilised across tasks (VAB-T04 evaluator core and VAB-T06 browser review are still in progress).
+  - HTML rendering uses a small standalone stylesheet; it is not the prototype's full design (`prototype/report.html`), which serves as a stakeholder-facing mockup.
+  - No token/cost fields come from a real CLI at this stage; the fixture's `usage` object is synthetic.
+  - Cross-view aggregation (e.g., mixed case-models and model-cases) defaults to `model-cases`; a true mixed-view report is not yet a declared requirement.
+- Remaining risks:
+  - Report schema may need a minor revision once VAB-T04 evaluator output and VAB-T06 human-review packages are finalised.
+  - The `human_touch_breakdown.source` field returns "partial" when some runs lack reviews; consumers that compare totals across incomplete rounds may misinterpret the denominator.
+  - The builder's `normalizeEntry` merges multi-stage reviews into a single per-run summary; the original per-stage detail is preserved only in the raw on-disk files.
+- Integration notes:
+  - VAB-T08 (总集成) should wire `scripts/generate-report.mjs` into the top-level `--report` command and incorporate it into the `npm run report` script.
+  - The report generator does not modify `package.json`; VAB-T08 owns the top-level `npm run report` entry.
+  - `src/reporting/validate.mjs` uses the same diagnostic vocabulary as `src/contracts/index.mjs` so the harness can produce unified error output.
+  - Demo fixtures in `tests/reporting/fixtures.mjs` serve as the contract for what a run directory must provide; downstream tasks should ensure their output matches these shapes.
+- Rollback:
+  - Revert the single VAB-T07 commit; no task depends on it yet (T08 is the only dependent and is still planned).

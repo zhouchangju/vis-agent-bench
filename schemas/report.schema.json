@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vis-agent-bench.local/schemas/report.schema.json",
+  "title": "Vis Agent Bench Generated Report",
+  "description": "Machine-aggregated report built from Run results, evaluator output and human reviews. Reports never execute models, browsers or evaluators; they only describe already-collected evidence.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "generated_at",
+    "view",
+    "evidence_completeness",
+    "fact_layers",
+    "leadership_summary",
+    "capability_boundaries",
+    "case_conclusions",
+    "human_touch_breakdown",
+    "failure_modes",
+    "recommended_actions",
+    "evidence_index",
+    "data_provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "report_id": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "view": {
+      "type": "object",
+      "required": ["kind", "scope"],
+      "properties": {
+        "kind": { "enum": ["single-run", "case-models", "model-cases"] },
+        "scope": {
+          "type": "object",
+          "description": "Identifiers that define what was aggregated.",
+          "properties": {
+            "run_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "case_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "model_labels": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          },
+          "additionalProperties": false
+        },
+        "demo": { "type": "boolean", "description": "True when at least one input run is marked DEMO." }
+      },
+      "additionalProperties": false
+    },
+    "evidence_completeness": {
+      "type": "object",
+      "required": ["percent", "missing", "present"],
+      "properties": {
+        "percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "present": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidenceKind" }
+        },
+        "missing": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidenceKind" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "fact_layers": {
+      "type": "object",
+      "description": "Keeps machine facts, human judgments, inferences and unverified claims visibly separated so leadership can see the source of each conclusion.",
+      "required": ["machine", "human", "inferred", "unverified"],
+      "properties": {
+        "machine": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+        "human": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+        "inferred": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+        "unverified": { "type": "array", "items": { "$ref": "#/$defs/fact" } }
+      },
+      "additionalProperties": false
+    },
+    "leadership_summary": {
+      "type": "object",
+      "required": ["headline", "verdict", "effective_speedup", "accepted_delivery_rate"],
+      "properties": {
+        "headline": { "type": "string", "minLength": 1 },
+        "verdict": {
+          "type": ["string", "null"],
+          "enum": [
+            "replaceable-delivery",
+            "high-value-assist",
+            "limited-assist",
+            "not-applicable",
+            null
+          ]
+        },
+        "effective_speedup": { "$ref": "#/$defs/speedup" },
+        "accepted_delivery_rate": { "$ref": "#/$defs/rate" }
+      },
+      "additionalProperties": false
+    },
+    "capability_boundaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scope", "judgment", "evidence_refs"],
+        "properties": {
+          "scope": { "type": "string", "minLength": 1 },
+          "judgment": {
+            "enum": ["replaceable-delivery", "high-value-assist", "limited-assist", "not-applicable", "unknown"]
+          },
+          "detail": { "type": "string" },
+          "evidence_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "case_conclusions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/caseConclusion" }
+    },
+    "human_touch_breakdown": {
+      "type": "object",
+      "required": [
+        "clarification_minutes",
+        "context_prep_minutes",
+        "poc_review_minutes",
+        "micro_adjustment_minutes",
+        "fix_minutes",
+        "final_review_minutes",
+        "total_minutes",
+        "source"
+      ],
+      "properties": {
+        "clarification_minutes": { "$ref": "#/$defs/minutes" },
+        "context_prep_minutes": { "$ref": "#/$defs/minutes" },
+        "poc_review_minutes": { "$ref": "#/$defs/minutes" },
+        "micro_adjustment_minutes": { "$ref": "#/$defs/minutes" },
+        "fix_minutes": { "$ref": "#/$defs/minutes" },
+        "final_review_minutes": { "$ref": "#/$defs/minutes" },
+        "total_minutes": { "$ref": "#/$defs/minutes" },
+        "source": {
+          "enum": ["human-review", "partial", "unavailable"],
+          "description": "unavailable when no accepted human review exists; partial when some runs have reviews and others do not."
+        }
+      },
+      "additionalProperties": false
+    },
+    "cost_summary": {
+      "type": "object",
+      "required": ["availability", "reported_cost_usd", "reported_tokens", "currency_note"],
+      "properties": {
+        "availability": { "enum": ["reported", "partial", "unavailable"] },
+        "reported_cost_usd": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "reported_tokens": {
+          "type": ["object", "null"],
+          "properties": {
+            "input_tokens": { "type": "integer", "minimum": 0 },
+            "output_tokens": { "type": "integer", "minimum": 0 },
+            "cached_tokens": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "currency_note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "failure_modes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "source", "evidence_refs"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1 },
+          "detail": { "type": "string" },
+          "source": { "$ref": "#/$defs/factSource" },
+          "evidence_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "recommended_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "priority", "rationale"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1 },
+          "priority": { "enum": ["now", "next", "watch"] },
+          "rationale": { "type": "string" },
+          "evidence_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "evidence_index": {
+      "type": "array",
+      "description": "Stable handles (e.g. run:run-id, review:run-id) that other sections cite in evidence_refs.",
+      "items": {
+        "type": "object",
+        "required": ["handle", "kind", "label"],
+        "properties": {
+          "handle": { "type": "string", "minLength": 1 },
+          "kind": { "$ref": "#/$defs/evidenceKind" },
+          "label": { "type": "string", "minLength": 1 },
+          "path": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "data_provenance": {
+      "type": "object",
+      "required": ["inputs", "demo_inputs_present", "leaderboard_eligible"],
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["run_id", "case_id", "model_label", "demo"],
+            "properties": {
+              "run_id": { "type": "string", "minLength": 1 },
+              "case_id": { "type": "string", "minLength": 1 },
+              "model_label": { "type": "string", "minLength": 1 },
+              "demo": { "type": "boolean" },
+              "has_human_review": { "type": "boolean" },
+              "has_evaluator": { "type": "boolean" },
+              "accepted": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "demo_inputs_present": { "type": "boolean" },
+        "leaderboard_eligible": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "result_envelope": {
+      "description": "Optional wrapper following schemas/result-envelope.schema.json. Tools that only need the structured envelope can read this directly.",
+      "type": "object",
+      "required": ["status", "summary", "next_actions", "artifacts"]
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "evidenceKind": {
+      "enum": ["run", "evaluator", "human-review", "baseline", "isolation", "browser", "stage-log"]
+    },
+    "factSource": {
+      "enum": ["machine", "human", "inferred", "unverified"]
+    },
+    "fact": {
+      "type": "object",
+      "required": ["id", "source", "statement"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source": { "$ref": "#/$defs/factSource" },
+        "statement": { "type": "string", "minLength": 1 },
+        "evidence_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "additionalProperties": false
+    },
+    "minutes": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "null when no reviewed run contributes this bucket."
+    },
+    "rate": {
+      "type": "object",
+      "required": ["percent", "accepted", "reviewed", "source"],
+      "properties": {
+        "percent": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "accepted": { "type": "integer", "minimum": 0 },
+        "reviewed": { "type": "integer", "minimum": 0 },
+        "source": { "enum": ["human-review", "unavailable"] }
+      },
+      "additionalProperties": false
+    },
+    "speedup": {
+      "type": "object",
+      "required": ["ratio", "baseline_minutes", "candidate_minutes", "source", "eligible"],
+      "properties": {
+        "ratio": { "type": ["number", "null"], "minimum": 0 },
+        "baseline_minutes": { "$ref": "#/$defs/minutes" },
+        "candidate_minutes": { "$ref": "#/$defs/minutes" },
+        "source": {
+          "enum": ["human-review", "baseline-missing", "unavailable"]
+        },
+        "eligible": {
+          "type": "boolean",
+          "description": "False unless at least one run is accepted; reports must never compute effective speedup over unaccepted runs."
+        }
+      },
+      "additionalProperties": false
+    },
+    "caseConclusion": {
+      "type": "object",
+      "required": ["case_id", "decision", "p0_state", "evidence_refs"],
+      "properties": {
+        "case_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "decision": {
+          "type": ["string", "null"],
+          "enum": ["accepted", "accepted-with-fixes", "partial", "rejected", "invalid-run", "mixed", null]
+        },
+        "p0_state": { "enum": ["passed", "partial", "failed", "unknown"] },
+        "judgment": {
+          "enum": ["replaceable-delivery", "high-value-assist", "limited-assist", "not-applicable", "unknown"]
+        },
+        "scores": {
+          "type": ["object", "null"],
+          "properties": {
+            "business": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
+            "visual": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
+            "interaction": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
+            "usability": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 }
+          },
+          "additionalProperties": false
+        },
+        "detail": { "type": "string" },
+        "evidence_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

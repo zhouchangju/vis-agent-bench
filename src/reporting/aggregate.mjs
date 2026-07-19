@@ -1,0 +1,525 @@
+// Aggregation primitives for the VAB-T07 reporting pipeline.
+//
+// This module never executes a model, browser or evaluator. It only re-shapes
+// already collected evidence (Run result, evaluator output, human review and an
+// optional human-only baseline) into the structured fields consumed by the
+// report builder. Every function is pure and returns plain JSON so callers can
+// snapshot test it.
+
+const HUMAN_TIME_KEYS = [
+  'clarification_minutes',
+  'context_prep_minutes',
+  'poc_review_minutes',
+  'micro_adjustment_minutes',
+  'fix_minutes',
+  'final_review_minutes',
+];
+
+const ACCEPTED_DECISIONS = new Set(['accepted', 'accepted-with-fixes']);
+
+const VERDICT_RANK = {
+  'replaceable-delivery': 3,
+  'high-value-assist': 2,
+  'limited-assist': 1,
+  'not-applicable': 0,
+};
+
+const P0_RANK = { passed: 3, partial: 2, failed: 1, unknown: 0 };
+
+export function isAcceptedRun(entry) {
+  const decision = entry?.human_review?.decision;
+  if (decision) return ACCEPTED_DECISIONS.has(decision);
+  // Aggregated views (case-models, model-cases) carry a reduced decision field.
+  if (entry?.decision) return ACCEPTED_DECISIONS.has(entry.decision);
+  return false;
+}
+
+export function modelLabel(entry) {
+  const engine = entry?.run?.engine || entry?.run?.spec?.engine;
+  const model = engine?.configured_model || engine?.model;
+  const provider = engine?.provider;
+  if (model && provider) return `${provider}/${model}`;
+  return model || provider || 'unspecified-model';
+}
+
+export function caseIdOf(entry) {
+  return entry?.run?.case_id || entry?.run?.spec?.case_id || entry?.case_id || 'unknown-case';
+}
+
+export function runIdOf(entry) {
+  return entry?.run?.run_id || entry?.run?.id || entry?.run_id || 'unknown-run';
+}
+
+// ---- Human Touch Time ------------------------------------------------------
+
+function sumMinutes(reviews, key) {
+  let total = 0;
+  let contributed = 0;
+  for (const review of reviews) {
+    const minutes = review?.human_time?.[key];
+    if (typeof minutes === 'number' && Number.isFinite(minutes) && minutes >= 0) {
+      total += minutes;
+      contributed += 1;
+    }
+  }
+  return { total, contributed };
+}
+
+export function aggregateHumanTouchTime(entries) {
+  const reviews = entries
+    .filter(entry => entry?.human_review?.reviews?.length)
+    .flatMap(entry => entry.human_review.reviews);
+  const totalReviews = reviews.length;
+
+  const breakdown = {};
+  let grandTotal = 0;
+  for (const key of HUMAN_TIME_KEYS) {
+    const { total, contributed } = sumMinutes(reviews, key);
+    breakdown[key] = contributed > 0 ? total : null;
+    if (contributed > 0) grandTotal += total;
+  }
+
+  return {
+    ...breakdown,
+    total_minutes: totalReviews > 0 ? grandTotal : null,
+    source: humanTouchSource(entries, totalReviews),
+  };
+}
+
+function humanTouchSource(entries, reviewedRuns) {
+  const runCount = entries.length;
+  if (reviewedRuns === 0) return 'unavailable';
+  if (reviewedRuns < runCount) return 'partial';
+  return 'human-review';
+}
+
+// ---- Accepted delivery rate ------------------------------------------------
+
+export function acceptedDeliveryRate(entries) {
+  // Each entry may have a flat decision (normalized) or a reviews[] array
+  // (raw package). We pull one decision per entry, picking the best from
+  // the reviews array when multiple exist.
+  const decisions = [];
+  for (const entry of entries) {
+    const hr = entry?.human_review;
+    if (!hr) continue;
+    // Normalized shape (as produced by normalizeEntry in builders.mjs).
+    if (typeof hr.decision === 'string') {
+      decisions.push(hr.decision);
+      continue;
+    }
+    // Raw shape: iterate reviews array.
+    if (Array.isArray(hr.reviews)) {
+      const reviewDecisions = hr.reviews
+        .map(r => r.decision)
+        .filter(d => typeof d === 'string');
+      if (reviewDecisions.length > 0) {
+        decisions.push(reviewDecisions[0]); // one decision per run-entry
+      }
+    }
+  }
+  const accepted = decisions.filter(d => ACCEPTED_DECISIONS.has(d));
+  const source = decisions.length > 0 ? 'human-review' : 'unavailable';
+  const percent = decisions.length > 0
+    ? Math.round((accepted.length / decisions.length) * 100)
+    : null;
+  return { percent, accepted: accepted.length, reviewed: decisions.length, source };
+}
+
+// ---- P0 state --------------------------------------------------------------
+
+export function p0StateFromEvaluator(evaluator) {
+  if (!evaluator) return 'unknown';
+  const summary = evaluator.summary || evaluator.result || {};
+  const gates = summary.gates || evaluator.gates;
+  if (gates && typeof gates === 'object') {
+    if (gates.p0_passed === true) return 'passed';
+    if (gates.p0_failed === true) return 'failed';
+  }
+  if (typeof summary.p0_state === 'string') return summary.p0_state;
+  if (typeof summary.score === 'number' && typeof summary.p0_min_score === 'number') {
+    return summary.score >= summary.p0_min_score ? 'passed' : 'failed';
+  }
+  if (typeof summary.p0_passed === 'boolean') return summary.p0_passed ? 'passed' : 'failed';
+  return 'unknown';
+}
+
+export function decideP0State(entries) {
+  if (entries.length === 0) return 'unknown';
+  let best = 'unknown';
+  for (const entry of entries) {
+    const state = entry?.human_review?.p0_state
+      || p0StateFromEvaluator(entry?.evaluator)
+      || 'unknown';
+    if (P0_RANK[state] > P0_RANK[best]) best = state;
+  }
+  return best;
+}
+
+// ---- Effective speedup -----------------------------------------------------
+
+export function computeEffectiveSpeedup(entries, baseline) {
+  const acceptedEntries = entries.filter(entry => isAcceptedRun(entry));
+  if (acceptedEntries.length === 0 || !baseline) {
+    return {
+      ratio: null,
+      baseline_minutes: baseline?.total_minutes ?? null,
+      candidate_minutes: acceptedEntries.length > 0
+        ? acceptedEntries.reduce((sum, entry) => {
+          const v = entry?.human_review?.human_time_total_minutes;
+          return sum + (typeof v === 'number' ? v : 0);
+        }, 0) || null
+        : null,
+      source: !baseline ? 'baseline-missing' : 'unavailable',
+      eligible: false,
+    };
+  }
+
+  const candidateMinutes = acceptedEntries.reduce((sum, entry) => {
+    const value = entry?.human_review?.human_time_total_minutes;
+    return sum + (typeof value === 'number' ? value : 0);
+  }, 0);
+
+  const baselineMinutes = baseline?.total_minutes;
+  const ratio = baselineMinutes && baselineMinutes > 0 && candidateMinutes > 0
+    ? Number((baselineMinutes / candidateMinutes).toFixed(2))
+    : null;
+
+  return {
+    ratio,
+    baseline_minutes: baselineMinutes ?? null,
+    candidate_minutes: candidateMinutes || null,
+    source: 'human-review',
+    eligible: true,
+  };
+}
+
+// ---- Cost ------------------------------------------------------------------
+
+function addIfNumber(target, key, value) {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    target[key] = (target[key] || 0) + value;
+    return true;
+  }
+  return false;
+}
+
+export function summarizeCost(entries) {
+  const tokenTotals = { input_tokens: 0, output_tokens: 0, cached_tokens: 0 };
+  let tokenContributions = 0;
+  let costTotal = 0;
+  let costContributions = 0;
+  let runsReporting = 0;
+  let runsAnything = 0;
+
+  for (const entry of entries) {
+    const usage = entry?.run?.usage || entry?.evaluator?.usage;
+    if (!usage) continue;
+    runsAnything += 1;
+    const inputOk = addIfNumber(tokenTotals, 'input_tokens', usage.input_tokens);
+    const outputOk = addIfNumber(tokenTotals, 'output_tokens', usage.output_tokens);
+    const cachedOk = addIfNumber(tokenTotals, 'cached_tokens', usage.cached_tokens);
+    if (inputOk || outputOk || cachedOk) tokenContributions += 1;
+    if (typeof usage.cost_usd === 'number' && Number.isFinite(usage.cost_usd) && usage.cost_usd >= 0) {
+      costTotal += usage.cost_usd;
+      costContributions += 1;
+    }
+    if (usage.availability === 'reported' || usage.availability === 'partial') runsReporting += 1;
+  }
+
+  const availability = costContributions === 0 && tokenContributions === 0
+    ? 'unavailable'
+    : (costContributions < entries.length || tokenContributions < entries.length ? 'partial' : 'reported');
+
+  return {
+    availability,
+    reported_cost_usd: costContributions > 0 ? Number(costTotal.toFixed(6)) : null,
+    reported_tokens: tokenContributions > 0 ? tokenTotals : null,
+    currency_note: buildCurrencyNote(entries.length, costContributions, tokenContributions, runsAnything),
+  };
+}
+
+function buildCurrencyNote(totalRuns, costRuns, tokenRuns, reportingRuns) {
+  const parts = [];
+  if (costRuns === 0) parts.push('No CLI reported a precise USD cost.');
+  else parts.push(`${costRuns}/${totalRuns} run(s) reported precise USD cost.`);
+  if (tokenRuns > 0) parts.push(`${tokenRuns}/${totalRuns} run(s) reported token usage.`);
+  else parts.push('No CLI reported token usage.');
+  if (reportingRuns < totalRuns) {
+    const missing = totalRuns - reportingRuns;
+    parts.push(missing + ' run(s) had no usage event; treat missing values as unavailable, do not interpolate.');
+  }
+  return parts.join(' ');
+}
+
+// ---- Fact layering ---------------------------------------------------------
+
+export function buildFactLayers(entries, aggregates) {
+  const layers = { machine: [], human: [], inferred: [], unverified: [] };
+  let machineIndex = 0;
+  let humanIndex = 0;
+  let inferredIndex = 0;
+  let unverifiedIndex = 0;
+
+  const push = (layer, source, statement, evidenceRefs = []) => {
+    const index = { machine: machineIndex, human: humanIndex, inferred: inferredIndex, unverified: unverifiedIndex }[layer];
+    const prefix = { machine: 'M', human: 'H', inferred: 'I', unverified: 'U' }[layer];
+    const id = `${prefix}${String(index + 1).padStart(2, '0')}`;
+    const record = { id, source, statement };
+    if (evidenceRefs.length) record.evidence_refs = evidenceRefs;
+    layers[layer].push(record);
+    if (layer === 'machine') machineIndex += 1;
+    else if (layer === 'human') humanIndex += 1;
+    else if (layer === 'inferred') inferredIndex += 1;
+    else unverifiedIndex += 1;
+    return id;
+  };
+
+  for (const entry of entries) {
+    const runId = runIdOf(entry);
+    const run = entry?.run || {};
+    const evaluator = entry?.evaluator;
+    const review = entry?.human_review;
+
+    if (run?.status) {
+      push('machine', 'machine', `Run ${runId} ended with status ${run.status}.`, [`run:${runId}`]);
+    }
+    if (run?.duration_ms != null) {
+      push('machine', 'machine', `Run ${runId} CLI wall time was ${Math.round(run.duration_ms / 60000)} min.`, [`run:${runId}`]);
+    }
+    if (evaluator) {
+      const p0 = p0StateFromEvaluator(evaluator);
+      push('machine', 'machine', `Evaluator recorded P0 state ${p0} for run ${runId}.`, [`evaluator:${runId}`]);
+    } else {
+      push('unverified', 'unverified', `Run ${runId} has no evaluator output; automated P0 state is unknown.`, [`run:${runId}`]);
+    }
+
+    if (review?.decision) {
+      push('human', 'human', `Reviewer marked run ${runId} as ${review.decision}.`, [`human-review:${runId}`]);
+    }
+    if (review?.observations?.management_judgment) {
+      push('human', 'human', review.observations.management_judgment, [`human-review:${runId}`]);
+    }
+  }
+
+  // Aggregated inferences (clearly flagged as derived, not measured).
+  if (aggregates.accepted_delivery_rate.percent != null) {
+    const r = aggregates.accepted_delivery_rate;
+    push('inferred', 'inferred', `Accepted delivery rate ${r.percent}% (${r.accepted}/${r.reviewed} reviewed runs).`);
+  } else {
+    push('inferred', 'inferred', 'Accepted delivery rate is unavailable until at least one run is reviewed.');
+  }
+  if (aggregates.effective_speedup.eligible && aggregates.effective_speedup.ratio != null) {
+    const s = aggregates.effective_speedup;
+    push('inferred', 'inferred', `Effective speedup ${s.ratio}× (baseline ${s.baseline_minutes} min / candidate ${s.candidate_minutes} min, accepted runs only).`);
+  } else {
+    push('inferred', 'inferred', 'Effective speedup is not eligible because no run has been accepted yet.');
+  }
+
+  return layers;
+}
+
+// ---- Case conclusions ------------------------------------------------------
+
+function pickReviewForDecision(entries) {
+  // Prefer accepted > accepted-with-fixes > partial > rejected > invalid-run,
+  // mirroring human-review.schema.json enum order of severity.
+  const order = ['accepted', 'accepted-with-fixes', 'partial', 'rejected', 'invalid-run'];
+  let best = null;
+  let bestIdx = order.length;
+  for (const entry of entries) {
+    const decision = entry?.human_review?.decision;
+    if (!decision) continue;
+    const idx = order.indexOf(decision);
+    if (idx >= 0 && idx < bestIdx) {
+      best = entry;
+      bestIdx = idx;
+    }
+  }
+  return best || entries[0] || null;
+}
+
+export function buildCaseConclusion(caseId, entries, caseMeta) {
+  const decision = aggregateDecision(entries);
+  const p0State = decideP0State(entries);
+  const review = pickReviewForDecision(entries);
+  const judgment = deriveJudgment(decision, p0State, review);
+  const conclusion = {
+    case_id: caseId,
+    title: caseMeta?.title || caseId,
+    decision,
+    p0_state: p0State,
+    judgment,
+    scores: review?.scores || null,
+    detail: review?.observations?.problems || review?.observations?.strengths || '',
+    evidence_refs: entries.map(entry => `run:${runIdOf(entry)}`),
+  };
+  return conclusion;
+}
+
+function aggregateDecision(entries) {
+  if (entries.length === 0) return null;
+  const decisions = new Set(entries.map(entry => entry?.human_review?.decision).filter(Boolean));
+  if (decisions.size === 0) return null;
+  if (decisions.size === 1) return [...decisions][0];
+  return 'mixed';
+}
+
+function deriveJudgment(decision, p0State, review) {
+  if (decision && ACCEPTED_DECISIONS.has(decision) && p0State === 'passed') return 'replaceable-delivery';
+  if (decision === 'accepted-with-fixes' || p0State === 'partial') return 'high-value-assist';
+  if (decision === 'partial' || p0State === 'failed') return 'limited-assist';
+  if (decision === 'rejected' || decision === 'invalid-run') return 'not-applicable';
+  if (review?.observations?.management_judgment) return 'limited-assist';
+  return 'unknown';
+}
+
+// ---- Capability boundaries -------------------------------------------------
+
+export function buildCapabilityBoundaries(caseConclusions) {
+  const byJudgment = new Map();
+  for (const conclusion of caseConclusions) {
+    const judgment = conclusion.judgment || 'unknown';
+    if (!byJudgment.has(judgment)) byJudgment.set(judgment, []);
+    byJudgment.get(judgment).push(conclusion);
+  }
+
+  const boundaries = [];
+  for (const [judgment, conclusions] of byJudgment.entries()) {
+    boundaries.push({
+      scope: conclusions.map(c => c.case_id).join(', '),
+      judgment,
+      detail: describeJudgment(judgment, conclusions),
+      evidence_refs: conclusions.flatMap(c => c.evidence_refs),
+    });
+  }
+  return boundaries.sort((a, b) => (VERDICT_RANK[b.judgment] ?? -1) - (VERDICT_RANK[a.judgment] ?? -1));
+}
+
+function describeJudgment(judgment, conclusions) {
+  const cases = conclusions.map(c => c.case_id).join(', ');
+  const detail = conclusions.find(c => c.detail)?.detail || '';
+  const prefix = {
+    'replaceable-delivery': 'P0 stable and accepted; human role limited to conventional review.',
+    'high-value-assist': 'Cannot deliver alone but visibly reduces coding or triage effort.',
+    'limited-assist': 'Rework dominates; savings are localized.',
+    'not-applicable': 'Quality unstable or human takeover cost approaches baseline.',
+    'unknown': 'No reviewed run yet; capability boundary cannot be derived.',
+  }[judgment] || 'Capability boundary could not be derived from the evidence.';
+  return `${prefix}${detail ? ` ${detail}` : ''} (cases: ${cases})`;
+}
+
+// ---- Failure modes ---------------------------------------------------------
+
+export function buildFailureModes(entries, caseConclusions) {
+  const failures = [];
+
+  for (const entry of entries) {
+    const runId = runIdOf(entry);
+    const runStatus = entry?.run?.status;
+    if (runStatus && runStatus !== 'success') {
+      failures.push({
+        title: `Run ${runId} did not complete cleanly (status: ${runStatus})`,
+        detail: entry?.run?.error?.root_cause_hint || 'CLI run ended without success; check stage logs.',
+        source: 'machine',
+        evidence_refs: [`run:${runId}`],
+      });
+    }
+    const review = entry?.human_review;
+    if (review?.observations?.problems) {
+      failures.push({
+        title: `Reviewer reported problems on run ${runId}`,
+        detail: review.observations.problems,
+        source: 'human',
+        evidence_refs: [`human-review:${runId}`],
+      });
+    }
+    if (review?.observations?.required_fixes) {
+      failures.push({
+        title: `Required fixes recorded on run ${runId}`,
+        detail: review.observations.required_fixes,
+        source: 'human',
+        evidence_refs: [`human-review:${runId}`],
+      });
+    }
+    if (entry?.evaluator?.failures?.length) {
+      failures.push({
+        title: `Automated evaluator flagged ${entry.evaluator.failures.length} item(s) on run ${runId}`,
+        detail: entry.evaluator.failures.map(f => f.message || f).join('; '),
+        source: 'machine',
+        evidence_refs: [`evaluator:${runId}`],
+      });
+    }
+  }
+
+  for (const conclusion of caseConclusions) {
+    if (conclusion.p0_state === 'failed' || conclusion.decision === 'rejected' || conclusion.decision === 'invalid-run') {
+      failures.push({
+        title: `Case ${conclusion.case_id} did not reach acceptance`,
+        detail: conclusion.detail || `P0 state: ${conclusion.p0_state}; decision: ${conclusion.decision || 'none'}.`,
+        source: 'inferred',
+        evidence_refs: conclusion.evidence_refs,
+      });
+    }
+  }
+
+  // De-duplicate by title so a run that fails CLI and is rejected by reviewer does not flood.
+  const seen = new Set();
+  return failures.filter(failure => {
+    if (seen.has(failure.title)) return false;
+    seen.add(failure.title);
+    return true;
+  });
+}
+
+// ---- Evidence completeness -------------------------------------------------
+
+const REQUIRED_EVIDENCE_FOR_FULL_REPORT = ['run', 'evaluator', 'human-review', 'isolation'];
+
+export function computeEvidenceCompleteness(entries) {
+  const present = new Set();
+  const missing = new Set(REQUIRED_EVIDENCE_FOR_FULL_REPORT);
+  for (const entry of entries) {
+    if (entry?.run) { present.add('run'); missing.delete('run'); }
+    if (entry?.evaluator) { present.add('evaluator'); missing.delete('evaluator'); }
+    if (entry?.human_review) { present.add('human-review'); missing.delete('human-review'); }
+    if (entry?.isolation) { present.add('isolation'); missing.delete('isolation'); }
+    if (entry?.baseline) present.add('baseline');
+    if (entry?.browser) present.add('browser');
+  }
+  const requiredPresent = REQUIRED_EVIDENCE_FOR_FULL_REPORT.filter(kind => present.has(kind)).length;
+  const percent = Math.round((requiredPresent / REQUIRED_EVIDENCE_FOR_FULL_REPORT.length) * 100);
+  return {
+    percent,
+    present: [...present].sort(),
+    missing: [...missing].sort(),
+  };
+}
+
+// ---- Verdict ---------------------------------------------------------------
+
+export function deriveVerdict(caseConclusions, speedup) {
+  if (caseConclusions.length === 0) return 'not-applicable';
+  const judgments = new Set(caseConclusions.map(c => c.judgment).filter(j => j && j !== 'unknown'));
+  if (judgments.size === 0) return 'not-applicable';
+  const best = [...judgments].sort((a, b) => (VERDICT_RANK[b] ?? -1) - (VERDICT_RANK[a] ?? -1))[0];
+  // Effective speedup that is not eligible downgrades leadership verdict.
+  if (!speedup.eligible && best === 'replaceable-delivery') return 'high-value-assist';
+  return best;
+}
+
+export function deriveHeadline(verdict, speedup, acceptedRate) {
+  const speedText = speedup.eligible && speedup.ratio != null
+    ? `Effective speedup ${speedup.ratio}× over accepted deliveries only.`
+    : 'Effective speedup is not yet eligible because no delivery has been accepted.';
+  const rateText = acceptedRate.percent != null
+    ? `Accepted delivery rate ${acceptedRate.percent}% (${acceptedRate.accepted}/${acceptedRate.reviewed}).`
+    : 'Accepted delivery rate is unavailable until reviews are complete.';
+  const verdictText = {
+    'replaceable-delivery': 'Candidate is approaching a replaceable delivery profile; review boundaries before scaling.',
+    'high-value-assist': 'Candidate shows high-value-assist characteristics; keep humans in the convergence and visual review loop.',
+    'limited-assist': 'Candidate is currently a limited assist; savings are localized and rework remains material.',
+    'not-applicable': 'Candidate is not yet applicable for delivery decisions; complete human review before judging.',
+  }[verdict] || 'Verdict could not be derived from the available evidence.';
+  return `${verdictText} ${speedText} ${rateText}`;
+}
