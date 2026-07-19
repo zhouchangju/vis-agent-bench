@@ -88,6 +88,20 @@ npm run smoke:flow
 
 该命令只产生带 `DEMO DATA` 标识的开发证据，不进入模型比较或正式排行榜。
 
+按需使用真实 Claude Code 模型验证同一闭环（默认模型为 `deepseek-v4-flash`）：
+
+```bash
+npm run smoke:flow:real
+```
+
+可覆盖模型和费用上限：
+
+```bash
+npm run smoke:flow:real -- \
+  --model deepseek-v4-flash \
+  --max-cost-usd 0.50
+```
+
 ## Runner MVP
 
 检查本机 CLI：

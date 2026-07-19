@@ -106,18 +106,20 @@ CLI Sandbox 是 Worker 内的第二层限制，不能替代外层容器。
 - 模型：`--model`
 - 费用上限：`--max-budget-usd`
 - 结构化最终输出：`--json-schema`
-- 净化：`--bare --no-session-persistence --strict-mcp-config --no-chrome`
+- 无人值守权限：`--permission-mode auto`
+- 净化：`--bare --strict-mcp-config --no-chrome`
+- 多阶段 Session：必须持久化，后续阶段通过 `--resume` 恢复
 
 概念命令：
 
 ```bash
 claude --print \
   --bare \
-  --no-session-persistence \
   --strict-mcp-config \
   --no-chrome \
   --model "$MODEL_ID" \
-  --permission-mode dontAsk \
+  --permission-mode auto \
+  --verbose \
   --output-format stream-json \
   --include-hook-events \
   --max-budget-usd "$MAX_BUDGET_USD" \
@@ -133,6 +135,12 @@ claude --print \
 - 使用量和费用由谁提供。
 
 只改 `--model` 而没有验证实际 provider，不得把结果归因到目标模型。
+
+`--no-session-persistence` 与多阶段 `--resume` 互斥，禁止同时使用。开发 smoke 已用
+`deepseek-v4-flash` 验证 `--print --permission-mode auto` 可以在无人确认下写入受控工作区；
+实际运行仍需从 stream-json 的 model usage / provider 事件记录实际模型，不能只相信启动别名。
+Claude Code 2.1.177 还要求 `--output-format stream-json` 与 `--verbose` 同时使用，Adapter 必须
+保留该参数组合。
 
 ## Kimi Code Adapter
 

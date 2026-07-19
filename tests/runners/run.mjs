@@ -149,7 +149,9 @@ check('claude adapter emits session-id on fresh runs and --resume on subsequent 
   assert.equal(fresh.args[fresh.args.indexOf('--session-id') + 1], 'abc-123');
   assert.equal(fresh.args[fresh.args.indexOf('--max-budget-usd') + 1], '1.5');
   assert.ok(fresh.args.includes('--bare'));
-  assert.ok(fresh.args.includes('--no-session-persistence'));
+  assert.equal(fresh.args[fresh.args.indexOf('--permission-mode') + 1], 'auto');
+  assert.ok(fresh.args.includes('--verbose'));
+  assert.ok(!fresh.args.includes('--no-session-persistence'));
   assert.ok(fresh.args.includes('--strict-mcp-config'));
   assert.ok(fresh.args.includes('--no-chrome'));
 

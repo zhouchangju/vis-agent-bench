@@ -32,6 +32,38 @@ npm run smoke:flow
 只实现一个极小状态卡片，主要验证 CLI 参数、Session 连续性、真实遥测和权限模式。它会消耗
 Token，应按需运行，不作为日常单元测试。
 
+当前一键入口默认通过 Claude Code 调用 `deepseek-v4-flash`：
+
+```bash
+npm run smoke:flow:real
+```
+
+等价的显式配置：
+
+```bash
+npm run smoke:flow:real -- \
+  --engine claude \
+  --model deepseek-v4-flash \
+  --provider claude-code-configured-provider \
+  --wall-time-minutes 10 \
+  --max-cost-usd 0.50
+```
+
+真实模式仍然是开发证据：
+
+- `mode=real-model-development-smoke`；
+- `leaderboard_eligible=false`；
+- 报告强制带 `DEMO DATA`；
+- 自动检查只生成 Evaluator 结果，不伪造人工 Review；
+- 报告会明确显示 human review 缺失，不能得出效率或替代性结论。
+- Smoke Prompt 禁止子 Agent、后台任务和联网，避免为验证管道产生无关成本；
+- Runner 从 stream-json 汇总 reported Token、费用和 observed model，不按文本长度估算。
+
+Claude Code 使用 `--print --permission-mode auto` 避免审批等待。多阶段评测需要保存 Session，
+因此 Adapter 不得同时传 `--no-session-persistence`。若实际模型配置来自用户侧 Claude
+设置，报告只记录 configured provider；除非 CLI 事件能证明实际 provider/model，不能凭模型
+别名推断供应商。
+
 ## Smoke Case
 
 `cases/dev-workflow-smoke` 只有三个阶段：
@@ -45,7 +77,8 @@ Token，应按需运行，不作为日常单元测试。
 - 所有阶段 Prompt 和日志存在；
 - 每阶段 checkpoint 完整；
 - 最终页面和交互代码存在；
-- Evaluator summary、human-review、browser evidence 和 isolation evidence 可加载；
+- Evaluator summary、browser evidence 和 isolation evidence 可加载；
+- Mock 模式可带合成 Review；真实模式保持 human review 缺失，等待人工评审；
 - `report.json` 通过 Report Schema；
 - `report.html` 可直接打开且带 DEMO 标识。
 

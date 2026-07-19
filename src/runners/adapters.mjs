@@ -125,10 +125,10 @@ function buildClaudeCommand(ctx) {
     '--strict-mcp-config',
     '--no-chrome',
     '--model', ctx.model,
-    '--permission-mode', 'dontAsk',
+    '--permission-mode', 'auto',
+    '--verbose',
     '--output-format', 'stream-json',
     '--include-hook-events',
-    '--no-session-persistence',
   ];
   if (session.started && (session.id || session.resumeFrom)) {
     args.push('--resume', session.id || session.resumeFrom);

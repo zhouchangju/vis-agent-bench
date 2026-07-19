@@ -63,6 +63,13 @@ function stagePrompt(caseDir, scenario, stage) {
   const content = stage.input
     ? readFileSync(join(caseDir, 'scenario', stage.input), 'utf8')
     : stage.stakeholder_message;
+  const developmentSmokeRules = basename(caseDir) === 'dev-workflow-smoke'
+    ? [
+        '这是开发管道 Smoke：禁止启动子 Agent、后台任务和联网。',
+        '不要扩展需求或过度设计；直接完成 checkpoint，使用尽可能少的工具调用。',
+        '本阶段最多进行一次必要的本地验证，不要反复自检。',
+      ]
+    : [];
   return [
     content.trim(),
     '',
@@ -72,6 +79,7 @@ function stagePrompt(caseDir, scenario, stage) {
     '只处理当前已知信息，不要猜测后续需求。',
     '更新 workspace 根目录的 requirement-ledger.yaml，保持内容短小并标注 must/should/may、决策、假设和待确认项。',
     `本阶段 checkpoint：${(stage.checkpoint || []).join('、')}`,
+    ...developmentSmokeRules,
     '结束时简要输出：status、summary、next_actions、artifacts。',
     '',
   ].join('\n');
