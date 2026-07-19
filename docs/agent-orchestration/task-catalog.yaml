@@ -130,7 +130,7 @@ tasks:
   - id: VAB-T08
     title: 总集成与 Web 控制面
     wave: 6
-    status: planned
+    status: running
     branch: codex/vab-t08-integration
     depends_on: [VAB-T01, VAB-T03, VAB-T05, VAB-T06, VAB-T07, VAB-T09, VAB-T10, VAB-T11, VAB-T12, VAB-T13, VAB-T15, VAB-T16]
     prompt: prompts/VAB-T08-INTEGRATION.md
@@ -227,7 +227,7 @@ tasks:
   - id: VAB-T15
     title: Playwright Driver 安全与可靠性加固
     wave: 5
-    status: running
+    status: accepted
     branch: codex/vab-t15-browser-hardening
     depends_on: [VAB-T11]
     prompt: prompts/VAB-T15-BROWSER-HARDENING.md
@@ -241,7 +241,7 @@ tasks:
   - id: VAB-T16
     title: Evaluator 证据信任边界加固
     wave: 5
-    status: running
+    status: accepted
     branch: codex/vab-t16-evaluator-hardening
     depends_on: [VAB-T05, VAB-T12, VAB-T13]
     prompt: prompts/VAB-T16-EVALUATOR-HARDENING.md
