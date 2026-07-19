@@ -52,6 +52,11 @@ RunSpec 至少包含：
 并使用 `confirmed`、`decisions`、`assumptions`、`open_questions` 对象数组。这样中文引号、冒号等自然语言
 内容不会破坏 YAML 解析；不接受多文档 YAML 或 `- dec:` 等自由格式简写。
 
+Fixture 已有的 `package.json` 中 `build`、`typecheck`、`test` scripts，以及对应
+`scripts/build.mjs`、`scripts/typecheck.mjs`、`scripts/test.mjs` 是基线完整性门禁。Agent 可以新增
+功能和独立测试，但不得改写这些基线；若某阶段首次 gate 失败，Runner 只允许一次自动重试，并在下一次
+Stage Prompt 中注入明确的 gate 失败原因。
+
 标准阶段事件至少包含：
 
 ```json

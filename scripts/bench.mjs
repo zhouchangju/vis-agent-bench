@@ -177,6 +177,7 @@ function stagePrompt(caseDir, scenario, stage) {
     '',
     `当前阶段：${stage.id} / ${stage.name}`,
     '只处理当前已知信息，不要猜测后续需求。',
+    '不得修改 package.json 中既有的 build、typecheck、test script，也不得修改既有 scripts/build.mjs、scripts/typecheck.mjs、scripts/test.mjs；它们是 Harness 的基线完整性门禁。可以新增功能代码、文档、数据和独立测试脚本。',
     '更新 workspace 根目录的 requirement-ledger.yaml：必须使用 JSON 语法（JSON 也是合法 YAML），且只能有一个文档。严格采用对象数组字段 `confirmed`、`decisions`、`assumptions`、`open_questions`；每项写成 `{"priority":"must|should|may","text":"..."}`，文本中的中文引号和冒号必须位于 JSON 字符串内。不要写 `---`、`...`、Markdown 标题或 `- dec:` 这类 YAML 简写。',
     `本阶段 checkpoint：${(stage.checkpoint || []).join('、')}`,
     ...developmentSmokeRules,
@@ -185,6 +186,31 @@ function stagePrompt(caseDir, scenario, stage) {
     'checkpoint 中带路径/扩展名的项目必须直接创建该文件；所有 manifest 引用必须存在且位于 workspace 内。',
     '最后阶段会由 Harness 自动运行 package.json 中存在的 build、typecheck、test 脚本；只报告真实结果。',
     '结束时简要输出：status、summary、next_actions、artifacts。',
+    '',
+  ].join('\n');
+}
+
+function previousStageFailure(runDir, stageId) {
+  const resultPath = join(runDir, 'result.json');
+  if (!existsSync(resultPath)) return null;
+  try {
+    const result = JSON.parse(readFileSync(resultPath, 'utf8'));
+    const stage = (result.stages || []).find(item => item.stage_id === stageId && item.status === 'error');
+    if (!stage?.error) return null;
+    return String(stage.error).slice(0, 4_000);
+  } catch {
+    return null;
+  }
+}
+
+function retryFeedback(stageId, error) {
+  if (!error) return '';
+  return [
+    '',
+    '## 自动门禁反馈（本阶段第 2 次且最后一次尝试）',
+    `上一尝试未通过，原因：${error}`,
+    '请直接修复上述原因并重新运行必要的本地验证；不要只解释问题。不得删除、篡改或绕过基线完整性门禁。若提示基线文件已改动，用 `git show HEAD:<path>` 恢复该单个文件的基线内容，不要重置整个 workspace。',
+    `仍需写入本阶段 checkpoint：.vab/checkpoints/${stageId}.json。`,
     '',
   ].join('\n');
 }
@@ -786,7 +812,8 @@ async function run(args) {
     }
 
     const inputPath = join(runDir, 'input', `stage-${stage.id}.md`);
-    writeFileSync(inputPath, stagePrompt(caseDir, scenario, stage));
+    const retryError = previousAttempts > 0 ? previousStageFailure(runDir, stage.id) : null;
+    writeFileSync(inputPath, `${stagePrompt(caseDir, scenario, stage)}${retryFeedback(stage.id, retryError)}`);
     state.scenario.attempts = state.scenario.attempts || {};
     const attempt = (state.scenario.attempts[stage.id] || 0) + 1;
     state.scenario.attempts[stage.id] = attempt;
