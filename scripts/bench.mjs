@@ -92,6 +92,23 @@ function childEnvironment(adapter, extra = {}) {
   return { ...env, ...extra };
 }
 
+function validationEnvironment(runDir, extra = {}) {
+  const isolatedHome = join(runDir, '.validation-home');
+  const npmCache = join(runDir, '.validation-npm-cache');
+  mkdirSync(isolatedHome, { recursive: true });
+  mkdirSync(npmCache, { recursive: true });
+  const env = {};
+  for (const key of ['PATH', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'NO_COLOR', 'CI']) {
+    if (process.env[key] != null) env[key] = process.env[key];
+  }
+  return {
+    ...env,
+    HOME: isolatedHome,
+    npm_config_cache: npmCache,
+    ...extra,
+  };
+}
+
 function jsonDigest(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
@@ -107,6 +124,11 @@ function assertRuntimePolicy(spec, adapter) {
     }
   }
   const network = spec.isolation.network === true || spec.isolation.network === 'enabled';
+  if (spec.isolation.block_internal_network === true) {
+    throw new Error(
+      'block_internal_network=true is unsupported by file-isolated-development; use container/network isolation.',
+    );
+  }
   if (!network && adapter !== 'codex') {
     throw new Error(`${adapter} has no verified network-deny control; use Codex or enable network.`);
   }
@@ -601,7 +623,7 @@ async function run(args) {
           stage,
           stageLogs,
           Math.max(1_000, remaining - result.duration_ms),
-          childEnvironment(resolvedAdapterId, {
+          validationEnvironment(runDir, {
             VIS_AGENT_BENCH_RUN_ID: state.run_id,
             VIS_AGENT_BENCH_STAGE_ID: stage.id,
             VIS_AGENT_BENCH_ISOLATION: 'file-isolated-development',

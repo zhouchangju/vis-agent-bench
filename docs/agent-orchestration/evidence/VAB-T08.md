@@ -1,6 +1,6 @@
 # VAB-T08 Evidence
 
-- Status: DONE / hardening re-review in progress
+- Status: ACCEPTED
 - Baseline: `0f76ad1`
 - Branch: `codex/vab-t08-integration`
 - Integrated accepted dependency commits:
@@ -55,6 +55,8 @@
   Codex 0.144.6, Kimi Code 0.27.0, Claude Code 2.1.177.
 - `node scripts/bench.mjs validate --spec config/run-profile.example.yaml` → PASS.
 - `git diff --check` → PASS.
+- Independent blocking review → APPROVE after environment, path-containment, checkpoint,
+  budget, policy, Demo-boundary, and digest-binding hardening.
 - Persistent local acceptance artifact:
   `.local/acceptance/t08/t08-golden-equity/reports/t08-golden-equity.html`.
 
