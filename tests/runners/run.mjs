@@ -95,13 +95,14 @@ check('codex adapter resumes a known session id', () => {
   assert.equal(command.args[1], 'resume');
   assert.ok(command.args.includes('sess-1234567890'));
   assert.ok(command.args.includes('model_reasoning_effort="high"'));
+  assert.ok(command.args.includes('sandbox_mode="workspace-write"'));
   assert.ok(command.args.includes('--ignore-user-config'));
   assert.ok(command.args.includes('--ignore-rules'));
   assert.ok(command.args.includes('sandbox_workspace_write.network_access=false'));
   assert.ok(command.args.includes('approval_policy="never"'));
   assert.ok(!command.args.includes('--ask-for-approval'));
   assert.ok(!command.args.includes('--ephemeral'));
-  // resume path 不带 --cd / --sandbox
+  // resume 子命令不接受 --sandbox flag，必须通过 config 延续 workspace-write。
   assert.ok(!command.args.includes('--sandbox'));
 });
 

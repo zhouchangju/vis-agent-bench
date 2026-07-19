@@ -72,6 +72,7 @@ function buildCodexCommand(ctx) {
     args.push(
       'resume',
       ...reasoningConfig,
+      '--config', 'sandbox_mode="workspace-write"',
       '--config', `sandbox_workspace_write.network_access=${ctx.networkEnabled === true}`,
       '--config', 'approval_policy="never"',
       '--model', ctx.model,

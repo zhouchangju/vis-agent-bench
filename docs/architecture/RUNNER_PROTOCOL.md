@@ -98,8 +98,9 @@ codex exec \
 ```
 
 `codex exec` 本身是非交互入口，不使用交互式 `--ask-for-approval`。多阶段评测必须保留 Session，
-因此不能使用 `--ephemeral`；后续阶段使用 `codex exec resume`。CLI Sandbox 是 Worker 内的第二层
-限制，不能替代外层容器。
+因此不能使用 `--ephemeral`；后续阶段使用 `codex exec resume`，并显式传入
+`--config 'sandbox_mode="workspace-write"'`。`resume` 子命令不接受 `--sandbox` flag，若不通过
+config 重申写权限，恢复阶段可能退回只读。CLI Sandbox 是 Worker 内的第二层限制，不能替代外层容器。
 
 ## Claude Code Adapter
 
