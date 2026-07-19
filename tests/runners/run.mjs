@@ -57,6 +57,7 @@ check('codex adapter builds a fresh-session exec command deterministically', () 
     prompt: 'do the thing',
     session: { id: null, started: false },
     reasoningEffort: 'medium',
+    networkEnabled: true,
   });
   assert.equal(command.executable, 'codex');
   assert.equal(command.format, 'jsonl');
@@ -65,6 +66,8 @@ check('codex adapter builds a fresh-session exec command deterministically', () 
     'exec',
     '-c', 'model_reasoning_effort="medium"',
     '--cd', '/run/w',
+    '--config', 'sandbox_workspace_write.network_access=true',
+    '--config', 'approval_policy="never"',
     '--model', 'gpt-example',
     '--sandbox', 'workspace-write',
     '--ignore-user-config',
@@ -86,6 +89,7 @@ check('codex adapter resumes a known session id', () => {
     prompt: 'next',
     session: { id: 'sess-1234567890', started: true },
     reasoningEffort: 'high',
+    networkEnabled: false,
   });
   assert.equal(command.args[0], 'exec');
   assert.equal(command.args[1], 'resume');
@@ -93,6 +97,10 @@ check('codex adapter resumes a known session id', () => {
   assert.ok(command.args.includes('model_reasoning_effort="high"'));
   assert.ok(command.args.includes('--ignore-user-config'));
   assert.ok(command.args.includes('--ignore-rules'));
+  assert.ok(command.args.includes('sandbox_workspace_write.network_access=false'));
+  assert.ok(command.args.includes('approval_policy="never"'));
+  assert.ok(!command.args.includes('--ask-for-approval'));
+  assert.ok(!command.args.includes('--ephemeral'));
   // resume path 不带 --cd / --sandbox
   assert.ok(!command.args.includes('--sandbox'));
 });
@@ -148,12 +156,13 @@ check('claude adapter emits session-id on fresh runs and --resume on subsequent 
   assert.ok(fresh.args.includes('--session-id'));
   assert.equal(fresh.args[fresh.args.indexOf('--session-id') + 1], 'abc-123');
   assert.equal(fresh.args[fresh.args.indexOf('--max-budget-usd') + 1], '1.5');
-  assert.ok(fresh.args.includes('--bare'));
-  assert.equal(fresh.args[fresh.args.indexOf('--permission-mode') + 1], 'auto');
-  assert.ok(fresh.args.includes('--verbose'));
+  assert.ok(fresh.args.includes('--safe-mode'));
+  assert.ok(!fresh.args.includes('--bare'));
   assert.ok(!fresh.args.includes('--no-session-persistence'));
   assert.ok(fresh.args.includes('--strict-mcp-config'));
   assert.ok(fresh.args.includes('--no-chrome'));
+  assert.equal(fresh.args[fresh.args.indexOf('--permission-mode') + 1], 'auto');
+  assert.ok(fresh.args.includes('--verbose'));
 
   const resumed = adapter.buildCommand({
     adapter: 'claude',

@@ -74,8 +74,11 @@ RunSpec 至少包含：
 - 模型：`--model`
 - 思考强度：`-c model_reasoning_effort=\"<low|medium|high|xhigh>\"`
 - 工作目录：`--cd`
-- CLI 内层权限：`--sandbox workspace-write --ask-for-approval never`
-- 净化：`--ephemeral --ignore-user-config --ignore-rules`
+- CLI 内层权限：`--sandbox workspace-write --config 'approval_policy="never"'`
+- 联网：RunSpec 启用时传入
+  `--config sandbox_workspace_write.network_access=true`；实际可用性仍记录在 Run 证据中。
+- 净化：`--ignore-user-config --ignore-rules`。为保持阶段会话连续性，不使用
+  `--ephemeral`；该选项不持久化 Session，和后续 `exec resume` 冲突。
 
 概念命令：
 
@@ -83,6 +86,8 @@ RunSpec 至少包含：
 codex exec \
   --cd /workspace \
   -c 'model_reasoning_effort="medium"' \
+  --config sandbox_workspace_write.network_access=true \
+  --config 'approval_policy="never"' \
   --model "$MODEL_ID" \
   --sandbox workspace-write \
   --ignore-user-config \
@@ -109,20 +114,22 @@ codex exec \
 - 费用上限：`--max-budget-usd`
 - 结构化最终输出：`--json-schema`
 - 无人值守权限：`--permission-mode auto`
-- 净化：`--bare --strict-mcp-config --no-chrome`
-- 多阶段 Session：必须持久化，后续阶段通过 `--resume` 恢复
+- 净化：`--safe-mode --strict-mcp-config --no-chrome`。`--safe-mode` 禁用用户与项目
+  自定义但保留正常认证；`--bare` 会禁用 OAuth/keychain，因此不用于默认 Adapter。
+- 会话：首阶段显式 `--session-id`，后续阶段 `--resume`；不能同时使用
+  `--no-session-persistence`，因为官方 CLI 明确说明该选项会使会话不可恢复。
 
 概念命令：
 
 ```bash
 claude --print \
-  --bare \
+  --safe-mode \
   --strict-mcp-config \
   --no-chrome \
   --model "$MODEL_ID" \
   --permission-mode auto \
-  --verbose \
   --output-format stream-json \
+  --verbose \
   --include-hook-events \
   --max-budget-usd "$MAX_BUDGET_USD" \
   < /task/prompt.md
@@ -132,7 +139,7 @@ claude --print \
 
 - provider 类型；
 - endpoint 的脱敏标识；
--配置模型名；
+- 配置模型名；
 - 首个响应中可获得的实际模型名；
 - 使用量和费用由谁提供。
 

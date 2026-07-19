@@ -59,6 +59,7 @@ export function parseSemverVersion(text) {
  * @property {number|null} maxCostUsd        可选费用上限。
  * @property {string} emptySkillsDir         Kimi 的空 Skill 目录。
  * @property {string|null} reasoningEffort   Codex 思考强度（low / medium / high / xhigh）。
+ * @property {boolean} networkEnabled        是否请求 Codex workspace-write 公网访问。
  */
 
 function buildCodexCommand(ctx) {
@@ -71,6 +72,8 @@ function buildCodexCommand(ctx) {
     args.push(
       'resume',
       ...reasoningConfig,
+      '--config', `sandbox_workspace_write.network_access=${ctx.networkEnabled === true}`,
+      '--config', 'approval_policy="never"',
       '--model', ctx.model,
       '--ignore-user-config',
       '--ignore-rules',
@@ -83,6 +86,8 @@ function buildCodexCommand(ctx) {
     args.push(
       ...reasoningConfig,
       '--cd', ctx.workspace,
+      '--config', `sandbox_workspace_write.network_access=${ctx.networkEnabled === true}`,
+      '--config', 'approval_policy="never"',
       '--model', ctx.model,
       '--sandbox', 'workspace-write',
       '--ignore-user-config',
@@ -124,13 +129,13 @@ function buildClaudeCommand(ctx) {
   const session = ctx.session || {};
   const args = [
     '--print',
-    '--bare',
+    '--safe-mode',
     '--strict-mcp-config',
     '--no-chrome',
     '--model', ctx.model,
     '--permission-mode', 'auto',
-    '--verbose',
     '--output-format', 'stream-json',
+    '--verbose',
     '--include-hook-events',
   ];
   if (session.started && (session.id || session.resumeFrom)) {
@@ -176,6 +181,7 @@ const adapters = {
         prompt,
         session: session || {},
         reasoningEffort: spec.engine.reasoning_effort || null,
+        networkEnabled: spec.isolation?.network === 'enabled',
       });
     },
     buildCommand: buildCodexCommand,

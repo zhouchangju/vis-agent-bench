@@ -135,6 +135,7 @@ function prepare(args) {
 
   const runId = args.run_id || `${new Date().toISOString().replaceAll(/[:.]/g, '-')}_${engine}_${randomUUID().slice(0, 8)}`;
   const runDir = createRunLayout(projectRoot, runId);
+  mkdirSync(join(runDir, '.empty-skills'), { recursive: true });
   const firstStage = scenario.stages[0];
   writeFileSync(
     join(runDir, 'input', `stage-${firstStage.id}.md`),
