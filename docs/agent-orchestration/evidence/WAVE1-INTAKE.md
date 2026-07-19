@@ -2,8 +2,8 @@
 
 - Date: 2026-07-19
 - Integration branch: `codex/agent-bench-integration`
-- Accepted tasks: `VAB-T01`, `VAB-T02`, `VAB-T04`, `VAB-T07`
-- Blocked task: `VAB-T06`
+- Accepted tasks: `VAB-T01`, `VAB-T02`, `VAB-T04`, `VAB-T06`, `VAB-T07`
+- Blocked task: none
 
 ## Accepted work
 
@@ -13,6 +13,7 @@ the accepted VAB-T00 baseline:
 - `VAB-T01`: `node tests/runners/run.mjs` — 38/38.
 - `VAB-T02`: `node tests/fixtures/run.mjs` — 23/23.
 - `VAB-T04`: `node tests/evaluators/core/run.mjs` — 42/42.
+- `VAB-T06`: `node tests/browser-evidence/run.mjs` — 26/26 after fixture repair.
 - `VAB-T07`: `node tests/reporting/run.mjs` — 27/27.
 - Combined `npm test` and `git diff --check` — pass.
 
@@ -26,19 +27,12 @@ task commits rather than merging complete branches:
 resolution preserves contract, evaluator-core and fixture checks. Runner and reporting tests were
 run explicitly; VAB-T08 should add their scripts to the permanent aggregate test command.
 
-## Blocked work
+## T06 repair
 
-`VAB-T06` fails one of its own declared checks:
-
-```text
-run evidence reader summarizes the sample run
-Expected workspace_diff_present === true, received false
-```
-
-The sample fixture includes `run-spec.json` and `result.json` but no
-`artifacts/workspace.diff`, while the test asserts that the diff exists. This is a reproducible
-fixture/contract mismatch, not an environment dependency. T06 is not integrated and needs a
-task-scoped correction followed by its 26/26 test run.
+Initial intake found that the sample fixture omitted `artifacts/workspace.diff`, while its reader
+test required that artifact. The fixture was repaired with a minimal synthetic diff and the full
+browser-evidence suite now passes 26/26. The repair is fixture-only: it does not claim real browser,
+Canvas/WebGL, or visual-regression coverage.
 
 ## Resulting readiness
 

@@ -97,7 +97,7 @@ tasks:
   - id: VAB-T06
     title: 浏览器证据与人工评审
     wave: 1
-    status: blocked
+    status: accepted
     branch: codex/vab-t06-browser-review
     depends_on: [VAB-T00]
     prompt: prompts/VAB-T06-BROWSER-REVIEW.md

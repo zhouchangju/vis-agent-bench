@@ -59,3 +59,18 @@
   - The `readRunEvidence` and `summarizeRunEvidence` functions in `src/review/run-evidence-reader.mjs` are the contract for the review prototype and for VAB-T07's report generator.
 - Rollback:
   - Revert the single VAB-T06 commit; no other task depends on these paths yet. The prototype HTML/JS modifications are additive and backward-compatible with no saved state migration needed.
+
+## Correction and re-acceptance
+
+- The initial independent intake found that the sample Run fixture did not contain
+  `artifacts/workspace.diff`, although the `run evidence reader summarizes the sample run` test
+  required it. The original claim of 26/26 was therefore not accepted.
+- The fixture now includes a minimal synthetic workspace diff, matching the Run layout documented
+  in `src/review/run-evidence-reader.mjs`; production browser capture behavior was not changed.
+- Re-verification:
+  - `node tests/browser-evidence/run.mjs` → PASS, 26/26.
+  - dashboard static capture → success, 2 screenshots and 2 DOM snapshots.
+  - broken static capture → warning with `SELECTOR_MISSING`, `PAGE_ERROR`, and `NETWORK_FAILURE`.
+  - combined `npm test` and `git diff --check` → PASS.
+- Proof boundary remains unchanged: the shipped static fixture driver does not prove a real browser,
+  Canvas/WebGL rendering, or broad visual approval.
