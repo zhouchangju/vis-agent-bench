@@ -1,6 +1,8 @@
-import { readFileSync } from 'node:fs';
-
 import { runEvaluation } from '../../core/index.mjs';
+import {
+  annotateEvaluationTrust,
+  resolveObservationInput,
+} from '../../control/observation-attestation.mjs';
 import { createMacroMap3dChecks, registeredAssertionIds } from './checks.mjs';
 import { DEFAULT_CONTROL_INPUTS, loadMacroMap3dRubric, rubricCheckIds } from './rubric.mjs';
 
@@ -9,10 +11,23 @@ export const MACRO_MAP_3D_CASE_ID = 'macro-map-3d-greenfield';
 export function createMacroMap3dEvaluator({
   observation,
   observationPath,
+  attestationPath,
+  runRoot,
+  runId,
+  allowTestDouble = false,
   rubric = loadMacroMap3dRubric(),
   controlInputs = DEFAULT_CONTROL_INPUTS,
 } = {}) {
-  const resolvedObservation = observation || readObservation(observationPath);
+  const resolved = resolveObservationInput({
+    caseId: MACRO_MAP_3D_CASE_ID,
+    runId,
+    runRoot,
+    attestationPath,
+    observation,
+    observationPath,
+    allowTestDouble,
+  });
+  const resolvedObservation = resolved.observation;
   validateObservation(resolvedObservation);
   validateCheckMapping(rubric);
 
@@ -24,6 +39,7 @@ export function createMacroMap3dEvaluator({
     prepare() {
       return { observation: resolvedObservation, controlInputs };
     },
+    evidenceTrust: resolved.trust,
     notes: [
       'Real-browser evidence proves declared behavior/state only.',
       'Screenshots and Canvas signatures do not prove aesthetics or WebGL correctness.',
@@ -33,12 +49,14 @@ export function createMacroMap3dEvaluator({
 }
 
 export async function evaluateMacroMap3d(options = {}) {
-  return runEvaluation(createMacroMap3dEvaluator(options), {
+  const evaluator = createMacroMap3dEvaluator(options);
+  const evaluation = await runEvaluation(evaluator, {
     runId: options.runId,
     workspace: options.workspace,
     logsDir: options.logsDir,
     runTimeoutMs: options.runTimeoutMs,
   });
+  return annotateEvaluationTrust(evaluation, evaluator.evidenceTrust);
 }
 
 export function validateCheckMapping(rubric = loadMacroMap3dRubric()) {
@@ -54,11 +72,6 @@ export function validateCheckMapping(rubric = loadMacroMap3dRubric()) {
     if (!declared.includes(id)) throw new Error(`Hard gate "${id}" is not a rubric check.`);
   }
   return { declared, hardGates: [...(rubric.hard_gates || [])] };
-}
-
-function readObservation(path) {
-  if (!path) throw new TypeError('createMacroMap3dEvaluator requires observation or observationPath.');
-  return JSON.parse(readFileSync(path, 'utf8'));
 }
 
 function validateObservation(observation) {

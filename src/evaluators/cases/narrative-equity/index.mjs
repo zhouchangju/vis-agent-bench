@@ -1,6 +1,8 @@
-import { readFileSync } from 'node:fs';
-
 import { runEvaluation } from '../../core/index.mjs';
+import {
+  annotateEvaluationTrust,
+  resolveObservationInput,
+} from '../../control/observation-attestation.mjs';
 import { createNarrativeEquityChecks, registeredAssertionIds } from './checks.mjs';
 import { DEFAULT_CONTROL_INPUTS, loadNarrativeEquityRubric, rubricCheckIds } from './rubric.mjs';
 
@@ -9,10 +11,23 @@ export const NARRATIVE_EQUITY_CASE_ID = 'narrative-equity-relationship';
 export function createNarrativeEquityEvaluator({
   observation,
   observationPath,
+  attestationPath,
+  runRoot,
+  runId,
+  allowTestDouble = false,
   rubric = loadNarrativeEquityRubric(),
   controlInputs = DEFAULT_CONTROL_INPUTS,
 } = {}) {
-  const resolvedObservation = observation || readObservation(observationPath);
+  const resolved = resolveObservationInput({
+    caseId: NARRATIVE_EQUITY_CASE_ID,
+    runId,
+    runRoot,
+    attestationPath,
+    observation,
+    observationPath,
+    allowTestDouble,
+  });
+  const resolvedObservation = resolved.observation;
   validateObservation(resolvedObservation);
   validateCheckMapping(rubric);
 
@@ -24,13 +39,14 @@ export function createNarrativeEquityEvaluator({
     prepare() {
       return { observation: resolvedObservation, controlInputs };
     },
+    evidenceTrust: resolved.trust,
     notes: 'Deterministic proxies only; subjective visual quality requires VAB-T06 human review.',
   };
 }
 
 export async function evaluateNarrativeEquity(options = {}) {
   const evaluator = createNarrativeEquityEvaluator(options);
-  return runEvaluation(evaluator, {
+  const evaluation = await runEvaluation(evaluator, {
     runId: options.runId,
     workspace: options.workspace,
     logsDir: options.logsDir,
@@ -43,6 +59,7 @@ export async function evaluateNarrativeEquity(options = {}) {
       },
     },
   });
+  return annotateEvaluationTrust(evaluation, evaluator.evidenceTrust);
 }
 
 export function validateCheckMapping(rubric = loadNarrativeEquityRubric()) {
@@ -58,11 +75,6 @@ export function validateCheckMapping(rubric = loadNarrativeEquityRubric()) {
     if (!declared.includes(id)) throw new Error(`Hard gate "${id}" is not a rubric check.`);
   }
   return { declared, hardGates: [...(rubric.hard_gates || [])] };
-}
-
-function readObservation(path) {
-  if (!path) throw new TypeError('createNarrativeEquityEvaluator requires observation or observationPath.');
-  return JSON.parse(readFileSync(path, 'utf8'));
 }
 
 function validateObservation(observation) {

@@ -6,6 +6,13 @@ expected states. A browser driver may use any selectors or component adapter
 needed to collect the document, but the evaluator only reads semantic IDs,
 geometry, events, state snapshots, and resource counters.
 
+Production intake follows `docs/architecture/EVALUATOR_PROTOCOL.md`: callers
+must provide a contained, digest-bound trusted observation attestation. Bare
+`observation`/`observationPath` inputs are rejected unless a unit test explicitly
+sets `allowTestDouble:true`; such output is marked ineligible for real Run
+conclusions. Every boolean leaf requires source provenance bound to browser,
+command/workspace, or hidden-control evidence.
+
 Required top-level fields:
 
 - `commands`: `build`, `typecheck`, and `test` exit codes.
@@ -38,6 +45,12 @@ tolerances:
 
 The values account for pixel rounding and SVG antialiasing. They are not tuned
 to a class name, layout library, or fixture entity.
+
+Geometry is fail-closed. Visible nodes require finite positive bounds; visible
+edges require IDs, known source/target IDs, and a path with at least two finite
+points. Endpoint geometry requires endpoint bounds. Position snapshots must
+share entities and preserve the complete entity set; missing entities or
+disjoint snapshots fail rather than silently producing zero drift.
 
 ## State equality
 

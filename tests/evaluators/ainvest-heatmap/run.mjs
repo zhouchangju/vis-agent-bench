@@ -12,11 +12,13 @@ import {
   validateCheckMapping,
 } from '../../../src/evaluators/cases/ainvest-heatmap/index.mjs';
 import { loadAinvestHeatmapRubric } from '../../../src/evaluators/cases/ainvest-heatmap/rubric.mjs';
+import { collectBooleanPaths } from '../../../src/evaluators/control/observation-attestation.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const compliant = readJson('samples/minimal-compliant.json');
+const compliantSource = readJson('samples/minimal-compliant.json');
+const compliant = asTestDouble(compliantSource);
 const failureOverlay = readJson('samples/intentional-failure.json');
-const faulty = merge(compliant, failureOverlay.overrides);
+const faulty = asTestDouble(merge(compliantSource, failureOverlay.overrides));
 const tests = [];
 
 function test(name, fn) {
@@ -56,6 +58,7 @@ test('minimum compliant sample passes every deterministic rubric check', async (
   const evaluation = await evaluateAinvestHeatmap({
     observation: structuredClone(compliant),
     runId: 'heatmap-minimal-pass',
+    allowTestDouble: true,
   });
   assert.equal(evaluation.status, 'success');
   assert.equal(evaluation.scorecard.total, 100);
@@ -64,12 +67,14 @@ test('minimum compliant sample passes every deterministic rubric check', async (
   assert.ok(evaluation.bundle.results.every(item => (
     item.evidence.proof_boundary.includes('aesthetics are not machine-proven')
   )));
+  assert.equal(evaluation.bundle.evidence_trust.conclusion_eligible, false);
 });
 
 test('intentionally wrong sample fails each targeted deterministic contract', async () => {
   const evaluation = await evaluateAinvestHeatmap({
     observation: faulty,
     runId: 'heatmap-intentional-failure',
+    allowTestDouble: true,
   });
   const failed = new Set(
     evaluation.bundle.results.filter(item => item.status === 'fail').map(item => item.check_id),
@@ -98,8 +103,22 @@ test('intentionally wrong sample fails each targeted deterministic contract', as
 
 test('missing observation sections are rejected instead of guessed as passing', async () => {
   await assert.rejects(
-    () => evaluateAinvestHeatmap({ observation: { commands: {} } }),
+    () => evaluateAinvestHeatmap({
+      observation: asTestDouble({ commands: {} }),
+      allowTestDouble: true,
+    }),
     /observation is missing "input"/,
+  );
+});
+
+test('production mode rejects bare observation and arbitrary observationPath', async () => {
+  await assert.rejects(
+    () => evaluateAinvestHeatmap({ observation: compliant, runId: 'bare' }),
+    /reject bare observation/,
+  );
+  await assert.rejects(
+    () => evaluateAinvestHeatmap({ observationPath: '/tmp/arbitrary.json', runId: 'bare-path' }),
+    /reject bare observation/,
   );
 });
 
@@ -130,5 +149,16 @@ function merge(base, override) {
       ? merge(base?.[key] || {}, value)
       : structuredClone(value);
   }
+  return output;
+}
+
+function asTestDouble(observation) {
+  const output = structuredClone(observation);
+  output.provenance = {
+    boolean_facts: Object.fromEntries(collectBooleanPaths(output).map(path => [
+      path,
+      [{ source: 'test_double', conclusion_eligible: false }],
+    ])),
+  };
   return output;
 }

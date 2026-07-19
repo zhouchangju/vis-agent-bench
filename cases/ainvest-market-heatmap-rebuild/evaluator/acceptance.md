@@ -6,6 +6,12 @@ Evaluator 只把可重放的命令结果、数据映射快照、DOM/事件/状�
 manifest 当作机器证据。截图只作为人工 Review artifact；截图存在、Canvas 非空或颜色字符串
 本身都不能证明 Treemap 语义或审美质量。
 
+Production Evaluator 只接受控制面 `runRoot` 内、经 realpath containment 和 SHA-256 bindings
+验证的 trusted observation attestation；裸 `observation` 和任意 `observationPath` 默认拒绝。
+测试必须显式使用 `allowTestDouble:true`，输出标记 `conclusion_eligible:false`。所有布尔结论
+必须按 JSON Pointer 提供 provenance，并绑定 browser action/state、command/workspace 或
+hidden-control 原始证据 digest；缺失或 digest 不匹配不得评分。
+
 `rubric.yaml` 中每个 check ID 必须且只能映射到一个确定性 assertion。缺少 observation
 时不得猜测通过，Evaluator 应把输入判为无效或由 Core 标记为未执行。
 

@@ -1,6 +1,8 @@
-import { readFileSync } from 'node:fs';
-
 import { runEvaluation } from '../../core/index.mjs';
+import {
+  annotateEvaluationTrust,
+  resolveObservationInput,
+} from '../../control/observation-attestation.mjs';
 import { createAinvestHeatmapChecks, registeredAssertionIds } from './checks.mjs';
 import { loadAinvestHeatmapRubric, rubricCheckIds } from './rubric.mjs';
 
@@ -9,9 +11,22 @@ export const AINVEST_HEATMAP_CASE_ID = 'ainvest-market-heatmap-rebuild';
 export function createAinvestHeatmapEvaluator({
   observation,
   observationPath,
+  attestationPath,
+  runRoot,
+  runId,
+  allowTestDouble = false,
   rubric = loadAinvestHeatmapRubric(),
 } = {}) {
-  const resolvedObservation = observation || readObservation(observationPath);
+  const resolved = resolveObservationInput({
+    caseId: AINVEST_HEATMAP_CASE_ID,
+    runId,
+    runRoot,
+    attestationPath,
+    observation,
+    observationPath,
+    allowTestDouble,
+  });
+  const resolvedObservation = resolved.observation;
   validateObservation(resolvedObservation);
   validateCheckMapping(rubric);
 
@@ -22,6 +37,8 @@ export function createAinvestHeatmapEvaluator({
     prepare() {
       return { observation: resolvedObservation };
     },
+    resolvedObservation,
+    evidenceTrust: resolved.trust,
     notes: [
       'Deterministic data, behavior, state, and accessibility proxies only.',
       'Real-browser observations do not prove aesthetics, visual parity, or cross-browser quality.',
@@ -30,9 +47,9 @@ export function createAinvestHeatmapEvaluator({
 }
 
 export async function evaluateAinvestHeatmap(options = {}) {
-  const observation = options.observation || readObservation(options.observationPath);
-  const evaluator = createAinvestHeatmapEvaluator({ ...options, observation });
-  return runEvaluation(evaluator, {
+  const evaluator = createAinvestHeatmapEvaluator(options);
+  const observation = evaluator.resolvedObservation;
+  const evaluation = await runEvaluation(evaluator, {
     runId: options.runId,
     workspace: options.workspace,
     logsDir: options.logsDir,
@@ -46,6 +63,7 @@ export async function evaluateAinvestHeatmap(options = {}) {
       },
     },
   });
+  return annotateEvaluationTrust(evaluation, evaluator.evidenceTrust);
 }
 
 export function validateCheckMapping(rubric = loadAinvestHeatmapRubric()) {
@@ -65,11 +83,6 @@ export function validateCheckMapping(rubric = loadAinvestHeatmapRubric()) {
     registered,
     hardGates: [...(rubric.hard_gates || [])],
   };
-}
-
-function readObservation(path) {
-  if (!path) throw new TypeError('createAinvestHeatmapEvaluator requires observation or observationPath.');
-  return JSON.parse(readFileSync(path, 'utf8'));
 }
 
 function validateObservation(observation) {

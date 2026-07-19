@@ -4,6 +4,13 @@ The evaluator consumes a control-plane observation assembled after candidate
 commands and browser exercises complete. This contract, hidden control inputs,
 and expected values are never exported to the worker workspace.
 
+Production callers must use the contained SHA-256 attestation described in
+`docs/architecture/EVALUATOR_PROTOCOL.md`; bare observation objects and arbitrary
+paths are rejected. `allowTestDouble:true` is unit-test-only and makes the
+result explicitly ineligible for a real Run conclusion. Boolean facts require
+per-path provenance bound to browser action/state, command/workspace, or
+hidden-control evidence.
+
 `rubric.yaml` remains the repository's legacy Case-governance rubric.
 `deterministic-rubric.yaml` expands those same six weighted categories into
 the exact one-to-one check IDs executed by this evaluator.

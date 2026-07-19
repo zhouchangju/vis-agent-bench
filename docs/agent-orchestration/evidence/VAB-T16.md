@@ -1,0 +1,51 @@
+# VAB-T16 Evidence
+
+- Status: DONE
+- Baseline: `ac618d350aeb2dabb46fa44ea85fb808580ddbf3`
+- Branch: `codex/vab-t16-evaluator-hardening`
+- Changed paths:
+  - `src/evaluators/control/observation-attestation.mjs`
+  - `src/evaluators/cases/narrative-equity/**`
+  - `src/evaluators/cases/macro-map-3d/index.mjs`
+  - `src/evaluators/cases/ainvest-heatmap/index.mjs`
+  - `tests/evaluators/narrative-equity/run.mjs`
+  - `tests/evaluators/macro-map-3d/run.mjs`
+  - `tests/evaluators/ainvest-heatmap/run.mjs`
+  - `cases/narrative-equity-relationship/evaluator/OBSERVATION_CONTRACT.md`
+  - `cases/macro-map-3d-greenfield/evaluator/OBSERVATION_CONTRACT.md`
+  - `cases/ainvest-market-heatmap-rebuild/evaluator/acceptance.md`
+  - `docs/architecture/EVALUATOR_PROTOCOL.md`
+  - this evidence file
+- Acceptance commands and results:
+  - `npm ci --ignore-scripts` → PASS; installed the existing locked `yaml` dependency without changing `package.json` or `package-lock.json`.
+  - `node tests/evaluators/narrative-equity/run.mjs` → PASS, 9/9 tests.
+  - `node tests/evaluators/ainvest-heatmap/run.mjs` → PASS, 7/7 tests.
+  - `node tests/evaluators/macro-map-3d/run.mjs` → PASS, 7/7 tests with real Playwright Chromium evidence intake.
+  - `node --check` for the control module, three evaluator entries, and equity geometry → PASS.
+  - `npm test` → PASS: contracts 8/8, Evaluator Core 42/42, Fixture Framework 23/23, structure and syntax gates passed.
+  - `git diff --check` → PASS.
+  - allowed-path audit over modified and untracked files → PASS; no package manifest or task catalog change.
+- Produced artifacts:
+  - Shared trusted-observation attestation verifier binding run/case, collector identity, observation, fixture manifest, command or workspace/diff evidence, browser evidence, and hidden-control execution with SHA-256.
+  - `realpath` containment for attestation and every binding under the control-plane run root, including symlink-escape rejection and digest-tamper rejection.
+  - Production-default rejection of bare `observation`/arbitrary `observationPath` in all three Case Evaluators.
+  - Explicit `allowTestDouble:true` path whose bundle is marked `mode=test-double` and `conclusion_eligible=false`.
+  - Per-boolean JSON Pointer provenance validation bound to browser action/state, command/workspace, hidden-control evidence, or an explicitly ineligible test double.
+  - Equity geometry fail-closed behavior for missing/invalid bounds or paths, missing source/target, unknown endpoints, disjoint snapshots, and entities missing on either snapshot side.
+  - Adversarial regression tests preserving the existing rubric/check one-to-one mapping and intentional-failure samples.
+- Not proven:
+  - No real candidate Run was supplied, so no production collector emitted a fresh attestation for a candidate; the positive attestation test uses control-plane-owned synthetic files.
+  - SHA-256 and realpath checks establish control-plane integrity bindings, not digital-signature authenticity or strong isolation from a malicious process with the same OS-user file permissions.
+  - Provenance proves that a collector linked a boolean to bound source evidence; it does not independently prove that the collector interpreted browser/command semantics correctly.
+  - The check does not eliminate same-user time-of-check/time-of-use replacement risk; production isolation still requires separate permissions/container policy.
+  - Subjective visual quality, narrative clarity, camera comfort, animation taste/feel, label aesthetics, WebGL correctness from Canvas signatures, and cross-browser behavior remain unproven and require human or separate platform review.
+- Remaining risks:
+  - VAB-T08 must write the documented attestation and provenance shape before calling a production evaluator; legacy direct observation integration will now fail closed by design.
+  - `package.json` still runs only Evaluator Core under `test:evaluators`; all three frozen Case tests were run directly because package wiring is outside VAB-T16 allowed paths.
+- Integration notes:
+  - Production calls require `runId`, `runRoot`, and `attestationPath`; the attestation and all bound files must resolve inside `runRoot`.
+  - Use `command_evidence` or `workspace_diff_evidence` (at least one), plus `observation`, `fixture_manifest`, `browser_evidence`, and `hidden_control_execution`.
+  - Do not propagate `allowTestDouble:true` into the benchmark CLI. Reports must reject or visibly quarantine any bundle with `conclusion_eligible:false`.
+  - Rubric IDs, hard gates, deterministic assertions, existing positive samples, and existing intentional-failure overlays were not changed.
+- Rollback:
+  - Revert the single VAB-T16 commit. No package manifest, lockfile, task catalog, fixture, evaluator-core API, or browser driver was modified.

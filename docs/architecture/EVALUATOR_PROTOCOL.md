@@ -141,6 +141,41 @@ Core 同时支持 v1 和 legacy 两种形态：
 - `partitionByFailureSource(results)` 把项目失败、Evaluator 崩溃和通过项
   分桶，方便报告分别展示。
 
+### 6.1 Trusted observation attestation
+
+Production Case Evaluator 不接受调用方直接传入的 `observation` 或任意
+`observationPath`。控制面必须传入 `runRoot` 与位于该目录内的
+`attestationPath`。Attestation schema v1 绑定：
+
+- `run_id`、`case_id` 和非空 `collector.id`；
+- observation 文件；
+- fixture manifest；
+- command evidence 或 workspace/diff evidence（至少一个）；
+- browser evidence；
+- hidden-control execution evidence。
+
+每个 binding 包含相对 `runRoot` 的路径和文件字节的 lowercase SHA-256。
+Evaluator 对 `runRoot`、attestation 和所有 binding 执行 `realpath`，拒绝
+绝对/相对路径或 symlink 造成的目录逃逸，并在解析 observation 前重新计算
+所有 digest。Attestation 与请求的 run/case 不一致也直接拒绝。
+
+Observation 中每个布尔叶子必须在 `provenance.boolean_facts` 中有来源。
+Production 来源只能是 `browser_action`、`browser_state`、`command`、
+`workspace_state` 或 `hidden_control`，并提供 source locator、对应 binding
+名称及与 attestation 一致的 SHA-256。Locator 必须是指向该 source evidence
+中实际存在值的 JSON Pointer。缺 provenance、错误 binding、悬空 locator 或
+未绑定 digest 均不得进入评分。
+
+单元测试只有显式传入 `allowTestDouble: true` 才能使用裸 observation 或
+`observationPath`。每个布尔值必须标为
+`source=test_double, conclusion_eligible=false`；输出 bundle 同时带
+`evidence_trust.mode=test-double` 与 `conclusion_eligible=false`，不能作为
+真实 benchmark Run 的结论。
+
+该机制提供的是控制面文件完整性、run/case 关联和来源绑定，不是数字签名，
+也不是对同一 OS 用户下恶意进程的强隔离。具有同用户文件写权限的进程仍可能
+在验证前替换整个证据集合；生产隔离必须由独立用户、容器/沙箱和权限策略补足。
+
 ## 7. 错误恢复
 
 `runCheck` 永不抛出。任何异常（断言抛错、超时、spawn 失败、非法返回值）

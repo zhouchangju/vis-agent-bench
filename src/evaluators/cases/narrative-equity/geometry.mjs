@@ -13,6 +13,7 @@ export function visibleItems(items = []) {
 }
 
 export function overlapRatio(a, b) {
+  if (!validRect(a) || !validRect(b)) return Number.POSITIVE_INFINITY;
   const width = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
   const height = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
   const intersection = width * height;
@@ -23,8 +24,14 @@ export function overlapRatio(a, b) {
 export function severeNodeOverlaps(nodes, ratio = GEOMETRY_TOLERANCE.severeOverlapRatio) {
   const visible = visibleItems(nodes);
   const failures = [];
+  for (const node of visible) {
+    if (!node.id || !validRect(node.bounds)) {
+      failures.push({ node: node.id ?? null, reason: 'missing-or-invalid-bounds' });
+    }
+  }
   for (let i = 0; i < visible.length; i += 1) {
     for (let j = i + 1; j < visible.length; j += 1) {
+      if (!validRect(visible[i].bounds) || !validRect(visible[j].bounds)) continue;
       const actual = overlapRatio(visible[i].bounds, visible[j].bounds);
       if (actual > ratio) failures.push({ a: visible[i].id, b: visible[j].id, ratio: actual });
     }
@@ -34,11 +41,35 @@ export function severeNodeOverlaps(nodes, ratio = GEOMETRY_TOLERANCE.severeOverl
 
 export function edgeNodeIntersections(edges, nodes, inset = GEOMETRY_TOLERANCE.edgeNodeInsetPx) {
   const visibleNodes = visibleItems(nodes);
+  const nodeIds = new Set(visibleNodes.map(node => node.id));
   const failures = [];
+  for (const node of visibleNodes) {
+    if (!node.id || !validRect(node.bounds)) {
+      failures.push({ node: node.id ?? null, reason: 'missing-or-invalid-bounds' });
+    }
+  }
   for (const edge of visibleItems(edges)) {
-    const points = edge.path || [];
+    if (!edge.id || !edge.source || !edge.target) {
+      failures.push({ edge: edge.id ?? null, reason: 'missing-edge-id-source-or-target' });
+      continue;
+    }
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
+      failures.push({
+        edge: edge.id,
+        reason: 'unknown-endpoint',
+        source: edge.source,
+        target: edge.target,
+      });
+      continue;
+    }
+    const points = edge.path;
+    if (!validPath(points)) {
+      failures.push({ edge: edge.id, reason: 'missing-or-invalid-path' });
+      continue;
+    }
     for (const node of visibleNodes) {
       if (node.id === edge.source || node.id === edge.target) continue;
+      if (!validRect(node.bounds)) continue;
       const rect = insetRect(node.bounds, inset);
       for (let i = 1; i < points.length; i += 1) {
         if (segmentIntersectsRect(points[i - 1], points[i], rect)) {
@@ -55,12 +86,34 @@ export function endpointBoundaryFailures(edges, nodes, tolerance = GEOMETRY_TOLE
   const byId = new Map(nodes.map(node => [node.id, node]));
   const failures = [];
   for (const edge of visibleItems(edges)) {
+    if (!edge.id || !edge.source || !edge.target) {
+      failures.push({ edge: edge.id ?? null, reason: 'missing-edge-id-source-or-target' });
+      continue;
+    }
     const source = byId.get(edge.source);
     const target = byId.get(edge.target);
-    const points = edge.path || [];
-    if (!source || !target || points.length < 2) continue;
-    const sourceDistance = distanceToRectBoundary(points[0], source.imageBounds || source.bounds);
-    const targetDistance = distanceToRectBoundary(points.at(-1), target.imageBounds || target.bounds);
+    if (!source || !target) {
+      failures.push({
+        edge: edge.id,
+        reason: 'unknown-endpoint',
+        source: edge.source,
+        target: edge.target,
+      });
+      continue;
+    }
+    const points = edge.path;
+    if (!validPath(points)) {
+      failures.push({ edge: edge.id, reason: 'missing-or-invalid-path' });
+      continue;
+    }
+    const sourceBounds = source.imageBounds || source.bounds;
+    const targetBounds = target.imageBounds || target.bounds;
+    if (!validRect(sourceBounds) || !validRect(targetBounds)) {
+      failures.push({ edge: edge.id, reason: 'missing-or-invalid-endpoint-bounds' });
+      continue;
+    }
+    const sourceDistance = distanceToRectBoundary(points[0], sourceBounds);
+    const targetDistance = distanceToRectBoundary(points.at(-1), targetBounds);
     if (sourceDistance > tolerance || targetDistance > tolerance) {
       failures.push({ edge: edge.id, sourceDistance, targetDistance });
     }
@@ -69,14 +122,38 @@ export function endpointBoundaryFailures(edges, nodes, tolerance = GEOMETRY_TOLE
 }
 
 export function positionDrift(before, after) {
-  const afterById = new Map((after || []).map(node => [node.id, node]));
+  const beforeItems = before || [];
+  const afterItems = after || [];
+  const beforeById = new Map(beforeItems.map(node => [node.id, node]));
+  const afterById = new Map(afterItems.map(node => [node.id, node]));
   const drift = [];
-  for (const node of before || []) {
+  let common = 0;
+  for (const node of beforeItems) {
+    if (!node.id || !validRect(node.bounds)) {
+      drift.push({ id: node.id ?? null, reason: 'missing-or-invalid-before-bounds' });
+      continue;
+    }
     const next = afterById.get(node.id);
-    if (!next) continue;
+    if (!next) {
+      drift.push({ id: node.id, reason: 'entity-missing-after' });
+      continue;
+    }
+    common += 1;
+    if (!validRect(next.bounds)) {
+      drift.push({ id: node.id, reason: 'missing-or-invalid-after-bounds' });
+      continue;
+    }
     const a = center(node.bounds);
     const b = center(next.bounds);
     drift.push({ id: node.id, distance: Math.hypot(a.x - b.x, a.y - b.y) });
+  }
+  for (const node of afterItems) {
+    if (!beforeById.has(node.id)) {
+      drift.push({ id: node.id ?? null, reason: 'entity-missing-before' });
+    }
+  }
+  if (beforeItems.length > 0 && afterItems.length > 0 && common === 0) {
+    drift.push({ id: null, reason: 'no-common-entity' });
   }
   return drift;
 }
@@ -85,6 +162,7 @@ export function maximumLayerSpread(nodes = []) {
   const layers = new Map();
   for (const node of visibleItems(nodes)) {
     if (node.layer == null) continue;
+    if (!validRect(node.bounds)) return Number.POSITIVE_INFINITY;
     const y = center(node.bounds).y;
     const values = layers.get(node.layer) || [];
     values.push(y);
@@ -99,6 +177,21 @@ export function maximumLayerSpread(nodes = []) {
 
 function center(rect) {
   return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+}
+
+function validRect(rect) {
+  return rect
+    && [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite)
+    && rect.width > 0
+    && rect.height > 0;
+}
+
+function validPoint(point) {
+  return point && Number.isFinite(point.x) && Number.isFinite(point.y);
+}
+
+function validPath(points) {
+  return Array.isArray(points) && points.length >= 2 && points.every(validPoint);
 }
 
 function insetRect(rect, inset) {

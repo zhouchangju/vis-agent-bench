@@ -11,6 +11,7 @@ import {
   validateCheckMapping,
 } from '../../../src/evaluators/cases/macro-map-3d/index.mjs';
 import { loadMacroMap3dRubric } from '../../../src/evaluators/cases/macro-map-3d/rubric.mjs';
+import { collectBooleanPaths } from '../../../src/evaluators/control/observation-attestation.mjs';
 import { createIntentionalFailure, createMinimalCompliantObservation } from './samples.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -102,20 +103,23 @@ await test('minimal compliant sample uses real Chromium evidence and passes all 
   assert.match(browser.environment.browser_version, /^\d+\./);
   assert.equal(browser.canvas_webgl_proven, false);
   const evaluation = await evaluateMacroMap3d({
-    observation: createMinimalCompliantObservation(structuredClone(browser)),
+    observation: asTestDouble(createMinimalCompliantObservation(structuredClone(browser))),
     runId: 'minimal-compliant',
+    allowTestDouble: true,
   });
   assert.equal(evaluation.status, 'success');
   assert.equal(evaluation.scorecard.total, 100);
   assert.equal(evaluation.bundle.results.length, 30);
   assert.deepEqual([...new Set(evaluation.bundle.results.map(item => item.status))], ['pass']);
   assert.match(evaluation.bundle.notes, /do not prove aesthetics or WebGL correctness/);
+  assert.equal(evaluation.bundle.evidence_trust.conclusion_eligible, false);
 });
 
 await test('Canvas check reports observation-only proof and never claims WebGL correctness', async () => {
   const evaluation = await evaluateMacroMap3d({
-    observation: createMinimalCompliantObservation(structuredClone(browser)),
+    observation: asTestDouble(createMinimalCompliantObservation(structuredClone(browser))),
     runId: 'canvas-proof-boundary',
+    allowTestDouble: true,
   });
   const canvas = evaluation.bundle.results
     .find(item => item.check_id === 'browser-canvas-observable-state');
@@ -126,8 +130,9 @@ await test('Canvas check reports observation-only proof and never claims WebGL c
 
 await test('intentionally wrong sample fails critical deterministic checks', async () => {
   const evaluation = await evaluateMacroMap3d({
-    observation: createIntentionalFailure(structuredClone(browser)),
+    observation: asTestDouble(createIntentionalFailure(structuredClone(browser))),
     runId: 'intentional-failure',
+    allowTestDouble: true,
   });
   const failed = new Set(evaluation.bundle.results
     .filter(item => item.status === 'fail')
@@ -151,17 +156,35 @@ await test('intentionally wrong sample fails critical deterministic checks', asy
 
 await test('observation can be supplied by JSON path', async () => {
   const samplePath = join(OUTPUT_ROOT, 'observation-path.json');
-  const payload = JSON.stringify(createMinimalCompliantObservation(structuredClone(browser)));
+  const payload = JSON.stringify(asTestDouble(createMinimalCompliantObservation(structuredClone(browser))));
   writeFileSync(samplePath, payload);
-  const evaluation = await evaluateMacroMap3d({ observationPath: samplePath, runId: 'path-input' });
+  const evaluation = await evaluateMacroMap3d({
+    observationPath: samplePath,
+    runId: 'path-input',
+    allowTestDouble: true,
+  });
   assert.equal(evaluation.status, 'success');
+});
+
+await test('production mode rejects bare observation and arbitrary observationPath', async () => {
+  await assert.rejects(
+    () => evaluateMacroMap3d({
+      observation: asTestDouble(createMinimalCompliantObservation(structuredClone(browser))),
+      runId: 'bare',
+    }),
+    /reject bare observation/,
+  );
+  await assert.rejects(
+    () => evaluateMacroMap3d({ observationPath: '/tmp/arbitrary.json', runId: 'bare-path' }),
+    /reject bare observation/,
+  );
 });
 
 const summary = {
   status: failures.length ? 'error' : 'success',
   summary: failures.length
     ? `${failures.length} Macro Map 3D evaluator test(s) failed.`
-    : '6/6 Macro Map 3D evaluator tests passed.',
+    : '7/7 Macro Map 3D evaluator tests passed.',
   next_actions: failures.length ? ['Fix the listed evaluator failures.'] : [],
   artifacts: [
     join(OUTPUT_ROOT, 'browser', 'browser-evidence.json'),
@@ -178,3 +201,14 @@ const summary = {
 };
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
 if (failures.length) process.exitCode = 1;
+
+function asTestDouble(observation) {
+  const output = structuredClone(observation);
+  output.provenance = {
+    boolean_facts: Object.fromEntries(collectBooleanPaths(output).map(path => [
+      path,
+      [{ source: 'test_double', conclusion_eligible: false }],
+    ])),
+  };
+  return output;
+}

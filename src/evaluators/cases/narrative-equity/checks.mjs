@@ -206,7 +206,9 @@ function booleanFact(observation, id) {
 function comparePositionSnapshots(observation, beforeName, afterName) {
   const before = observation.positions?.[beforeName] || [];
   const after = observation.positions?.[afterName] || [];
-  const failures = positionDrift(before, after).filter(item => item.distance > GEOMETRY_TOLERANCE.stablePositionPx);
+  const failures = positionDrift(before, after).filter(
+    item => item.reason || item.distance > GEOMETRY_TOLERANCE.stablePositionPx,
+  );
   return result(before.length > 0 && after.length > 0 && failures.length === 0, {
     failures,
     tolerancePx: GEOMETRY_TOLERANCE.stablePositionPx,
