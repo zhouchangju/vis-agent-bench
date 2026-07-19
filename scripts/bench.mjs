@@ -768,8 +768,12 @@ async function run(args) {
   const resolvedAdapterId = adapterId(spec.engine.adapter);
   const adapter = getAdapter(resolvedAdapterId);
   assertRuntimePolicy(spec, resolvedAdapterId);
+  // Wall-time 限制的是一次实际执行窗口，而不是 Run 从首次创建起的自然时间。
+  // 否则额度/限流导致的隔夜恢复会在尚未调用模型前被误判为超时。
+  const activeWindowStartedAt = Date.now();
   state.status = 'running';
   state.started_at = state.started_at || new Date().toISOString();
+  state.active_window_started_at = new Date(activeWindowStartedAt).toISOString();
   state.process_pid = process.pid;
   writeFileSync(statePath, JSON.stringify(state, null, 2));
   const caseDir = join(projectRoot, 'cases', spec.case_id);
@@ -780,7 +784,7 @@ async function run(args) {
     ? JSON.parse(readFileSync(commandLogPath, 'utf8'))
     : [];
   const runStarted = Date.now();
-  const runDeadline = Date.parse(state.started_at) + spec.budget.wall_time_minutes * 60_000;
+  const runDeadline = activeWindowStartedAt + spec.budget.wall_time_minutes * 60_000;
   const completed = new Set(state.scenario.completed_stages);
 
   for (const stage of scenario.stages) {

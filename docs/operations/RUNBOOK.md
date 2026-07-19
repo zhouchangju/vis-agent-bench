@@ -353,6 +353,8 @@ npm run bench:case -- --resume-run <run-id>
 旧日志、旧结果或已完成阶段。恢复时不接受新的 `--engine`、`--model` 或预算参数，避免混入不同模型或配置。
 恢复后的 `result.json` 会简化已完成阶段的信息；报告生成会自动复用
 `logs/stages/<stage-id>/attempt-*/checkpoint-gate.json` 中的原始门禁证据，避免把已通过阶段误判为失败。
+`--wall-time-minutes` 限制的是单次实际运行窗口；等待额度恢复、隔夜或暂停期间不计入该窗口。原始
+`started_at` 仍保留用于审计，恢复时会另记 `active_window_started_at`。
 
 ### 独立目录与文件级隔离
 
