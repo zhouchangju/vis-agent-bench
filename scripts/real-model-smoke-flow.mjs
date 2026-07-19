@@ -274,9 +274,38 @@ function runFixtureTest(runDir, required) {
   };
 }
 
+function detectProviderQuotaFailure(runDir) {
+  const resultPath = join(runDir, 'result.json');
+  if (!existsSync(resultPath)) return null;
+  const failedStage = (readJson(resultPath).stages || []).find(stage => stage.status !== 'success');
+  if (!failedStage?.stage_id) return null;
+  const stageDir = join(runDir, 'logs', 'stages', failedStage.stage_id);
+  if (!existsSync(stageDir)) return null;
+  const stderrPaths = readdirSync(stageDir)
+    .sort()
+    .reverse()
+    .map(attempt => join(stageDir, attempt, 'stderr.raw'))
+    .filter(existsSync);
+  const stderr = stderrPaths.map(path => readFileSync(path, 'utf8')).join('\n');
+  if (!/(?:reached your usage limit|quota will be refreshed|usage limit for this billing cycle)/i.test(stderr)) {
+    return null;
+  }
+  return {
+    kind: 'provider-quota-exhausted',
+    stage_id: failedStage.stage_id,
+    summary: `阶段 ${failedStage.stage_id} 因模型服务额度耗尽而中断；并非需求实现或流程门禁失败。`,
+    evidence: stderrPaths,
+    next_actions: [
+      '等待模型服务额度恢复或在其控制台扩容；恢复前不要消耗同一 Run 的重试次数。',
+      '额度恢复后使用 npm run bench:case -- --resume-run <run-id>；已完成阶段、workspace 与原生 Session 会保留。',
+    ],
+  };
+}
+
 function createMachineEvidence(runDir, runEnvelope, caseDir, isDevelopmentSmoke) {
   const checkpoint = evaluateCheckpoints(runDir, caseDir);
   const fixtureTest = runFixtureTest(runDir, isDevelopmentSmoke);
+  const providerFailure = detectProviderQuotaFailure(runDir);
   const flowPassed = runEnvelope.status === 'success'
     && checkpoint.passed
     && (!isDevelopmentSmoke || fixtureTest.status === 'pass');
@@ -322,7 +351,8 @@ function createMachineEvidence(runDir, runEnvelope, caseDir, isDevelopmentSmoke)
       : [],
     note: '尚未完成真实浏览器评审；正式可视化 Case 不能据此判定业务验收通过。',
   });
-  return { flowPassed, businessAccepted: isDevelopmentSmoke ? flowPassed : null };
+  if (providerFailure) writeJson(join(runDir, 'logs', 'provider-failure-diagnosis.json'), providerFailure);
+  return { flowPassed, businessAccepted: isDevelopmentSmoke ? flowPassed : null, providerFailure };
 }
 
 export function collectReportedUsage(runDir, caseDir) {
@@ -562,8 +592,8 @@ async function resumeExistingRun(args) {
       : `${caseMeta.title} 已尝试从原 Run 恢复，但一个或多个流程门禁失败。`,
     next_actions: outcome.flowPassed
       ? [isDevelopmentSmoke ? '检查恢复后的模型事件和演示报告。' : '进入浏览器评审并补录人工评分、修改时间和最终验收结论。']
-      : ['检查 real-smoke-checkpoints.json 和恢复阶段的 stderr，修复根因后仅重试一次。'],
-    artifacts: [...report.artifacts, ...quickView.map(item => item.path), join(runDir, 'logs', 'real-smoke-checkpoints.json'), join(runDir, 'logs', 'stages')],
+      : (outcome.providerFailure?.next_actions || ['检查 real-smoke-checkpoints.json 和恢复阶段的 stderr，修复根因后仅重试一次。']),
+    artifacts: [...report.artifacts, ...quickView.map(item => item.path), join(runDir, 'logs', 'real-smoke-checkpoints.json'), ...(outcome.providerFailure ? [join(runDir, 'logs', 'provider-failure-diagnosis.json')] : []), join(runDir, 'logs', 'stages')],
     quick_view: quickView,
     run_id: storedSpec.run_id || basename(runDir),
     run_dir: runDir,
@@ -605,8 +635,8 @@ async function finalizeExistingRun(args) {
       : `${caseMeta.title} 重新归档后仍有未通过的流程门禁。`,
     next_actions: outcome.flowPassed
       ? ['进入浏览器评审并补录人工评分、修改时间和最终验收结论。']
-      : ['检查 result.json 中失败阶段与 checkpoint gate 的根因。'],
-    artifacts: [...report.artifacts, ...quickView.map(item => item.path), join(runDir, 'logs', 'real-smoke-checkpoints.json')],
+      : (outcome.providerFailure?.next_actions || ['检查 result.json 中失败阶段与 checkpoint gate 的根因。']),
+    artifacts: [...report.artifacts, ...quickView.map(item => item.path), join(runDir, 'logs', 'real-smoke-checkpoints.json'), ...(outcome.providerFailure ? [join(runDir, 'logs', 'provider-failure-diagnosis.json')] : [])],
     quick_view: quickView,
     run_id: storedResult.run_id || storedSpec.run_id || basename(runDir),
     run_dir: runDir,
@@ -781,11 +811,12 @@ async function main() {
       ? [isDevelopmentSmoke
         ? '检查模型事件和演示报告；该运行不可用于正式排行榜结论。'
         : '进入浏览器评审并补录人工评分、修改时间和最终验收结论。']
-      : ['检查 real-smoke-checkpoints.json 和各阶段 stderr，修复根因后仅重试一次。'],
+      : (outcome.providerFailure?.next_actions || ['检查 real-smoke-checkpoints.json 和各阶段 stderr，修复根因后仅重试一次。']),
     artifacts: [
       ...report.artifacts,
       ...quickView.map(item => item.path),
       join(runDir, 'logs', 'real-smoke-checkpoints.json'),
+      ...(outcome.providerFailure ? [join(runDir, 'logs', 'provider-failure-diagnosis.json')] : []),
       join(runDir, 'logs', 'stages'),
     ],
     quick_view: quickView,
