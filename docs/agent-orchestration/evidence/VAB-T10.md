@@ -1,0 +1,42 @@
+# VAB-T10 Evidence
+
+- Status: DONE
+- Baseline: `01c0137` (`chore: accept T03 and plan remaining benchmark work`)
+- Branch: `codex/vab-t10-heatmap-fixture`
+- Changed paths:
+  - `cases/ainvest-market-heatmap-rebuild/fixture/**`
+  - `scripts/fixtures/heatmap/verify-fixture.mjs`
+  - `tests/cases/ainvest-heatmap/run.mjs`
+  - this evidence file
+- Acceptance commands and results:
+  - `npm run build && npm run typecheck && npm test` in `fixture/starter` → PASS; 101 synthetic nodes.
+  - `node scripts/fixtures/heatmap/verify-fixture.mjs` → PASS; catalog SHA-256 `cd7b3e91f70c58044ab43ba25f36b3c34682ab10483df7ebbe899daad1713f0e`.
+  - `node tests/cases/ainvest-heatmap/run.mjs` → PASS; two independent Builder exports had identical worker-visible file hashes.
+  - Fixture Builder CLI with current `fixture/plan.yaml` and `fixture/starter` → PASS; 27 files exported, build/typecheck/test baseline passed, path/content/canary leakage counts all `0`.
+  - Repository `npm test` → PASS: contracts 8/8, evaluator core 42/42, fixture framework 23/23, structure and syntax checks passed. The worktree had no local `node_modules`, so the command used a temporary Node loader to read the already-installed `yaml` package from the main checkout; the loader was removed afterward and no dependency files changed.
+  - Local server smoke (`npm run build && npm start`, then HTTP GET `/` and `/src/mock-api.js`) → PASS.
+  - Explicit production identifier/URL scan of worker-visible Starter → PASS, 0 findings.
+  - Explicit layout-coordinate field scan of synthetic catalog source → PASS, 0 findings.
+  - `git diff --check` → PASS.
+- Produced artifacts:
+  - Dependency-free browser Starter with a generic implementation mount, typed Mock API, build/typecheck/test/start scripts, and no treemap implementation.
+  - Deterministic synthetic hierarchy with 72 Stock, 15 ETF, and 14 Crypto nodes.
+  - Six Stock scopes; market-cap/equal/AUM area inputs; daily/weekly/volume color inputs; sector/asset-class/no-group metadata.
+  - Null, zero, tiny, dominant, positive-extreme, negative-extreme, long-label, dense-label, zero-volume, and null-price boundary records.
+  - Deterministic empty, error, delay, request-id, search, and include/exclude-BTC Mock API behavior.
+  - Control-only malformed records for negative area, unknown market, non-finite color, and missing hierarchy parent.
+  - Three hand-authored generic local SVG placeholders; no downloaded or branded assets.
+- Not proven:
+  - Treemap layout, area rendering, color rendering, legend rendering, tooltip, drill-down, back navigation, fullscreen, resize preservation, responsive visual quality, and visual regression are intentionally not implemented or proven by the Starter.
+  - Runtime stale-request suppression is not implemented; deterministic delays and request IDs only provide the inputs needed to test it.
+  - Current live-page visual parity is not proven. The public page was not fetched or scraped; behavior came only from approved repository Case documents.
+  - OS-level read isolation and leaderboard eligibility are not claimed.
+- Remaining risks:
+  - The Case-specific deterministic evaluator (VAB-T13) must decide exact null-area fallback and visual color thresholds; this fixture supplies tagged data and a soft clamped domain but no hidden answer.
+  - Root `package.json` intentionally does not expose the Case test as an npm script; VAB-T08 owns integration wiring.
+- Integration notes:
+  - Invoke Fixture Builder with `cases/ainvest-market-heatmap-rebuild/fixture/starter` as `source_root`. Never export `fixture/control`, `provenance.md`, or `evaluator/`.
+  - Run the Case checks directly with `node scripts/fixtures/heatmap/verify-fixture.mjs` and `node tests/cases/ainvest-heatmap/run.mjs`.
+  - The Mock API returns the harness envelope fields `status`, `summary`, `next_actions`, and `artifacts`; errors additionally include root cause, safe retry, and stop condition.
+- Rollback:
+  - Revert only the VAB-T10 paths listed above.

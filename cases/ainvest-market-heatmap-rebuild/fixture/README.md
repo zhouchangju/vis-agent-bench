@@ -1,7 +1,14 @@
-# Fixture 待办
+# Synthetic Market Heatmap Fixture
 
-- 固定 Stock、ETF、Crypto 脱敏 Mock；
-- 为零值、空值、正负边界和极端值增加隐藏数据；
-- 保存默认、筛选、钻取、全屏、明暗主题及窄屏参考图；
-- Mock 延迟、失败和乱序响应；
-- 不复制内部实现源码。
+This fixture is generated from the approved Case requirements. It does not
+contain production source, network responses, screenshots, brand assets, or
+reference layout coordinates.
+
+- `starter/` is the only worker-visible source root.
+- `control/` contains malformed samples for fixture-author tests and must not
+  be exported to a worker.
+- `plan.yaml` declares baseline commands and leakage rules for the common
+  Fixture Builder.
+
+The Starter intentionally renders a control shell and an empty implementation
+surface. It does not implement a treemap.

@@ -1,0 +1,41 @@
+{
+  "cases": [
+    {
+      "id": "negative-area",
+      "record": {
+        "id": "invalid-negative",
+        "market": "stock",
+        "market_cap": -10,
+        "daily_change_pct": 2
+      },
+      "expected_error": "area metrics must be non-negative"
+    },
+    {
+      "id": "unknown-market",
+      "query": {
+        "market": "collectibles"
+      },
+      "expected_error": "unsupported market"
+    },
+    {
+      "id": "non-finite-color",
+      "record": {
+        "id": "invalid-infinite",
+        "market": "stock",
+        "market_cap": 100,
+        "daily_change_pct": "Infinity"
+      },
+      "expected_error": "color metrics must be finite numbers or null"
+    },
+    {
+      "id": "missing-parent",
+      "record": {
+        "id": "invalid-orphan",
+        "market": "stock",
+        "sector_id": "sector-does-not-exist",
+        "market_cap": 100
+      },
+      "expected_error": "hierarchy parent must exist"
+    }
+  ]
+}

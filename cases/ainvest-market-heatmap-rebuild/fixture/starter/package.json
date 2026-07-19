@@ -1,0 +1,13 @@
+{
+  "name": "synthetic-market-map-starter",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "node scripts/typecheck.mjs",
+    "test": "node scripts/test.mjs",
+    "start": "node scripts/serve.mjs",
+    "dev": "npm run build && npm run start"
+  }
+}

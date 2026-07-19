@@ -1,0 +1,49 @@
+source:
+  label: "Deterministic synthetic market heatmap starter generated for VAB-T10"
+  type: synthetic
+
+exclusion:
+  paths:
+    - "data/private/**"
+    - "**/*.answer.*"
+    - "**/*.reference.*"
+
+leakage:
+  path:
+    - id: production-component-path
+      pattern: "widget-heatmap|HeatmapTreemapView"
+      recovery: "Remove production component paths; this fixture must remain synthetic."
+  content:
+    - id: production-component-identifier
+      pattern: "WidgetHeatmap|HeatmapTreemapView|useTreemapChart"
+      recovery: "Remove production implementation identifiers from the starter."
+    - id: production-network-reference
+      pattern: "ainvest\\.com|nova-market|ainvest-matrix-react"
+      recovery: "Remove production URLs and repository references from worker-visible files."
+
+baseline:
+  build:
+    command: ["npm", "run", "build"]
+    required: true
+  typecheck:
+    command: ["npm", "run", "typecheck"]
+    required: true
+  test:
+    command: ["npm", "test"]
+    required: true
+
+provenance:
+  - kind: manual
+    label: "Behavioral requirements distilled from approved Case documents; no source files copied"
+    source_type: observed
+    modified: false
+  - kind: generated
+    label: "Synthetic market hierarchy, metrics, boundary values, labels, and local SVG placeholders"
+    ref: "starter/src/fixture-data.js"
+    source_type: synthetic
+    modified: false
+
+notes:
+  - "Invoke the builder with fixture/starter as source_root; control samples remain control-plane only."
+  - "No network access is needed by the Starter or its tests."
+  - "The Starter contains no layout coordinates, treemap algorithm, screenshot, or expected visual answer."

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Synthetic fund placeholder">
+  <rect width="64" height="64" rx="14" fill="#7b4ec7"/>
+  <circle cx="24" cy="28" r="12" fill="none" stroke="#fff" stroke-width="5"/>
+  <circle cx="41" cy="36" r="12" fill="none" stroke="#fff" stroke-width="5"/>
+</svg>
