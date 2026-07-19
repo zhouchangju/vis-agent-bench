@@ -174,7 +174,7 @@ tasks:
   - id: VAB-T11
     title: Playwright 真实浏览器证据 Driver
     wave: 3
-    status: running
+    status: accepted
     branch: codex/vab-t11-playwright-driver
     depends_on: [VAB-T06]
     prompt: prompts/VAB-T11-PLAYWRIGHT-DRIVER.md
@@ -188,7 +188,7 @@ tasks:
   - id: VAB-T12
     title: Macro Map 3D 确定性 Evaluator
     wave: 5
-    status: planned
+    status: running
     branch: codex/vab-t12-macro-3d-evaluator
     depends_on: [VAB-T04, VAB-T09, VAB-T11]
     prompt: prompts/VAB-T12-MACRO-3D-EVALUATOR.md
@@ -201,7 +201,7 @@ tasks:
   - id: VAB-T13
     title: AInvest Heatmap 确定性 Evaluator
     wave: 5
-    status: planned
+    status: running
     branch: codex/vab-t13-heatmap-evaluator
     depends_on: [VAB-T04, VAB-T10, VAB-T11]
     prompt: prompts/VAB-T13-HEATMAP-EVALUATOR.md
