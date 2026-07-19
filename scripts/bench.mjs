@@ -762,8 +762,10 @@ async function run(args) {
     throw new Error(`Run status must be prepared, run-failed, or recoverable running; got ${state.status}`);
   }
 
-  const leakage = scanForAnswerLeakage(spec.case_id, join(runDir, 'workspace'));
-  if (leakage.length) throw new Error(`Preflight failed: ${leakage.length} answer leakage finding(s)`);
+  // 泄漏扫描只针对模型开始前构建的 Fixture（prepare 阶段）。此时 workspace 已经包含
+  // Agent 的正常交付物，重新扫描会把 requirement-ledger 等任务语义文本误判为答案泄漏，
+  // 并使额度恢复后的 Run 无法继续。运行过程的可回溯性仍由 baseline、git diff 和各阶段
+  // checkpoint gate 保证。
 
   const resolvedAdapterId = adapterId(spec.engine.adapter);
   const adapter = getAdapter(resolvedAdapterId);

@@ -355,6 +355,8 @@ npm run bench:case -- --resume-run <run-id>
 `logs/stages/<stage-id>/attempt-*/checkpoint-gate.json` 中的原始门禁证据，避免把已通过阶段误判为失败。
 `--wall-time-minutes` 限制的是单次实际运行窗口；等待额度恢复、隔夜或暂停期间不计入该窗口。原始
 `started_at` 仍保留用于审计，恢复时会另记 `active_window_started_at`。
+答案泄漏扫描在 `prepare` 时针对模型尚未执行的 Fixture 进行；恢复阶段不会重新扫描 Agent 已写入的
+workspace，以免把正常的需求台账、交付说明等任务文本误判为泄漏。
 
 ### 独立目录与文件级隔离
 
