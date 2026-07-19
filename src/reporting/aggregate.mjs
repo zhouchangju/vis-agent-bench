@@ -509,9 +509,16 @@ export function deriveVerdict(caseConclusions, speedup) {
 }
 
 export function deriveHeadline(verdict, speedup, acceptedRate) {
-  const speedText = speedup.eligible && speedup.ratio != null
-    ? `Effective speedup ${speedup.ratio}× over accepted deliveries only.`
-    : 'Effective speedup is not yet eligible because no delivery has been accepted.';
+  let speedText;
+  if (speedup.eligible && speedup.ratio != null) {
+    speedText = `Effective speedup ${speedup.ratio}× over accepted deliveries only.`;
+  } else if ((acceptedRate?.accepted ?? 0) === 0) {
+    speedText = 'Effective speedup is not yet eligible because no delivery has been accepted.';
+  } else if (speedup.source === 'baseline-missing') {
+    speedText = 'A delivery was accepted, but effective speedup cannot be calculated until a comparable baseline is provided.';
+  } else {
+    speedText = 'A delivery was accepted, but effective speedup cannot be calculated from the available human-touch-time evidence.';
+  }
   const rateText = acceptedRate.percent != null
     ? `Accepted delivery rate ${acceptedRate.percent}% (${acceptedRate.accepted}/${acceptedRate.reviewed}).`
     : 'Accepted delivery rate is unavailable until reviews are complete.';

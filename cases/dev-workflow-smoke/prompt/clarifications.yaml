@@ -1,0 +1,8 @@
+version: 1
+answers:
+  title: "Pipeline Health"
+  value: "3 / 3 stages"
+  initial_status: "ready"
+  dependencies: "不允许第三方依赖，使用原生 HTML、CSS 和 JavaScript。"
+  interaction: "按钮在 ready 与 paused 间切换，并同步 data-status。"
+  unattended: "采用合理的可逆假设继续，不等待实时人工确认。"

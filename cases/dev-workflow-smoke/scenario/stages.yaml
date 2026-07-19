@@ -1,0 +1,42 @@
+version: 1
+mode: progressive-disclosure
+requirement_truth: ../prompt/requirement.md
+stages:
+  - id: S0
+    name: brief-and-plan
+    input: initial-brief.md
+    checkpoint:
+      - requirement-ledger.yaml
+      - docs/poc-plan.md
+    observe:
+      - question_quality
+      - assumptions
+  - id: S1
+    name: first-poc
+    stakeholder_message: |
+      已确认：标题为“Pipeline Health”，数值为“3 / 3 stages”，初始状态为 ready。
+      请实现无需安装依赖、可直接打开的页面。标题使用 #smoke-title，数值使用
+      #smoke-value，卡片使用 #status-card 且 data-status="ready"。
+    checkpoint:
+      - requirement-ledger.yaml
+      - index.html
+      - app.js
+      - artifacts/poc.json
+    observe:
+      - checkpoint_completion
+      - first_pass_fitness
+  - id: S2
+    name: feedback-and-verification
+    stakeholder_message: |
+      走查反馈：增加 #toggle-status 按钮。点击后在 ready 与 paused 间切换，并同步更新
+      #status-card 的 data-status。请运行最小测试，并把机器可读结果写入
+      artifacts/smoke-result.json。不要等待人工确认。
+    checkpoint:
+      - requirement-ledger.yaml
+      - index.html
+      - app.js
+      - tests/smoke.mjs
+      - artifacts/smoke-result.json
+    observe:
+      - feedback_retention
+      - test_evidence

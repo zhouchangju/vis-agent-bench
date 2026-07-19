@@ -143,21 +143,53 @@ claude --print \
 - 非交互入口：`--prompt`
 - 流式事件：`--output-format stream-json`
 - 模型：`--model`
-- 自动权限：`--auto`
+- 非交互 `--prompt` 模式：按 Kimi Code 0.27.0 的命令协议使用 auto 权限；
+- 交互模式另有 `--yolo`，它会自动批准普通工具调用，但仍可能向用户提问；
 - Skills 隔离：`--skills-dir`
 
 概念命令：
 
 ```bash
 /Users/leozhou/.kimi-code/bin/kimi \
-  --auto \
   --model "$MODEL_ID" \
   --prompt "$PROMPT" \
   --output-format stream-json \
   --skills-dir /run/empty-skills
 ```
 
-Kimi 使用工作目录作为主 workspace，不复用历史 Session。Token/费用只在 stream-json 实际提供时记录，否则标记 `unavailable`。
+Kimi 使用工作目录作为主 workspace。Token/费用只在 stream-json 实际提供时记录，否则标记
+`unavailable`。
+
+### Kimi YOLO、Auto 与无人值守
+
+本机 0.27.0 的 `kimi --help` 已确认支持 `--yolo` 和 `--auto`。官方命令文档进一步区分：
+
+- `--yolo`：跳过工具审批，但用户仍被视为在线，Agent 仍可能调用 `AskUserQuestion`；
+- `--auto` / 非交互 `--prompt`：用于无人值守，自动处理审批并避免等待用户问题；
+- 新版文档中 `--prompt` 与显式 `--yolo`、`--auto` 互斥，非交互模式自行启用 auto 语义。
+
+因此 Adapter 不把 YOLO 当成无人值守开关，也不能将 `--yolo` 与 `--prompt` 组合。每次 Run
+必须记录 `permission_mode=noninteractive-auto` 及 CLI 版本；若未来 CLI 参数语义变化，按版本
+能力探测构造命令，而不是静态假设。
+
+### 无人值守确认协议
+
+需要区分两种确认：
+
+1. **业务澄清**：Agent 将问题写入 Requirement Ledger，并以
+   `needs_clarification` 结束本阶段；标准回归由 Runner 从固定答复包恢复会话；
+2. **工具权限**：运行前由 RunSpec 决定。白名单内自动执行，白名单外直接拒绝并记录事件，
+   不进入交互等待。
+
+阶段 Prompt 必须说明：
+
+- 不等待实时人工确认；
+- 可逆、低风险事项采用显式假设继续，并记录假设；
+- 只有缺少关键业务决策且无法安全继续时才返回 `needs_clarification`；
+- 无法恢复的权限或环境问题返回 `blocked`，不得伪报成功。
+
+Runner 对 `needs_clarification` 最多自动答复固定次数；对 `blocked` 最多按安全策略重试一次。
+达到停止条件后保存已有证据并结束，不允许无限循环。
 
 ## 首期文件级软隔离
 
@@ -200,6 +232,16 @@ result.json
 ```
 
 `command.json` 和 `environment.json` 必须脱敏，永远不记录 Secret 值。
+
+日志采用两层证据：
+
+1. **Runner 外部观测**：命令、stdout/stderr、原始与归一化事件、阶段前后文件树、Git diff、
+   权限拒绝、超时和退出状态。这是不可由 Agent 自述替代的客观证据；
+2. **Agent 工作区记录**：`requirement-ledger.yaml`、POC 计划、限制说明和阶段测试结果。
+   这些用于理解 Agent 的判断，但必须与外部观测和 Evaluator 交叉验证。
+
+每个阶段进入下一阶段前至少检查：进程已退出、约定 checkpoint 存在、Ledger 可解析、构建/
+测试门禁满足、没有未处理的权限等待。未通过时不得继续发送与实际产物不一致的“评审反馈”。
 
 ## 遥测与归一化契约（VAB-T01）
 

@@ -1,0 +1,19 @@
+id: dev-workflow-smoke
+title: 开发流程状态卡片 Smoke
+status: backup
+suite_role: backup
+source_type: proposed
+difficulty: basic
+task_type: development-smoke
+visibility: public
+initial_prompt: scenario/initial-brief.md
+scenario: scenario/stages.yaml
+requirement_truth: prompt/requirement.md
+clarifications: prompt/clarifications.yaml
+acceptance: evaluator/acceptance.md
+rubric: evaluator/rubric.yaml
+fixture: fixture
+provenance: provenance.md
+quality_gate:
+  p0_required: true
+  max_critical_failures: 0

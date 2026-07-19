@@ -97,7 +97,7 @@ check('codex adapter resumes a known session id', () => {
   assert.ok(!command.args.includes('--sandbox'));
 });
 
-check('kimi adapter prepends --continue only on subsequent stages and keeps skills isolated', () => {
+check('kimi adapter uses prompt-mode auto semantics, resumes later stages, and keeps skills isolated', () => {
   const adapter = getAdapter('kimi');
   const fresh = adapter.buildCommand({
     adapter: 'kimi',
@@ -110,7 +110,10 @@ check('kimi adapter prepends --continue only on subsequent stages and keeps skil
     session: { id: null, started: false },
     emptySkillsDir: '/run/empty-skills',
   });
-  assert.equal(fresh.args[0], '--auto');
+  assert.equal(fresh.args[0], '--model');
+  assert.ok(fresh.args.includes('--prompt'));
+  assert.ok(!fresh.args.includes('--auto'));
+  assert.ok(!fresh.args.includes('--yolo'));
   assert.ok(fresh.args.includes('--skills-dir'));
   assert.equal(fresh.args[fresh.args.indexOf('--skills-dir') + 1], '/run/empty-skills');
   assert.ok(!fresh.args.includes('--continue'));

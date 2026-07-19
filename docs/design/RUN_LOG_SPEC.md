@@ -42,6 +42,10 @@
 - `file.changed`
 - `clarification.requested`
 - `clarification.answered`
+- `permission.requested`
+- `permission.allowed`
+- `permission.denied`
+- `stage.blocked`
 - `budget.warning`
 - `process.ended`
 - `evaluator.started`
@@ -94,3 +98,19 @@ Agent 自己写的“我完成了”只能算陈述，不能算验收证据。�
 - Git/文件系统事实；
 - Evaluator 输出；
 - 人工 Review 记录。
+
+## 无人值守可回放要求
+
+每个阶段必须独立保留：
+
+- 实际发送的 Prompt 与附件摘要；
+- CLI 版本、权限模式和脱敏后的命令；
+- 原始 stdout/stderr 与归一化事件；
+- 阶段前后文件清单和变化摘要；
+- checkpoint 期望、实际路径和校验状态；
+- 澄清请求、自动答复来源和答复轮数；
+- 权限请求、允许/拒绝结果及命中的策略；
+- 根因提示、安全重试建议和明确停止条件。
+
+Agent 维护的 `requirement-ledger.yaml` 必须按阶段快照保存。报告可以分析约束保持率，但不能
+把 Ledger 中的 `implemented` 直接视为实现事实。

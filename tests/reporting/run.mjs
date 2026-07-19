@@ -123,6 +123,17 @@ const checks = [
     assert.equal(speedup.ratio, null);
   }],
 
+  ['accepted run without baseline does not claim that no delivery was accepted', () => {
+    const report = buildReport({
+      entries: [buildAcceptedEntry()],
+      reportId: 'accepted-without-baseline',
+      generatedAt: '2026-07-19T10:30:00Z',
+    });
+    assert.match(report.leadership_summary.headline, /A delivery was accepted/);
+    assert.match(report.leadership_summary.headline, /baseline/);
+    assert.doesNotMatch(report.leadership_summary.headline, /no delivery has been accepted/);
+  }],
+
   ['accepted delivery rate excludes unreviewed runs from the denominator', () => {
     const entries = [buildAcceptedEntry(), buildUnreviewedEntry(), buildPartialEntry()];
     const rate = acceptedDeliveryRate(entries);

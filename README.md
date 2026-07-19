@@ -32,6 +32,7 @@ StandardChart 产业链双向树保留为备选 Case；StandardChart TODO / 存�
 - [人效评估设计](docs/design/EFFICIENCY_EVALUATION.md)
 - [Run 日志规范](docs/design/RUN_LOG_SPEC.md)
 - [人工评审与最终报告](docs/design/HUMAN_REVIEW_WORKFLOW.md)
+- [开发阶段快速闭环](docs/design/DEVELOPMENT_SMOKE_FLOW.md)
 - [多 Agent 开发总控](docs/agent-orchestration/README.md)
 - [可直接派发的任务目录](docs/agent-orchestration/task-catalog.yaml)
 - [首批候选池](docs/candidates/README.md)
@@ -78,6 +79,14 @@ vis-agent-bench/
 ```bash
 npm test
 ```
+
+不调用真实模型、在数秒内验证“多阶段输入 → checkpoint → 日志 → 评估 → HTML 报告”：
+
+```bash
+npm run smoke:flow
+```
+
+该命令只产生带 `DEMO DATA` 标识的开发证据，不进入模型比较或正式排行榜。
 
 ## Runner MVP
 

@@ -98,7 +98,10 @@ function buildCodexCommand(ctx) {
 }
 
 function buildKimiCommand(ctx) {
-  const args = ['--auto', '--model', ctx.model];
+  // Kimi prompt mode is already non-interactive and uses auto permission
+  // semantics. Official 0.27+ command docs reject --prompt combined with
+  // --auto or --yolo, so do not add either approval flag here.
+  const args = ['--model', ctx.model];
   const session = ctx.session || {};
   if (session.started) args.unshift('--continue');
   args.push(

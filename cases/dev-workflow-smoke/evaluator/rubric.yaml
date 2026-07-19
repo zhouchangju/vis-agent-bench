@@ -1,0 +1,13 @@
+weights:
+  stage_orchestration: 25
+  checkpoint_integrity: 25
+  external_observability: 20
+  evaluator_handoff: 15
+  report_generation: 15
+gates:
+  p0_min_score: 80
+  critical_failure_cap: 49
+levels:
+  p0: required
+  p1: differentiator
+  p2: production_readiness

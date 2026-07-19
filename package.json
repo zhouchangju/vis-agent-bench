@@ -5,13 +5,16 @@
   "type": "module",
   "description": "Visualization agent benchmark and productivity regression harness",
   "scripts": {
-    "test": "npm run test:contracts && npm run test:evaluators && npm run test:fixtures && node scripts/validate-structure.mjs && node --check scripts/bench.mjs && node --check scripts/build-fixture.mjs && node --check src/core/process-runner.mjs && node --check src/runners/adapters.mjs && node --check src/core/file-isolation.mjs && for f in src/fixtures/*.mjs; do node --check $f; done && node --check prototype/assets/setup.js && node --check prototype/assets/review.js",
+    "test": "npm run test:contracts && npm run test:evaluators && npm run test:fixtures && npm run test:reporting && npm run test:smoke-flow && node scripts/validate-structure.mjs && node --check scripts/bench.mjs && node --check scripts/build-fixture.mjs && node --check src/core/process-runner.mjs && node --check src/runners/adapters.mjs && node --check src/core/file-isolation.mjs && for f in src/fixtures/*.mjs; do node --check $f; done && node --check prototype/assets/setup.js && node --check prototype/assets/review.js",
     "test:contracts": "node tests/contracts/run.mjs",
     "test:evaluators": "node tests/evaluators/core/run.mjs",
     "test:fixtures": "node tests/fixtures/run.mjs",
+    "test:reporting": "node tests/reporting/run.mjs",
+    "test:smoke-flow": "node tests/smoke-flow/run.mjs",
     "validate:structure": "node scripts/validate-structure.mjs",
     "bench": "node scripts/bench.mjs",
-    "bench:doctor": "node scripts/bench.mjs doctor"
+    "bench:doctor": "node scripts/bench.mjs doctor",
+    "smoke:flow": "node scripts/dev-smoke-flow.mjs"
   },
   "engines": {
     "node": ">=20"
