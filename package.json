@@ -5,8 +5,9 @@
   "type": "module",
   "description": "Visualization agent benchmark and productivity regression harness",
   "scripts": {
-    "test": "npm run test:contracts && node scripts/validate-structure.mjs && node --check scripts/bench.mjs && node --check src/core/process-runner.mjs && node --check src/runners/adapters.mjs && node --check prototype/assets/setup.js && node --check prototype/assets/review.js",
+    "test": "npm run test:contracts && npm run test:evaluators && node scripts/validate-structure.mjs && node --check scripts/bench.mjs && node --check src/core/process-runner.mjs && node --check src/runners/adapters.mjs && node --check prototype/assets/setup.js && node --check prototype/assets/review.js",
     "test:contracts": "node tests/contracts/run.mjs",
+    "test:evaluators": "node tests/evaluators/core/run.mjs",
     "validate:structure": "node scripts/validate-structure.mjs",
     "bench": "node scripts/bench.mjs",
     "bench:doctor": "node scripts/bench.mjs doctor"

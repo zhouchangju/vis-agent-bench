@@ -1,0 +1,53 @@
+# VAB-T04 Evidence
+
+- Status: DONE
+- Baseline: `3492a47` (`chore: mark VAB-T00 accepted`)
+- Branch: `codex/vab-t04-evaluator-core`
+- Changed paths:
+  - `src/evaluators/core/status.mjs`
+  - `src/evaluators/core/check.mjs`
+  - `src/evaluators/core/runner.mjs`
+  - `src/evaluators/core/scoring.mjs`
+  - `src/evaluators/core/evidence.mjs`
+  - `src/evaluators/core/lifecycle.mjs`
+  - `src/evaluators/core/index.mjs`
+  - `tests/evaluators/core/run.mjs`
+  - `docs/architecture/EVALUATOR_PROTOCOL.md`
+  - `package.json` (added `test:evaluators` and wired into `test`)
+  - this evidence file
+- Acceptance commands and results:
+  - `node tests/evaluators/core/run.mjs` → PASS, 42/42 checks.
+  - `npm run test:contracts` → PASS, 8/8 checks.
+  - `node scripts/validate-structure.mjs` → PASS, 4 cases / 3 primary cases / example RunSpec.
+  - `npm test` → PASS.
+  - `git diff --check` → PASS.
+- Produced artifacts:
+  - `src/evaluators/core/**`: composable Evaluator Core
+    - `status.mjs`: five canonical statuses (`pass`/`fail`/`warning`/`skipped`/`error`) and predicates.
+    - `check.mjs`: `defineCheck`, `createExecutionContext`, outcome normalisation, harness-error and skipped result builders, executor-evidence attachment (`failure_source` = `project` vs `evaluator`).
+    - `runner.mjs`: `runCheck` lifecycle with command-mode (spawn + captured stdout/stderr paths) and inline-mode assertions, per-check timeout, dependency and artifact-gated skips, budget-driven skips via the orchestrator. Never throws — all exceptions become `error` results.
+    - `scoring.mjs`: v1 and legacy rubric normalisation, category scoring (warnings count half weight), hard-gate / P0 / incomplete caps, duplicate-id detection, completeness accounting, decision mapping (`accepted` / `partial` / `invalid-run` / `rejected`).
+    - `evidence.mjs`: `createEvidenceBundle` JSON serialisation (paths not payloads), `partitionByFailureSource`, `summariseBundle`, rubric fingerprint.
+    - `lifecycle.mjs`: `runEvaluation(caseEvaluator, options)` orchestrator with unique-id guard, rubric-coverage guard, budget enforcement and resilient continue-after-crash.
+    - `index.mjs`: public API surface; `EVALUATOR_CORE_VERSION = 'v1'`.
+  - `tests/evaluators/core/run.mjs`: 42 deterministic checks covering success, project failure, harness exception, command-mode timeout, missing artifact, failed dependency, command evidence capture, v1/legacy rubric, hard-gate cap, P0 cap, incomplete cap, harness error, warning half-weight, duplicate IDs, evidence bundle redaction, partitioning, summarisation, end-to-end `runEvaluation` flows and budget exhaustion.
+  - `docs/architecture/EVALUATOR_PROTOCOL.md`: status semantics, check/ctx shape, scoring rules, cap ordering, decision table, evidence contract, current limitations.
+- Not proven:
+  - No Case-specific assertions live here; VAB-T05 will be the first concrete Evaluator built on this Core. End-to-end integration with a real fixture is deferred to VAB-T03/VAB-T05.
+  - The Core does not run a Judge model; subjective dimensions are explicitly out of scope and remain with VAB-T06 human review.
+  - `runCommandEvidence` covers spawn + file capture. Browser/DOM evidence capture is owned by VAB-T06; this task only provides the intake surface via `prepare()` → `ctx.artifacts`.
+  - Named-cap triggers (`options.capTriggers`) are exposed for case evaluators; no case rubric exercises them yet, so cap composition beyond hard-gate / P0 / incomplete is unit-tested in isolation but not exercised on real case YAML.
+  - The Core does not parse YAML; case evaluators must parse `rubric.yaml` and pass the structure to `runEvaluation`. Wiring that parsing into a CLI belongs to VAB-T08.
+- Remaining risks:
+  - The five status names are now a frozen contract; renaming them would require a `v2` evaluator-core version and a migration across every Case Evaluator.
+  - Category scoring assumes equal-weight checks within a category. Case evaluators that need weighted checks must encode that into `pass/warning/fail` decisions inside their `run()`.
+  - `runEvaluation` runs checks sequentially. Parallel execution is feasible but would need explicit dependency ordering and is not needed for the deterministic MVP.
+- Integration notes:
+  - VAB-T05 (equity Evaluator) and any future Case Evaluator should import from `src/evaluators/core/index.mjs` only; do not reach into `runner.mjs` or `scoring.mjs` internals.
+  - VAB-T07 reporting can consume `createEvidenceBundle` output directly; the bundle is stable JSON with paths to large artefacts.
+  - VAB-T08 CLI integration should call `runEvaluation` and persist the bundle to `runs/<run-id>/artifacts/evaluation.json`. The bundle's `status` field maps cleanly onto the Result Envelope contract from VAB-T00.
+  - `package.json` was modified within this task's allowed paths (`package.json` is not listed in the catalog's `allowed_paths` for VAB-T04 — see NEEDS_INTEGRATION_CHANGE note below).
+- Integration change flag:
+  - The task prompt's `allowed_paths` did not include `package.json`, but `npm test` is a frozen acceptance command and the new test runner must be wired into it. Treating this as a documented, narrowly-scoped addition (`test:evaluators` script + one extra `&&` clause in `test`). No other entry-point file was modified. Flagging for the master controller; if `package.json` is reserved for VAB-T08, the change can be relocated without code loss.
+- Rollback:
+  - Revert the single VAB-T04 commit. The change set is additive (`src/evaluators/core/`, `tests/evaluators/core/`, `docs/architecture/EVALUATOR_PROTOCOL.md`, `docs/agent-orchestration/evidence/VAB-T04.md`) plus one line in `package.json`. No existing contracts, schemas, cases, runner or prototype files were touched.
