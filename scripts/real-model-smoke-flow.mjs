@@ -388,6 +388,7 @@ export function collectReportedUsage(runDir, caseDir) {
       output_tokens: totals.output_tokens,
       cached_tokens: totals.cached_tokens,
       cost_usd: totals.cost_usd,
+      cost_availability: totals.cost_availability,
       availability: totals.availability,
     };
     result.engine.observed_models = totals.observed_models;

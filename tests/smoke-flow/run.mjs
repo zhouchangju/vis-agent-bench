@@ -194,6 +194,10 @@ try {
   assert.equal(missingAttemptUsage.cost_usd, null);
   assert.equal(missingAttemptUsage.availability, 'partial');
   assert.equal(missingAttemptUsage.cost_availability, 'partial');
+  assert.equal(
+    JSON.parse(readFileSync(join(observedRun, 'result.json'), 'utf8')).usage.cost_availability,
+    'partial',
+  );
 
   process.stdout.write('development smoke flow passed\n');
 } finally {
