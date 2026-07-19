@@ -2,7 +2,7 @@
 
 ## 原则
 
-Codex、Kimi Code、Claude Code 都通过命令行非交互模式调用。网页不直接调用进程，而是：
+Codex、Kimi Code、Claude Code、Pi 都通过命令行非交互模式调用。网页不直接调用进程，而是：
 
 ```text
 Setup UI → RunSpec → Runner Service → Adapter → CLI Process
@@ -190,6 +190,33 @@ Kimi 使用工作目录作为主 workspace。Token/费用只在 stream-json 实�
 必须记录 `permission_mode=noninteractive-auto` 及 CLI 版本；若未来 CLI 参数语义变化，按版本
 能力探测构造命令，而不是静态假设。
 
+## Pi Adapter
+
+Pi 作为独立 CLI Provider Adapter 接入，首个已支持的实际 Provider 是 DeepSeek：
+
+- executable：`pi`；
+- 非交互事件输出：`--mode json`（JSONL）；
+- 模型与实际 Provider：`--model "$MODEL_ID" --provider "$MODEL_PROVIDER"`；
+- 凭据：通过子进程白名单传入 `DEEPSEEK_API_KEY`，不写入命令或日志；
+- 无人值守：`--approve`；
+- 上下文净化：`--no-context-files --no-extensions --no-skills --no-prompt-templates`；
+- 工具：显式限制为 `read,bash,edit,write,grep,find,ls`；
+- 会话：每个 Run 使用 `<runDir>/.pi-sessions`，从 JSONL 首行 `type=session` 的 `id` 保存并在后续
+  Stage 用 `--session <id>` 恢复；
+- 费用：没有可由 Harness 验证的原生单阶段费用上限，真实运行必须确认
+  `--acknowledge-no-cost-cap`。
+
+概念命令：
+
+```bash
+pi --mode json --approve \
+  --no-context-files --no-extensions --no-skills --no-prompt-templates \
+  --session-dir /run/.pi-sessions \
+  --tools read,bash,edit,write,grep,find,ls \
+  --provider deepseek --model deepseek-chat \
+  "$STAGE_PROMPT"
+```
+
 ### 无人值守确认协议
 
 需要区分两种确认：
@@ -272,7 +299,7 @@ result.json
 
 | 字段 | 用途 |
 |---|---|
-| `id` | 与 `RunSpec.engine.adapter` 对齐的稳定标识（`codex` / `kimi` / `claude`）。 |
+| `id` | 与 `RunSpec.engine.adapter` 对齐的稳定标识（`codex` / `kimi` / `claude` / `pi`）。 |
 | `executable` | 默认可执行路径，可被 `RunSpec.engine.executable` 覆盖。 |
 | `versionArgs` | 探测版本所用的参数，默认 `['--version']`。 |
 | `parseVersion(stdout\|stderr)` | 从版本输出中解析 semver 字符串，找不到时返回 `null`。 |

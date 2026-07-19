@@ -8,7 +8,7 @@
  * it is shown to a blind reviewer.
  *
  * Hidden (model identity):
- *   - run_id when it contains an adapter token like "codex", "kimi", "claude".
+ *   - run_id when it contains an adapter token like "codex", "kimi", "claude", "pi".
  *   - reviewer identity (the reviewer is still required, but the package
  *     shown to a *different* blind reviewer masks the original reviewer).
  *   - free-text observation fields are NOT auto-redacted: reviewers must
@@ -20,7 +20,7 @@
  *     failures — these describe the artifact, not the model.
  */
 
-const ADAPTER_TOKENS = ['codex', 'kimi', 'claude'];
+const ADAPTER_TOKENS = ['codex', 'kimi', 'claude', 'pi'];
 
 export function looksLikeModelIdentifier(value) {
   if (typeof value !== 'string' || !value) return false;

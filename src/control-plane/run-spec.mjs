@@ -8,6 +8,7 @@ const ADAPTER_ALIASES = Object.freeze({
   'codex-cli': 'codex',
   'kimi-code-cli': 'kimi',
   'claude-code-cli': 'claude',
+  'pi-cli': 'pi',
 });
 
 export function loadRunSpec(path) {
@@ -44,6 +45,7 @@ export function buildRunSpec(input) {
       executable: engine.executable,
       configured_model: engine.configured_model,
       reasoning_effort: engine.reasoning_effort ?? null,
+      model_provider: engine.model_provider ?? null,
       provider: engine.provider,
       credential_ref: engine.credential_ref,
     },

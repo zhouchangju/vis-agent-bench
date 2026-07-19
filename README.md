@@ -152,6 +152,23 @@ npm run bench:case -- \
 
 建议先附加 `--dry-run`；Codex 的思考强度可用 `low`、`medium`、`high`、`xhigh`。
 
+使用 Pi 直连 DeepSeek：
+
+```bash
+export DEEPSEEK_API_KEY='…'
+
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine pi \
+  --model deepseek-chat \
+  --model-provider deepseek \
+  --wall-time-minutes 180 \
+  --acknowledge-no-cost-cap
+```
+
+Pi 使用 JSONL、`--approve` 和受限内置工具运行；它当前没有可由 Harness 强制的原生费用上限，建议先加入
+`--dry-run` 确认模型和 Provider 配置。
+
 运行中查看阶段、日志增长和独立工作区：
 
 ```bash

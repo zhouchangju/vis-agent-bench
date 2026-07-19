@@ -48,7 +48,7 @@ export function parseLine(line) {
 
 /**
  * CLI 私有事件名 → 标准事件字典的别名映射。
- * Codex / Claude / Kimi 的 JSONL 用各自的事件名，归一化时统一回 RUN_LOG_SPEC 的字典。
+ * Codex / Claude / Kimi / Pi 的 JSONL 用各自的事件名，归一化时统一回 RUN_LOG_SPEC 的字典。
  */
 const TYPE_ALIASES = new Map([
   // Claude stream-json
@@ -61,6 +61,15 @@ const TYPE_ALIASES = new Map([
   ['message.start', 'assistant.message'],
   ['message.delta', 'assistant.message'],
   ['message.end', 'assistant.message'],
+  // Pi --mode json
+  ['session', 'session.info'],
+  ['agent_start', 'stage.started'],
+  ['agent_end', 'stage.ended'],
+  ['message_start', 'assistant.message'],
+  ['message_update', 'assistant.message'],
+  ['message_end', 'assistant.message'],
+  ['tool_execution_start', 'tool.started'],
+  ['tool_execution_end', 'tool.ended'],
 ]);
 
 function classifyType(parsed) {
@@ -238,7 +247,8 @@ export function findSessionId(text) {
   for (const line of lines) {
     try {
       const event = JSON.parse(line);
-      const id = event.thread_id || event.session_id || event.sessionId
+      const id = (event.type === 'session' ? event.id : null)
+        || event.thread_id || event.session_id || event.sessionId
         || event.data?.thread_id || event.data?.session_id || event.data?.sessionId;
       if (typeof id === 'string' && id.length > 8) return id;
     } catch {

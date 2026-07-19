@@ -355,7 +355,7 @@ h1 {
 
 .card-code { color: var(--faint); font-family: var(--mono); font-size: 10px; }
 
-.engine-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.engine-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
 .engine-card { min-height: 132px; }
 
 .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }

@@ -96,6 +96,12 @@
                 <h3>Claude Code</h3>
                 <p>测试 GLM / DeepSeek 等配置；支持 stream-json、预算上限、安全模式和跨阶段 Session Resume。</p>
               </label>
+              <label class="select-card engine-card">
+                <input type="radio" name="engine" value="pi-cli">
+                <span class="card-code">pi 0.80+</span>
+                <h3>Pi</h3>
+                <p>直连 Provider 测试模型；支持 JSONL、DeepSeek、自动批准和跨阶段 Session Resume。</p>
+              </label>
             </div>
 
             <div class="form-grid">
@@ -106,8 +112,13 @@
                   <option value="moonshot">Moonshot / Kimi</option>
                   <option value="zhipu">Zhipu / GLM</option>
                   <option value="deepseek">DeepSeek</option>
+                  <option value="pi-direct-api">Pi direct API</option>
                   <option value="custom">Custom compatible endpoint</option>
                 </select>
+              </div>
+              <div class="field">
+                <label for="model-provider">Model provider（Pi）</label>
+                <input id="model-provider" value="" placeholder="例如 deepseek" autocomplete="off" disabled>
               </div>
               <div class="field span-2">
                 <label for="model">Configured model ID</label>

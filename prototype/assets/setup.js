@@ -22,6 +22,15 @@ const engineDefaults = {
     model: "glm-example",
     executable: "claude",
     credential: "secret://claude-code/zhipu"
+  },
+  "pi-cli": {
+    label: "Pi ready",
+    status: "info",
+    provider: "pi-direct-api",
+    modelProvider: "deepseek",
+    model: "deepseek-chat",
+    executable: "pi",
+    credential: "secret://pi/deepseek"
   }
 };
 
@@ -62,6 +71,8 @@ function applyEngineDefaults() {
   $("#executable").value = meta.executable;
   $("#credential").value = meta.credential;
   $("#reasoning-effort").disabled = selectedEngine() !== "codex-cli";
+  $("#model-provider").disabled = selectedEngine() !== "pi-cli";
+  $("#model-provider").value = meta.modelProvider || "";
   refreshCards();
 }
 
@@ -126,6 +137,7 @@ function buildRunSpec(caseId) {
       executable: $("#executable").value,
       configured_model: $("#model").value,
       reasoning_effort: engine === "codex-cli" ? $("#reasoning-effort").value : null,
+      model_provider: engine === "pi-cli" ? $("#model-provider").value || null : null,
       provider: $("#provider").value,
       credential_ref: $("#credential").value
     },

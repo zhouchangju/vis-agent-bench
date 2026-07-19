@@ -78,6 +78,15 @@ const checks = [
     value.engine.reasoning_effort = 'xhigh';
     expectInvalid(validateRunSpec(value), 'ENGINE_OPTION_UNSUPPORTED');
   }],
+  ['RunSpec accepts Pi model provider only for the Pi adapter', () => {
+    const value = structuredClone(readYaml('config/run-profile.example.yaml'));
+    value.engine.adapter = 'pi';
+    value.engine.reasoning_effort = null;
+    value.engine.model_provider = 'deepseek';
+    assert.equal(validateRunSpec(value).valid, true);
+    value.engine.adapter = 'claude';
+    expectInvalid(validateRunSpec(value), 'ENGINE_OPTION_UNSUPPORTED');
+  }],
   ['error result requires an actionable recovery contract', () => {
     expectInvalid(validateResultEnvelope({ status: 'error', summary: 'failed', next_actions: [], artifacts: [] }), 'REQUIRED');
   }],

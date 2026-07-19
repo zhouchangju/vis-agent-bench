@@ -22,6 +22,7 @@ const defaultExecutables = {
   codex: 'codex',
   kimi: '/Users/leozhou/.kimi-code/bin/kimi',
   claude: 'claude',
+  pi: 'pi',
 };
 
 /**
@@ -59,6 +60,7 @@ export function parseSemverVersion(text) {
  * @property {number|null} maxCostUsd        可选费用上限。
  * @property {string} emptySkillsDir         Kimi 的空 Skill 目录。
  * @property {string|null} reasoningEffort   Codex 思考强度（low / medium / high / xhigh）。
+ * @property {string|null} modelProvider     Pi 实际模型 Provider（例如 deepseek）。
  * @property {boolean} networkEnabled        是否请求 Codex workspace-write 公网访问。
  */
 
@@ -150,6 +152,34 @@ function buildClaudeCommand(ctx) {
     executable: ctx.executable,
     args,
     stdin: ctx.prompt,
+    format: 'jsonl',
+  };
+}
+
+function buildPiCommand(ctx) {
+  const session = ctx.session || {};
+  // Pi 的 --approve 使无人工值守时不因权限确认阻塞；其余 --no-* 参数避免
+  // 继承宿主机的上下文、扩展、Skills 或 prompt 模板，保证本次 Run 可复现。
+  const args = [
+    '--mode', 'json',
+    '--approve',
+    '--no-context-files',
+    '--no-extensions',
+    '--no-skills',
+    '--no-prompt-templates',
+    '--session-dir', join(ctx.outputDir, '..', '.pi-sessions'),
+    '--tools', 'read,bash,edit,write,grep,find,ls',
+  ];
+  if (ctx.modelProvider) args.push('--provider', ctx.modelProvider);
+  args.push('--model', ctx.model);
+  if (session.started && (session.id || session.resumeFrom)) {
+    args.push('--session', session.id || session.resumeFrom);
+  }
+  args.push(ctx.prompt);
+  return {
+    executable: ctx.executable,
+    args,
+    stdin: null,
     format: 'jsonl',
   };
 }
@@ -251,6 +281,30 @@ const adapters = {
     },
     buildCommand: buildClaudeCommand,
   },
+  pi: {
+    id: 'pi',
+    executable: defaultExecutables.pi,
+    versionArgs: ['--version'],
+    session_continuity: 'native',
+    parseVersion(output) {
+      return parseSemverVersion(output || '');
+    },
+    build(spec, runDir, stageId, session) {
+      const prompt = readPrompt(runDir, stageId);
+      return buildPiCommand({
+        adapter: 'pi',
+        executable: resolveExecutable('pi', spec.engine.executable),
+        model: spec.engine.model,
+        modelProvider: spec.engine.model_provider || null,
+        workspace: join(runDir, 'workspace'),
+        outputDir: join(runDir, 'artifacts'),
+        stageId,
+        prompt,
+        session: session || {},
+      });
+    },
+    buildCommand: buildPiCommand,
+  },
 };
 
 export function getAdapter(engine) {
@@ -260,7 +314,7 @@ export function getAdapter(engine) {
 }
 
 export function listAdapters() {
-  return ['codex', 'kimi', 'claude'].map(getAdapter);
+  return ['codex', 'kimi', 'claude', 'pi'].map(getAdapter);
 }
 
 /**

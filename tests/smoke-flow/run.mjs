@@ -102,6 +102,26 @@ try {
   assert.equal(codexEnvelope.resolved_config.provider, 'openai-codex-configured-provider');
   assert.equal(codexEnvelope.resolved_config.permission_mode, 'exec-noninteractive-workspace-write');
 
+  const piDryRun = spawnSync(
+    process.execPath,
+    [
+      'scripts/real-model-smoke-flow.mjs',
+      '--case', 'narrative-equity-relationship',
+      '--engine', 'pi',
+      '--model', 'deepseek-chat',
+      '--model-provider', 'deepseek',
+      '--dry-run',
+    ],
+    { cwd: repoRoot, encoding: 'utf8', shell: false },
+  );
+  assert.equal(piDryRun.status, 0, piDryRun.stderr || piDryRun.stdout);
+  const piEnvelope = JSON.parse(piDryRun.stdout);
+  assert.equal(piEnvelope.resolved_config.model, 'deepseek-chat');
+  assert.equal(piEnvelope.resolved_config.model_provider, 'deepseek');
+  assert.equal(piEnvelope.resolved_config.provider, 'pi-direct-api');
+  assert.equal(piEnvelope.resolved_config.cost_cap_enforcement, 'unavailable');
+  assert.equal(piEnvelope.resolved_config.permission_mode, 'approve-restricted-tools');
+
   process.stdout.write('development smoke flow passed\n');
 } finally {
   rmSync(outDir, { recursive: true, force: true });

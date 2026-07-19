@@ -91,13 +91,14 @@ npm run bench:case -- \
 | 参数 | 必填情况 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `--case <id>` | 建议显式传入 | `dev-workflow-smoke` | Case 目录名，例如 `narrative-equity-relationship`。 |
-| `--engine <codex\|claude\|kimi>` | 否 | `claude` | 选择实际 CLI Adapter。当前一键入口支持 Codex、Claude Code 和 Kimi Code。 |
-| `--model <id>` | 否 | 按引擎推导 | 传给对应 CLI 的模型标识。Codex 默认 `gpt-5.6-sol`；Claude 默认 `deepseek-v4-flash`；Kimi 默认 `kimi-code/k3`。 |
+| `--engine <codex\|claude\|kimi\|pi>` | 否 | `claude` | 选择实际 CLI Adapter。当前一键入口支持 Codex、Claude Code、Kimi Code 和 Pi。 |
+| `--model <id>` | 否 | 按引擎推导 | 传给对应 CLI 的模型标识。Codex 默认 `gpt-5.6-sol`；Claude 默认 `deepseek-v4-flash`；Kimi 默认 `kimi-code/k3`；Pi 默认 `deepseek-chat`。 |
+| `--model-provider <id>` | Pi 可选 | `deepseek` | Pi 实际调用的 Provider，映射为 Pi 的 `--provider`，例如 `deepseek`。不要与仅用于报告标记的 `--provider` 混淆。 |
 | `--reasoning-effort <low\|medium\|high\|xhigh>` | Codex 可选 | `medium` | 仅用于 Codex；映射为 `-c model_reasoning_effort=\"…\"`，会写入 RunSpec 和命令日志。 |
 | `--provider <label>` | 否 | 按引擎推导 | 记录用的脱敏 Provider 标签，不是 API endpoint；Codex 默认为 `openai-codex-configured-provider`。 |
 | `--wall-time-minutes <n>` | 否 | Smoke 为 10，正式 Case 为 180 | 整个 Run 的墙钟时间硬上限，不是每阶段上限。超时后终止当前进程并保留证据。 |
-| `--max-stage-cost-usd <n>` | Claude 正式 Case 必填 | Smoke 为 0.50 | Claude CLI 的单阶段原生费用上限；理论 Run 上限为该值乘以阶段数。Kimi 不支持该参数。 |
-| `--acknowledge-no-cost-cap` | Codex/Kimi 真实运行必填 | 无 | 明确确认 CLI 没有可由 Harness 强制执行的费用上限；仅用于防误操作，不代表费用为零。 |
+| `--max-stage-cost-usd <n>` | Claude 正式 Case 必填 | Smoke 为 0.50 | Claude CLI 的单阶段原生费用上限；理论 Run 上限为该值乘以阶段数。Codex、Kimi、Pi 不支持该参数。 |
+| `--acknowledge-no-cost-cap` | Codex/Kimi/Pi 真实运行必填 | 无 | 明确确认 CLI 没有可由 Harness 强制执行的费用上限；仅用于防误操作，不代表费用为零。 |
 | `--workspace-source <path>` | 否 | 自动选择 Case Fixture | 覆盖输入工作区。必须是脱敏且不含答案实现的绝对路径。 |
 | `--dry-run` | 否 | 关闭 | 只解析并展示配置，不准备 Run、不调用模型、不产生费用。 |
 
@@ -184,6 +185,39 @@ npm run bench:case -- \
 Kimi CLI 当前没有类似 Claude `--max-budget-usd` 的原生费用上限。Harness 只能强制墙钟超时；
 Token 和费用仅在 stream-json 明确上报时记录，否则报告显示“暂无”，不会自行估算。
 
+## 使用 Pi 直连 DeepSeek
+
+Pi 使用其原生 `--mode json` JSONL 输出；需要先在当前 shell 中配置 DeepSeek 凭据：
+
+```bash
+export DEEPSEEK_API_KEY='…'
+
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine pi \
+  --model deepseek-chat \
+  --model-provider deepseek \
+  --wall-time-minutes 180 \
+  --dry-run
+```
+
+确认配置后移除 `--dry-run`，并加入费用确认：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine pi \
+  --model deepseek-chat \
+  --model-provider deepseek \
+  --wall-time-minutes 180 \
+  --acknowledge-no-cost-cap
+```
+
+Adapter 固定传入 `--approve`、`--no-context-files`、`--no-extensions`、`--no-skills` 和
+`--no-prompt-templates`，并只开放 `read,bash,edit,write,grep,find,ls` 这些 Pi 内置工具。每个 Run
+使用自己的 `.pi-sessions/`，从 Pi JSONL 的 `session.id` 续跑后续阶段。Pi 没有 Harness 可验证的
+原生费用上限，因此只能由墙钟超时、日志和事后 usage 记录控制。
+
 可指定的现有 Case：
 
 - `narrative-equity-relationship`：股权关系叙事可视化，主 Case；
@@ -198,7 +232,7 @@ Token 和费用仅在 stream-json 明确上报时记录，否则报告显示“�
 --workspace-source /absolute/path/to/sanitized-fixture
 ```
 
-Claude 正式 Case 必须显式提供 `--max-stage-cost-usd`。Kimi 真实运行必须显式提供
+Claude 正式 Case 必须显式提供 `--max-stage-cost-usd`。Codex、Kimi、Pi 真实运行必须显式提供
 `--acknowledge-no-cost-cap`。默认总墙钟上限为 180 分钟；开发 Smoke 默认 10 分钟。
 
 ## 流程通过不等于业务验收

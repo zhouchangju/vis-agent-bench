@@ -42,7 +42,7 @@ function check(name, fn) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Adapter 命令快照（三个 Adapter，纯函数 buildCommand）                */
+/* Adapter 命令快照（四个 Adapter，纯函数 buildCommand）                */
 /* ------------------------------------------------------------------ */
 
 check('codex adapter builds a fresh-session exec command deterministically', () => {
@@ -186,6 +186,46 @@ check('claude adapter emits session-id on fresh runs and --resume on subsequent 
   assert.ok(!resumed.args.includes('--max-budget-usd'));
 });
 
+check('pi adapter runs non-interactively with explicit provider and resumes its native session', () => {
+  const adapter = getAdapter('pi');
+  const fresh = adapter.buildCommand({
+    adapter: 'pi',
+    executable: 'pi',
+    model: 'deepseek-chat',
+    modelProvider: 'deepseek',
+    workspace: '/run/w',
+    outputDir: '/run/w/artifacts',
+    stageId: 'S0',
+    prompt: 'go',
+    session: { id: null, started: false },
+  });
+  assert.equal(fresh.executable, 'pi');
+  assert.equal(fresh.stdin, null);
+  assert.equal(fresh.format, 'jsonl');
+  assert.deepEqual(fresh.args, [
+    '--mode', 'json',
+    '--approve',
+    '--no-context-files',
+    '--no-extensions',
+    '--no-skills',
+    '--no-prompt-templates',
+    '--session-dir', '/run/w/.pi-sessions',
+    '--tools', 'read,bash,edit,write,grep,find,ls',
+    '--provider', 'deepseek',
+    '--model', 'deepseek-chat',
+    'go',
+  ]);
+
+  const resumed = adapter.buildCommand({
+    ...{
+      adapter: 'pi', executable: 'pi', model: 'deepseek-chat', modelProvider: 'deepseek',
+      workspace: '/run/w', outputDir: '/run/w/artifacts', stageId: 'S1', prompt: 'continue',
+    },
+    session: { id: 'pi-session-1234567890', started: true },
+  });
+  assert.equal(resumed.args[resumed.args.indexOf('--session') + 1], 'pi-session-1234567890');
+});
+
 check('parseSemverVersion extracts the first semver-like substring', () => {
   assert.equal(parseSemverVersion('codex-cli 0.144.6'), '0.144.6');
   assert.equal(parseSemverVersion('2.1.177\n'), '2.1.177');
@@ -201,8 +241,8 @@ check('adapter.parseVersion delegates to parseSemverVersion', () => {
   }
 });
 
-check('listAdapters returns the three supported engines with stable ids', () => {
-  assert.deepEqual(listAdapters().map(a => a.id), ['codex', 'kimi', 'claude']);
+check('listAdapters returns the four supported engines with stable ids', () => {
+  assert.deepEqual(listAdapters().map(a => a.id), ['codex', 'kimi', 'claude', 'pi']);
 });
 
 check('getAdapter throws on unknown engine', () => {
@@ -324,6 +364,10 @@ check('findSessionId extracts the first known session/thread id', () => {
   const id = findSessionId(fixture('codex-stream.jsonl'));
   assert.equal(id, 'sess-codex-abcdef0123');
   assert.equal(findSessionId(fixture('empty.txt')), null);
+});
+
+check('findSessionId extracts Pi session headers', () => {
+  assert.equal(findSessionId('{"type":"session","version":3,"id":"pi-session-1234567890"}\n'), 'pi-session-1234567890');
 });
 
 check('KNOWN_EVENT_TYPES covers the RUN_LOG_SPEC event dictionary', () => {

@@ -81,6 +81,14 @@ const ADAPTER_CHILD_ENV = Object.freeze({
     'CLAUDE_CODE_USE_VERTEX',
     'CLAUDE_CODE_USE_FOUNDRY',
   ],
+  pi: [
+    'DEEPSEEK_API_KEY',
+    'OPENAI_API_KEY',
+    'ANTHROPIC_API_KEY',
+    'GOOGLE_API_KEY',
+    'PI_CODING_AGENT_DIR',
+    'PI_CODING_AGENT_SESSION_DIR',
+  ],
 });
 
 function childEnvironment(adapter, extra = {}) {
@@ -427,7 +435,8 @@ function findSessionId(rawPath) {
   for (const line of lines) {
     try {
       const event = JSON.parse(line);
-      const id = event.thread_id || event.session_id || event.sessionId
+      const id = (event.type === 'session' ? event.id : null)
+        || event.thread_id || event.session_id || event.sessionId
         || event.data?.thread_id || event.data?.session_id || event.data?.sessionId;
       if (typeof id === 'string' && id.length > 8) return id;
     } catch {
@@ -513,6 +522,7 @@ function prepare(args, emit = true) {
         provider: args.provider || 'unspecified',
         credential_ref: args.credential_ref || `secret://${engine}/default`,
         reasoning_effort: args.reasoning_effort || null,
+        model_provider: args.model_provider || null,
       },
       network: args.network !== 'disabled',
       block_internal_network: args.block_internal_network === true,
