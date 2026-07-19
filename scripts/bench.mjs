@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { parse as parseYaml } from 'yaml';
 import { getAdapter, listAdapters } from '../src/runners/adapters.mjs';
 import { validateRunSpec } from '../src/contracts/index.mjs';
@@ -59,6 +59,66 @@ function requireOption(args, key) {
   return args[key];
 }
 
+const COMMON_CHILD_ENV = Object.freeze([
+  'PATH', 'HOME', 'TMPDIR', 'USER', 'LOGNAME', 'SHELL',
+  'LANG', 'LC_ALL', 'LC_CTYPE', 'TERM', 'COLORTERM', 'NO_COLOR', 'CI',
+  'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY',
+  'SSL_CERT_FILE', 'NODE_EXTRA_CA_CERTS',
+]);
+
+const ADAPTER_CHILD_ENV = Object.freeze({
+  codex: ['CODEX_HOME', 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_ORG_ID'],
+  kimi: ['KIMI_API_KEY', 'KIMI_CODE_HOME', 'MOONSHOT_API_KEY'],
+  claude: [
+    'ANTHROPIC_API_KEY',
+    'ANTHROPIC_AUTH_TOKEN',
+    'ANTHROPIC_BASE_URL',
+    'ANTHROPIC_MODEL',
+    'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+    'ANTHROPIC_DEFAULT_OPUS_MODEL',
+    'ANTHROPIC_DEFAULT_SONNET_MODEL',
+    'CLAUDE_CODE_USE_BEDROCK',
+    'CLAUDE_CODE_USE_VERTEX',
+    'CLAUDE_CODE_USE_FOUNDRY',
+  ],
+});
+
+function childEnvironment(adapter, extra = {}) {
+  const keys = [...COMMON_CHILD_ENV, ...(ADAPTER_CHILD_ENV[adapter] || [])];
+  const env = {};
+  for (const key of keys) {
+    if (process.env[key] != null) env[key] = process.env[key];
+  }
+  return { ...env, ...extra };
+}
+
+function jsonDigest(value) {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function assertRuntimePolicy(spec, adapter) {
+  const known = new Set(['shell', 'file_read', 'file_write', 'public_web']);
+  const allowed = new Set(spec.permissions.allowed_tools);
+  const unknown = [...allowed].filter(tool => !known.has(tool));
+  if (unknown.length) throw new Error(`Unsupported allowed_tools: ${unknown.join(', ')}`);
+  for (const required of ['shell', 'file_read', 'file_write']) {
+    if (!allowed.has(required)) {
+      throw new Error(`${adapter} cannot enforce a RunSpec that removes required tool "${required}".`);
+    }
+  }
+  const network = spec.isolation.network === true || spec.isolation.network === 'enabled';
+  if (!network && adapter !== 'codex') {
+    throw new Error(`${adapter} has no verified network-deny control; use Codex or enable network.`);
+  }
+  if (!network && allowed.has('public_web')) {
+    throw new Error('public_web cannot be allowed while network is disabled.');
+  }
+  if (network && !allowed.has('public_web')) {
+    throw new Error(`${adapter} cannot enforce network enabled while public_web is removed.`);
+  }
+  return { network, allowed_tools: [...allowed] };
+}
+
 function loadScenario(caseDir) {
   const path = join(caseDir, 'scenario', 'stages.yaml');
   if (!existsSync(path)) throw new Error(`Missing staged scenario: ${path}`);
@@ -90,9 +150,138 @@ function stagePrompt(caseDir, scenario, stage) {
     '更新 workspace 根目录的 requirement-ledger.yaml，保持内容短小并标注 must/should/may、决策、假设和待确认项。',
     `本阶段 checkpoint：${(stage.checkpoint || []).join('、')}`,
     ...developmentSmokeRules,
+    `把符号型 checkpoint 写入 .vab/checkpoints/${stage.id}.json：`,
+    '{"schema_version":1,"stage_id":"当前阶段","artifacts":{"checkpoint-name":["相对 workspace 的证据文件"]}}',
+    'checkpoint 中带路径/扩展名的项目必须直接创建该文件；所有 manifest 引用必须存在且位于 workspace 内。',
+    '最后阶段会由 Harness 自动运行 package.json 中存在的 build、typecheck、test 脚本；只报告真实结果。',
     '结束时简要输出：status、summary、next_actions、artifacts。',
     '',
   ].join('\n');
+}
+
+function verifyStageDeliverables(workspace, stage, logsDir, timeoutMs, env) {
+  const required = Array.isArray(stage.checkpoint) ? stage.checkpoint : [];
+  const missing = [];
+  const artifacts = [];
+  const ledger = containedWorkspacePath(workspace, 'requirement-ledger.yaml');
+  if (!existsSync(ledger)) missing.push('requirement-ledger.yaml');
+  else {
+    const parsed = parseYaml(readFileSync(ledger, 'utf8'));
+    if (!parsed || typeof parsed !== 'object') missing.push('requirement-ledger.yaml (invalid YAML object)');
+    else artifacts.push(ledger);
+  }
+
+  const symbolic = [];
+  for (const item of required) {
+    const target = item === 'final-requirement-ledger'
+      ? ledger
+      : (/[/.]/.test(item) ? containedWorkspacePath(workspace, item) : null);
+    if (target) {
+      if (!existsSync(target)) missing.push(item);
+      else artifacts.push(target);
+    } else {
+      symbolic.push(item);
+    }
+  }
+
+  if (symbolic.length) {
+    const manifestPath = join(workspace, '.vab', 'checkpoints', `${stage.id}.json`);
+    if (!existsSync(manifestPath)) {
+      missing.push(`.vab/checkpoints/${stage.id}.json`);
+    } else {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      if (manifest.schema_version !== 1 || manifest.stage_id !== stage.id) {
+        missing.push(`.vab/checkpoints/${stage.id}.json (invalid identity)`);
+      }
+      for (const item of symbolic) {
+        const refs = manifest.artifacts?.[item];
+        if (!Array.isArray(refs) || refs.length === 0) {
+          missing.push(`${item} (manifest evidence missing)`);
+          continue;
+        }
+        for (const ref of refs) {
+          const target = containedWorkspacePath(workspace, ref);
+          if (!existsSync(target)) missing.push(`${item} -> ${ref}`);
+          else artifacts.push(target);
+        }
+      }
+      artifacts.push(manifestPath);
+    }
+  }
+
+  const commandResults = [];
+  if (isFinalStage(stage)) {
+    const packagePath = join(workspace, 'package.json');
+    if (!existsSync(packagePath)) {
+      missing.push('package.json');
+    } else {
+      const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
+      const commands = ['build', 'typecheck', 'test'].filter(name => pkg.scripts?.[name]);
+      const perCommandTimeout = Math.max(1_000, Math.floor(timeoutMs / Math.max(commands.length, 1)));
+      for (const name of commands) {
+        const command = spawnSync('npm', ['run', name], {
+          cwd: workspace,
+          encoding: 'utf8',
+          shell: false,
+          timeout: perCommandTimeout,
+          maxBuffer: 10 * 1024 * 1024,
+          env,
+        });
+        const evidence = {
+          name,
+          exit_code: command.status,
+          signal: command.signal,
+          error: command.error?.message || null,
+          stdout: command.stdout || '',
+          stderr: command.stderr || '',
+        };
+        commandResults.push(evidence);
+        if (command.status !== 0 || command.error) missing.push(`npm run ${name}`);
+      }
+    }
+  }
+
+  const gate = {
+    status: missing.length ? 'error' : 'success',
+    stage_id: stage.id,
+    required,
+    artifacts: [...new Set(artifacts)],
+    missing,
+    commands: commandResults,
+  };
+  const gatePath = join(logsDir, 'checkpoint-gate.json');
+  writeFileSync(gatePath, `${JSON.stringify(gate, null, 2)}\n`);
+  if (missing.length) {
+    const error = new Error(`Stage ${stage.id} checkpoint gate failed: ${missing.join(', ')}`);
+    error.gatePath = gatePath;
+    throw error;
+  }
+  return { ...gate, gate_path: gatePath };
+}
+
+function containedWorkspacePath(workspace, ref) {
+  if (typeof ref !== 'string' || ref.length === 0) throw new TypeError('Checkpoint artifact path must be non-empty.');
+  const root = resolve(workspace);
+  const target = resolve(root, ref);
+  const rel = target.slice(root.length + 1);
+  if (target === root || !target.startsWith(`${root}/`) || rel.startsWith('..')) {
+    throw new TypeError(`Checkpoint artifact escapes workspace: ${ref}`);
+  }
+  if (existsSync(target)) {
+    const realRoot = realpathSync(root);
+    const realTarget = realpathSync(target);
+    if (realTarget === realRoot || !realTarget.startsWith(`${realRoot}/`)) {
+      throw new TypeError(`Checkpoint artifact symlink escapes workspace: ${ref}`);
+    }
+  }
+  return target;
+}
+
+function isFinalStage(stage) {
+  return (stage.checkpoint || []).some(item => [
+    'candidate-delivery',
+    'final-requirement-ledger',
+  ].includes(item));
 }
 
 function findSessionId(rawPath) {
@@ -123,10 +312,11 @@ async function doctor() {
   );
 }
 
-function prepare(args) {
-  const caseId = requireOption(args, 'case');
-  const engine = adapterId(requireOption(args, 'engine'));
-  const model = requireOption(args, 'model');
+function prepare(args, emit = true) {
+  const supplied = args._spec_value || (args.spec ? loadRunSpec(args.spec).value : null);
+  const caseId = supplied?.case_id || requireOption(args, 'case');
+  const engine = adapterId(supplied?.engine?.adapter || requireOption(args, 'engine'));
+  const model = supplied?.engine?.configured_model || requireOption(args, 'model');
   getAdapter(engine);
 
   const caseDir = join(projectRoot, 'cases', caseId);
@@ -160,36 +350,43 @@ function prepare(args) {
   const leakage = scanForAnswerLeakage(caseId, join(runDir, 'workspace'));
   writeFileSync(join(runDir, 'logs', 'leakage-scan.json'), JSON.stringify(leakage, null, 2));
   if (leakage.length) {
-    output(
-      'error',
-      `Answer leakage scan found ${leakage.length} issue(s); run was not prepared.`,
-      ['Use a sanitized scaffold without existing implementation or Git history.'],
-      [join(runDir, 'logs', 'leakage-scan.json')],
-      { run_id: runId, run_dir: runDir },
-    );
+    const message = `Answer leakage scan found ${leakage.length} issue(s); run was not prepared.`;
+    if (!emit) throw new Error(message);
+    output('error', message, ['Use a sanitized scaffold without existing implementation or Git history.'], [
+      join(runDir, 'logs', 'leakage-scan.json'),
+    ], { run_id: runId, run_dir: runDir });
     process.exitCode = 2;
-    return;
+    return null;
   }
 
-  const spec = buildRunSpec({
-    name: args.name || `${caseId}-${engine}-${model}`,
-    case_id: caseId,
-    engine: {
-      adapter: engine,
-      executable: args.executable || getAdapter(engine).executable,
-      configured_model: model,
-      provider: args.provider || 'unspecified',
-      credential_ref: args.credential_ref || `secret://${engine}/default`,
-      reasoning_effort: args.reasoning_effort || null,
+  const spec = supplied ? {
+    ...structuredClone(supplied),
+    isolation: {
+      ...supplied.isolation,
+      workspace_root: join(runDir, 'workspace'),
     },
-    network: args.network !== 'disabled',
-    block_internal_network: args.block_internal_network === true,
-    workspace_root: join(runDir, 'workspace'),
-    wall_time_minutes: args.wall_time_minutes,
-    max_retries: args.max_retries,
-    max_tokens: args.max_tokens,
-    max_cost_usd: args.max_cost_usd,
-  });
+  } : buildRunSpec({
+      name: args.name || `${caseId}-${engine}-${model}`,
+      case_id: caseId,
+      engine: {
+        adapter: engine,
+        executable: args.executable || getAdapter(engine).executable,
+        configured_model: model,
+        provider: args.provider || 'unspecified',
+        credential_ref: args.credential_ref || `secret://${engine}/default`,
+        reasoning_effort: args.reasoning_effort || null,
+      },
+      network: args.network !== 'disabled',
+      block_internal_network: args.block_internal_network === true,
+      workspace_root: join(runDir, 'workspace'),
+      wall_time_minutes: args.wall_time_minutes,
+      max_retries: args.max_retries,
+      max_tokens: args.max_tokens,
+      max_cost_usd: args.max_cost_usd,
+    });
+  const validation = validateRunSpec(spec);
+  if (!validation.valid) throw new Error(`RunSpec is invalid: ${JSON.stringify(validation.errors)}`);
+  assertRuntimePolicy(spec, engine);
   const state = {
     schema_version: 1,
     run_id: runId,
@@ -207,6 +404,7 @@ function prepare(args) {
       continuity: getAdapter(engine).session_continuity,
       started: false,
     },
+    run_spec_sha256: jsonDigest(spec),
   };
 
   writeFileSync(join(runDir, 'run-spec.json'), JSON.stringify(spec, null, 2));
@@ -222,17 +420,46 @@ function prepare(args) {
     shell: false,
   });
 
-  output(
-    'success',
-    `Prepared file-isolated development run ${runId}.`,
-    [`Run: node scripts/bench.mjs run --run-dir "${runDir}"`],
-    [
+  const payload = {
+    status: 'success',
+    summary: `Prepared file-isolated development run ${runId}.`,
+    next_actions: [`Run: node scripts/bench.mjs run --run-dir "${runDir}"`],
+    artifacts: [
       join(runDir, 'run-spec.json'),
       join(runDir, 'run-state.json'),
       join(runDir, 'input', `stage-${firstStage.id}.md`),
       join(runDir, 'logs', 'leakage-scan.json'),
     ],
-    { run_id: runId, run_dir: runDir },
+    run_id: runId,
+    run_dir: runDir,
+  };
+  if (emit) output(payload.status, payload.summary, payload.next_actions, payload.artifacts, {
+    run_id: runId,
+    run_dir: runDir,
+  });
+  return payload;
+}
+
+function prepareBundleCommand(args) {
+  const path = resolve(requireOption(args, 'bundle'));
+  const bundle = JSON.parse(readFileSync(path, 'utf8'));
+  if (bundle.kind !== 'vis-agent-bench-run-spec-bundle' || !Array.isArray(bundle.runs) || !bundle.runs.length) {
+    throw new Error('Bundle must be a vis-agent-bench-run-spec-bundle with at least one run.');
+  }
+  if (args.run_id && bundle.runs.length > 1) {
+    throw new Error('--run-id cannot be shared by multiple bundle entries.');
+  }
+  const runs = bundle.runs.map((spec, index) => prepare({
+    ...args,
+    _spec_value: spec,
+    run_id: args.run_id || `bundle-${Date.now()}-${index + 1}-${randomUUID().slice(0, 6)}`,
+  }, false));
+  output(
+    'success',
+    `Prepared ${runs.length} run(s) from the setup-page bundle.`,
+    runs.map(run => run.next_actions[0]),
+    runs.flatMap(run => run.artifacts),
+    { runs: runs.map(({ run_id, run_dir }) => ({ run_id, run_dir })) },
   );
 }
 
@@ -246,8 +473,14 @@ async function run(args) {
   const state = JSON.parse(readFileSync(statePath, 'utf8'));
   const specValidation = validateRunSpec(spec);
   if (!specValidation.valid) throw new Error(`RunSpec is invalid: ${JSON.stringify(specValidation.errors)}`);
-  if (!['prepared', 'run-failed'].includes(state.status)) {
-    throw new Error(`Run status must be prepared or run-failed, got ${state.status}`);
+  if (state.run_spec_sha256 !== jsonDigest(spec)) {
+    throw new Error('RunSpec digest differs from the prepared run state; create a new run-id.');
+  }
+  if (state.status === 'running' && processIsAlive(state.process_pid)) {
+    throw new Error(`Run is already active in process ${state.process_pid}.`);
+  }
+  if (!['prepared', 'run-failed', 'running'].includes(state.status)) {
+    throw new Error(`Run status must be prepared, run-failed, or recoverable running; got ${state.status}`);
   }
 
   const leakage = scanForAnswerLeakage(spec.case_id, join(runDir, 'workspace'));
@@ -255,8 +488,10 @@ async function run(args) {
 
   const resolvedAdapterId = adapterId(spec.engine.adapter);
   const adapter = getAdapter(resolvedAdapterId);
+  assertRuntimePolicy(spec, resolvedAdapterId);
   state.status = 'running';
   state.started_at = state.started_at || new Date().toISOString();
+  state.process_pid = process.pid;
   writeFileSync(statePath, JSON.stringify(state, null, 2));
   const caseDir = join(projectRoot, 'cases', spec.case_id);
   const scenario = loadScenario(caseDir);
@@ -266,6 +501,7 @@ async function run(args) {
     ? JSON.parse(readFileSync(commandLogPath, 'utf8'))
     : [];
   const runStarted = Date.now();
+  const runDeadline = Date.parse(state.started_at) + spec.budget.wall_time_minutes * 60_000;
   const completed = new Set(state.scenario.completed_stages);
 
   for (const stage of scenario.stages) {
@@ -273,10 +509,26 @@ async function run(args) {
       stageResults.push({ stage_id: stage.id, status: 'success', resumed_from_checkpoint: true });
       continue;
     }
-    const elapsed = Date.now() - runStarted;
-    const remaining = spec.budget.wall_time_minutes * 60_000 - elapsed;
+    const remaining = runDeadline - Date.now();
     if (remaining <= 0) {
       stageResults.push({ stage_id: stage.id, status: 'error', error: 'run budget exhausted' });
+      break;
+    }
+    const previousAttempts = state.scenario.attempts?.[stage.id] || 0;
+    if (previousAttempts >= 1 + spec.budget.max_retries) {
+      stageResults.push({
+        stage_id: stage.id,
+        status: 'error',
+        error: `retry budget exhausted (${spec.budget.max_retries} retries allowed)`,
+      });
+      break;
+    }
+    const beforeUsage = withUsageAvailability(aggregateUsage(collectRunUsageEvents(runDir)));
+    const beforeViolation = beforeUsage.source_events.length
+      ? budgetViolation(spec, beforeUsage)
+      : null;
+    if (beforeViolation) {
+      stageResults.push({ stage_id: stage.id, status: 'error', error: beforeViolation });
       break;
     }
 
@@ -321,12 +573,11 @@ async function run(args) {
       logsDir: stageLogs,
       timeoutMs: remaining,
       stageId: stage.id,
-      env: {
-        ...process.env,
+      env: childEnvironment(resolvedAdapterId, {
         VIS_AGENT_BENCH_RUN_ID: state.run_id,
         VIS_AGENT_BENCH_STAGE_ID: stage.id,
         VIS_AGENT_BENCH_ISOLATION: 'file-isolated-development',
-      },
+      }),
     });
     const rawStdout = readFileSync(result.stdoutPath, 'utf8');
     const normalized = normalizeStdout(rawStdout, {
@@ -341,11 +592,47 @@ async function run(args) {
         + (normalized.events.length ? '\n' : ''),
     );
     const stageUsage = aggregateUsage(normalized.events.map(event => event.data));
+    let effectiveResult = result;
+    let checkpointGate = null;
+    if (result.status === 'success') {
+      try {
+        checkpointGate = verifyStageDeliverables(
+          join(runDir, 'workspace'),
+          stage,
+          stageLogs,
+          Math.max(1_000, remaining - result.duration_ms),
+          childEnvironment(resolvedAdapterId, {
+            VIS_AGENT_BENCH_RUN_ID: state.run_id,
+            VIS_AGENT_BENCH_STAGE_ID: stage.id,
+            VIS_AGENT_BENCH_ISOLATION: 'file-isolated-development',
+          }),
+        );
+      } catch (error) {
+        effectiveResult = {
+          ...result,
+          status: 'error',
+          error: error.message,
+          failure_source: 'checkpoint-gate',
+          checkpoint_gate_path: error.gatePath || null,
+        };
+      }
+    }
+    const afterUsage = withUsageAvailability(aggregateUsage(collectRunUsageEvents(runDir)));
+    const afterViolation = budgetViolation(spec, afterUsage);
+    if (afterViolation && effectiveResult.status === 'success') {
+      effectiveResult = {
+        ...effectiveResult,
+        status: 'error',
+        error: afterViolation,
+        failure_source: 'budget',
+      };
+    }
     stageResults.push({
       stage_id: stage.id,
       attempt,
-      ...result,
+      ...effectiveResult,
       normalized: normalizedPath,
+      checkpoint_gate: checkpointGate,
       usage: withUsageAvailability(stageUsage),
       telemetry: {
         event_count: normalized.events.length,
@@ -361,7 +648,7 @@ async function run(args) {
         state.session.continuity = 'synthetic-checkpoint';
       }
     }
-    if (result.status !== 'success') break;
+    if (effectiveResult.status !== 'success') break;
     state.scenario.completed_stages.push(stage.id);
     writeFileSync(statePath, JSON.stringify(state, null, 2));
   }
@@ -419,6 +706,7 @@ async function run(args) {
   });
   writeFileSync(join(runDir, 'human-review.json'), `${JSON.stringify(review, null, 2)}\n`);
   state.status = result.status === 'success' ? 'awaiting-evaluation' : 'run-failed';
+  state.process_pid = null;
   state.completed_at = finalResult.completed_at;
   writeFileSync(statePath, JSON.stringify(state, null, 2));
 
@@ -438,6 +726,36 @@ async function run(args) {
     { run_id: state.run_id, run_dir: runDir },
   );
   if (result.status !== 'success') process.exitCode = 1;
+}
+
+function processIsAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function budgetViolation(spec, usage) {
+  if (typeof spec.budget.max_tokens === 'number') {
+    if (typeof usage.total_tokens !== 'number') {
+      return 'token budget cannot be enforced because the CLI did not report token usage';
+    }
+    if (usage.total_tokens > spec.budget.max_tokens) {
+      return `token budget exceeded: ${usage.total_tokens} > ${spec.budget.max_tokens}`;
+    }
+  }
+  if (typeof spec.budget.max_cost_usd === 'number') {
+    if (typeof usage.cost_usd !== 'number') {
+      return 'cost budget cannot be enforced because the CLI did not report cost';
+    }
+    if (usage.cost_usd > spec.budget.max_cost_usd) {
+      return `cost budget exceeded: ${usage.cost_usd} > ${spec.budget.max_cost_usd}`;
+    }
+  }
+  return null;
 }
 
 function withUsageAvailability(usage) {
@@ -575,6 +893,15 @@ function captureCommand(args) {
 function reportCommand(args) {
   const runDir = resolve(requireOption(args, 'run_dir'));
   const outDir = args.out_dir ? resolve(args.out_dir) : join(runDir, 'reports');
+  const runResult = JSON.parse(readFileSync(join(runDir, 'result.json'), 'utf8'));
+  const evaluatorPath = join(runDir, 'evaluator-summary.json');
+  const evaluator = existsSync(evaluatorPath)
+    ? JSON.parse(readFileSync(evaluatorPath, 'utf8'))
+    : null;
+  const forceDemo = runResult.demo === true
+    || evaluator?.demo_only === true
+    || evaluator?.conclusion_eligible === false
+    || evaluator?.evidence_trust?.conclusion_eligible === false;
   const argv = [
     '--run', runDir,
     '--scope', 'single-run',
@@ -582,7 +909,7 @@ function reportCommand(args) {
     '--out-dir', outDir,
     '--format', args.format || 'all',
   ];
-  if (args.demo === true) argv.push('--demo');
+  if (args.demo === true || forceDemo) argv.push('--demo');
   proxyJsonScript('generate-report.mjs', argv);
 }
 
@@ -608,6 +935,7 @@ async function main() {
   if (command === 'validate') return validateCommand(args);
   if (command === 'build-fixture') return buildFixtureCommand(args);
   if (command === 'prepare') return prepare(args);
+  if (command === 'prepare-bundle') return prepareBundleCommand(args);
   if (command === 'run') return run(args);
   if (command === 'evaluate') return evaluateCommand(args);
   if (command === 'capture') return captureCommand(args);
@@ -620,7 +948,9 @@ async function main() {
       'node scripts/bench.mjs doctor',
       'node scripts/bench.mjs validate --spec <run-spec.yaml>',
       'node scripts/bench.mjs build-fixture --case <id> --run-dir <path>',
+      'node scripts/bench.mjs prepare --spec <run-spec.json>',
       'node scripts/bench.mjs prepare --case <id> --engine <codex|kimi|claude> --model <id> [--workspace-source <path>]',
+      'node scripts/bench.mjs prepare-bundle --bundle <setup-export.json>',
       'node scripts/bench.mjs run --run-dir <path>',
       'node scripts/bench.mjs evaluate --run-dir <path> [--attestation observation-attestation.json]',
       'node scripts/bench.mjs capture --capture-spec <path> --out-dir <path> --allow-origin <origin>',

@@ -73,7 +73,8 @@ export function resolveObservationInput({
     observation: resolvedObservation,
     trust: {
       mode: 'control-plane-attested',
-      conclusion_eligible: true,
+      conclusion_eligible: attestation.collector.demo_only !== true
+        && attestation.collector.conclusion_eligible !== false,
       run_id: attestation.run_id,
       case_id: attestation.case_id,
       collector: structuredClone(attestation.collector),

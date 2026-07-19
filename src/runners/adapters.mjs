@@ -137,6 +137,7 @@ function buildClaudeCommand(ctx) {
     '--output-format', 'stream-json',
     '--verbose',
     '--include-hook-events',
+    '--tools', claudeTools(ctx.allowedTools).join(','),
   ];
   if (session.started && (session.id || session.resumeFrom)) {
     args.push('--resume', session.id || session.resumeFrom);
@@ -150,6 +151,20 @@ function buildClaudeCommand(ctx) {
     stdin: ctx.prompt,
     format: 'jsonl',
   };
+}
+
+function claudeTools(allowed = []) {
+  const set = new Set(allowed);
+  return [
+    ...(set.has('shell') ? ['Bash'] : []),
+    ...(set.has('file_read') ? ['Read', 'Glob', 'Grep'] : []),
+    ...(set.has('file_write') ? ['Edit', 'Write'] : []),
+    ...(set.has('public_web') ? ['WebFetch', 'WebSearch'] : []),
+  ];
+}
+
+function networkEnabled(value) {
+  return value === true || value === 'enabled';
 }
 
 /**
@@ -181,7 +196,7 @@ const adapters = {
         prompt,
         session: session || {},
         reasoningEffort: spec.engine.reasoning_effort || null,
-        networkEnabled: spec.isolation?.network === 'enabled',
+        networkEnabled: networkEnabled(spec.isolation?.network),
       });
     },
     buildCommand: buildCodexCommand,
@@ -230,6 +245,7 @@ const adapters = {
         prompt,
         session: session || {},
         maxCostUsd: spec.budget?.max_cost_usd ?? null,
+        allowedTools: spec.permissions?.allowed_tools || [],
       });
     },
     buildCommand: buildClaudeCommand,

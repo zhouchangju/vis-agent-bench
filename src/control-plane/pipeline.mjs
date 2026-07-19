@@ -17,6 +17,7 @@ import { buildReport } from '../reporting/builders.mjs';
 import { loadEntry } from '../reporting/load.mjs';
 import { renderHtml, renderMarkdown } from '../reporting/render/index.mjs';
 import { validateReport } from '../reporting/validate.mjs';
+import { containedRunDirectory } from '../core/run-id.mjs';
 import { getCaseRuntime } from './case-registry.mjs';
 import { loadCheckpoints, runCheckpoint, saveCheckpoints } from './checkpoints.mjs';
 import {
@@ -36,12 +37,12 @@ export async function runGoldenPipeline({
 }) {
   assertValidRunSpec(spec);
   const id = runId || `golden-${spec.case_id}-${randomUUID().slice(0, 8)}`;
-  const runDir = resolve(outRoot, id);
+  const runDir = containedRunDirectory(outRoot, id);
   initialiseRunDir(runDir);
   const runtime = getCaseRuntime(projectRoot, spec.case_id);
   const specPath = join(runDir, 'run-spec.json');
   if (!existsSync(specPath)) writeJson(specPath, { ...spec, run_id: id });
-  const state = loadCheckpoints(runDir);
+  const state = loadCheckpoints(runDir, sha256(JSON.stringify(spec)));
   const results = {};
 
   try {

@@ -14,6 +14,7 @@ import { spawnSync } from 'node:child_process';
 import { PRIMARY_CASES } from '../../src/control-plane/case-registry.mjs';
 import { fileDigest, runGoldenPipeline } from '../../src/control-plane/pipeline.mjs';
 import { buildRunSpec } from '../../src/control-plane/run-spec.mjs';
+import { containedRunDirectory } from '../../src/core/run-id.mjs';
 
 const projectRoot = resolve(import.meta.dirname, '..', '..');
 const outputRoot = mkdtempSync(join(tmpdir(), 'vab-t08-e2e-'));
@@ -47,6 +48,26 @@ function specFor(caseId) {
   });
 }
 
+function checkpointWriterLines() {
+  return [
+    'let prompt = "";',
+    'for await (const chunk of process.stdin) prompt += chunk;',
+    'const stage = process.env.VIS_AGENT_BENCH_STAGE_ID || "S0";',
+    'fs.writeFileSync("requirement-ledger.yaml", "requirements:\\n  - id: fake\\n    priority: must\\n");',
+    'const match = prompt.match(/本阶段 checkpoint：(.*)/);',
+    'const names = match ? match[1].split("、").map(x => x.trim()).filter(Boolean) : [];',
+    'const artifacts = {};',
+    'for (const name of names) {',
+    '  if (name === "final-requirement-ledger" || name === "requirement-ledger.yaml") continue;',
+    '  if (/[/.]/.test(name)) { fs.mkdirSync(path.dirname(name), { recursive: true }); fs.writeFileSync(name, "fake checkpoint\\n"); continue; }',
+    '  const ref = `.vab/evidence/${stage}-${name}.txt`;',
+    '  fs.mkdirSync(path.dirname(ref), { recursive: true }); fs.writeFileSync(ref, "fake evidence\\n"); artifacts[name] = [ref];',
+    '}',
+    'fs.mkdirSync(".vab/checkpoints", { recursive: true });',
+    'fs.writeFileSync(`.vab/checkpoints/${stage}.json`, JSON.stringify({ schema_version: 1, stage_id: stage, artifacts }, null, 2));',
+  ];
+}
+
 try {
   await check('all three primary Cases complete the checkpointed golden pipeline', async () => {
     for (const caseId of PRIMARY_CASES) {
@@ -75,6 +96,7 @@ try {
       assert.equal(evaluator.status, 'success');
       assert.equal(evaluator.scorecard.total, 100);
       assert.equal(evaluator.evidence_trust.mode, 'control-plane-attested');
+      assert.equal(evaluator.evidence_trust.conclusion_eligible, false);
       assert.equal(evaluator.conclusion_eligible, false);
       const browser = JSON.parse(readFileSync(join(runDir, 'browser-evidence.json'), 'utf8'));
       assert.equal(browser.status, 'success');
@@ -98,6 +120,16 @@ try {
     const fixtureCompletedAt = checkpointsBefore.completed.fixture.completed_at;
     const resultDigest = fileDigest(join(runDir, 'result.json'));
     const fixtureDigest = fileDigest(join(runDir, 'workspace/.fixture/manifest.json'));
+    await assert.rejects(
+      runGoldenPipeline({
+        projectRoot,
+        spec: { ...specFor(caseId), name: 'mutated-spec' },
+        outRoot: outputRoot,
+        runId,
+        resume: true,
+      }),
+      /RunSpec digest mismatch/,
+    );
 
     const resumed = await runGoldenPipeline({
       projectRoot,
@@ -121,9 +153,12 @@ try {
     const executable = join(outputRoot, 'fake-codex.mjs');
     writeFileSync(executable, [
       '#!/usr/bin/env node',
+      'import fs from "node:fs";',
+      'import path from "node:path";',
       'const version = process.argv.includes("--version");',
-      'if (version) process.stdout.write("fake-codex 1.2.3\\n");',
-      'else process.stdout.write(JSON.stringify({ type: "result", session_id: "fake-session-00000001", usage: { input_tokens: 2, output_tokens: 3 } }) + "\\n");',
+      'if (version) { process.stdout.write("fake-codex 1.2.3\\n"); process.exit(0); }',
+      ...checkpointWriterLines(),
+      'process.stdout.write(JSON.stringify({ type: "result", session_id: "fake-session-00000001", usage: { input_tokens: 2, output_tokens: 3 }, leaked_secret: process.env.VAB_TEST_SECRET ?? null }) + "\\n");',
       '',
     ].join('\n'));
     chmodSync(executable, 0o755);
@@ -137,7 +172,7 @@ try {
       '--executable', executable,
       '--run-id', runId,
       '--wall-time-minutes', '5',
-    ], { cwd: projectRoot, encoding: 'utf8' });
+    ], { cwd: projectRoot, encoding: 'utf8', env: { ...process.env, VAB_TEST_SECRET: 'must-not-leak' } });
     assert.equal(prepare.status, 0, prepare.stderr || prepare.stdout);
     const prepared = JSON.parse(prepare.stdout);
     localRunDirs.push(prepared.run_dir);
@@ -147,7 +182,7 @@ try {
       join(projectRoot, 'scripts/bench.mjs'),
       'run',
       '--run-dir', prepared.run_dir,
-    ], { cwd: projectRoot, encoding: 'utf8' });
+    ], { cwd: projectRoot, encoding: 'utf8', env: { ...process.env, VAB_TEST_SECRET: 'must-not-leak' } });
     assert.equal(run.status, 0, run.stderr || run.stdout);
     const completed = JSON.parse(run.stdout);
     assert.equal(completed.status, 'success');
@@ -156,6 +191,9 @@ try {
     assert.equal(result.engine.cli_version, 'fake-codex 1.2.3');
     assert.equal(result.usage.availability, 'reported');
     assert.ok(result.usage.total_tokens >= 5);
+    const firstStage = result.stages.find(stage => stage.stage_id === 'S0');
+    const firstEvent = JSON.parse(readFileSync(firstStage.stdoutPath, 'utf8').trim());
+    assert.equal(firstEvent.leaked_secret, null);
     assert.ok(existsSync(join(prepared.run_dir, 'human-review.json')));
   });
 
@@ -164,7 +202,9 @@ try {
     writeFileSync(executable, [
       '#!/usr/bin/env node',
       'import fs from "node:fs";',
+      'import path from "node:path";',
       'if (process.argv.includes("--version")) { process.stdout.write("flaky-codex 1.0.0\\n"); process.exit(0); }',
+      ...checkpointWriterLines(),
       'const marker = ".fake-invocations";',
       'const count = fs.existsSync(marker) ? Number(fs.readFileSync(marker, "utf8")) : 0;',
       'fs.writeFileSync(marker, String(count + 1));',
@@ -202,6 +242,91 @@ try {
     const commands = JSON.parse(readFileSync(join(prepared.run_dir, 'logs', 'commands.json'), 'utf8'));
     assert.equal(commands.filter(item => item.stage_id === 'S0').length, 2);
   });
+
+  await check('setup-page RunSpec bundle directly prepares CLI runs', () => {
+    const bundlePath = join(outputRoot, 'setup-bundle.json');
+    writeFileSync(bundlePath, JSON.stringify({
+      schema_version: 1,
+      kind: 'vis-agent-bench-run-spec-bundle',
+      generated_at: new Date().toISOString(),
+      runs: [specFor('macro-map-3d-greenfield'), specFor('ainvest-market-heatmap-rebuild')],
+    }));
+    const prepared = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'),
+      'prepare-bundle',
+      '--bundle', bundlePath,
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.equal(prepared.status, 0, prepared.stderr || prepared.stdout);
+    const payload = JSON.parse(prepared.stdout);
+    assert.equal(payload.status, 'success');
+    assert.equal(payload.runs.length, 2);
+    for (const run of payload.runs) {
+      localRunDirs.push(run.run_dir);
+      assert.ok(existsSync(join(run.run_dir, 'run-spec.json')));
+    }
+  });
+
+  await check('run-id containment rejects absolute and traversal targets', () => {
+    assert.throws(() => containedRunDirectory(outputRoot, '../../escape'), /run-id/);
+    assert.throws(() => containedRunDirectory(outputRoot, '/tmp/escape'), /run-id/);
+    assert.match(containedRunDirectory(outputRoot, 'safe-run_01'), /safe-run_01$/);
+  });
+
+  await check('token and retry budgets stop subsequent model work', () => {
+    const executable = join(outputRoot, 'budget-codex.mjs');
+    writeFileSync(executable, [
+      '#!/usr/bin/env node',
+      'import fs from "node:fs";',
+      'import path from "node:path";',
+      'if (process.argv.includes("--version")) { process.stdout.write("budget-codex 1.0.0\\n"); process.exit(0); }',
+      ...checkpointWriterLines(),
+      'process.stdout.write(JSON.stringify({ type: "result", session_id: "budget-session-000001", usage: { input_tokens: 10, output_tokens: 5 } }) + "\\n");',
+      '',
+    ].join('\n'));
+    chmodSync(executable, 0o755);
+    const prepare = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'),
+      'prepare',
+      '--case', 'narrative-equity-relationship',
+      '--engine', 'codex',
+      '--model', 'budget-model',
+      '--executable', executable,
+      '--run-id', `bench-budget-${process.pid}`,
+      '--max-tokens', '1',
+      '--max-retries', '0',
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.equal(prepare.status, 0, prepare.stderr || prepare.stdout);
+    const prepared = JSON.parse(prepare.stdout);
+    localRunDirs.push(prepared.run_dir);
+    const command = [
+      join(projectRoot, 'scripts/bench.mjs'), 'run', '--run-dir', prepared.run_dir,
+    ];
+    const first = spawnSync(process.execPath, command, { cwd: projectRoot, encoding: 'utf8' });
+    assert.notEqual(first.status, 0);
+    const result = JSON.parse(readFileSync(join(prepared.run_dir, 'result.json'), 'utf8'));
+    assert.equal(result.stages[0].failure_source, 'budget');
+    const second = spawnSync(process.execPath, command, { cwd: projectRoot, encoding: 'utf8' });
+    assert.notEqual(second.status, 0);
+    const commands = JSON.parse(readFileSync(join(prepared.run_dir, 'logs', 'commands.json'), 'utf8'));
+    assert.equal(commands.length, 1);
+  });
+
+  await check('report command automatically quarantines demo and ineligible evidence', () => {
+    const runDir = join(outputRoot, 'golden-narrative-equity-relationship');
+    const outDir = join(outputRoot, 'cli-report');
+    const generated = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'),
+      'report',
+      '--run-dir', runDir,
+      '--out-dir', outDir,
+      '--report-id', 'auto-demo',
+      '--format', 'json',
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.equal(generated.status, 0, generated.stderr || generated.stdout);
+    const report = JSON.parse(readFileSync(join(outDir, 'auto-demo.json'), 'utf8'));
+    assert.equal(report.data_provenance.demo_inputs_present, true);
+    assert.equal(report.data_provenance.leaderboard_eligible, false);
+  });
 } finally {
   for (const runDir of localRunDirs) rmSync(runDir, { recursive: true, force: true });
   if (process.env.VAB_KEEP_E2E !== '1') rmSync(outputRoot, { recursive: true, force: true });
@@ -209,7 +334,7 @@ try {
 
 const result = {
   status: failures.length ? 'error' : 'success',
-  summary: failures.length ? `${failures.length} T08 E2E check(s) failed.` : '4/4 T08 E2E checks passed.',
+  summary: failures.length ? `${failures.length} T08 E2E check(s) failed.` : '8/8 T08 E2E checks passed.',
   next_actions: failures.length ? ['Fix the golden pipeline before real model runs.'] : [],
   artifacts: process.env.VAB_KEEP_E2E === '1' ? [outputRoot] : ['tests/e2e/run.mjs'],
   ...(failures.length ? { failures } : {}),

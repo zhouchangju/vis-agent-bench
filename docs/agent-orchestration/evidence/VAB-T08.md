@@ -1,6 +1,6 @@
 # VAB-T08 Evidence
 
-- Status: DONE / awaiting independent review
+- Status: DONE / hardening re-review in progress
 - Baseline: `0f76ad1`
 - Branch: `codex/vab-t08-integration`
 - Integrated accepted dependency commits:
@@ -42,11 +42,15 @@
 ## Acceptance
 
 - `npm test` → PASS.
-- `node tests/e2e/run.mjs` → PASS, 4/4:
+- `node tests/e2e/run.mjs` → PASS, 8/8:
   - all three primary Cases complete the golden pipeline;
   - an injected post-run failure resumes without repeating completed side effects;
   - canonical CLI `prepare`/`run` works against a local executable and records version/usage;
   - a failed real CLI attempt is retained and the failed stage resumes into a new attempt directory.
+  - setup-page RunSpec bundles directly prepare multiple CLI Runs;
+  - run-id traversal and absolute-path targets are rejected;
+  - token/retry budgets stop subsequent model work;
+  - Demo and conclusion-ineligible evidence is automatically quarantined in reports.
 - `npm run bench:doctor` → PASS, 3/3 CLI tools available:
   Codex 0.144.6, Kimi Code 0.27.0, Claude Code 2.1.177.
 - `node scripts/bench.mjs validate --spec config/run-profile.example.yaml` → PASS.
@@ -61,6 +65,11 @@
 - File isolation prevents answer files from being copied into the workspace but cannot stop a
   same-user process from reading arbitrary host paths. Results remain development-only and are
   not leaderboard eligible.
+- Model subprocesses and candidate-owned build/test commands receive adapter-specific environment
+  allowlists rather than the full host environment. Authentication variables required by each CLI
+  remain intentionally available; unrelated host secrets are excluded.
+- Real staged runs require a valid requirement ledger, explicit checkpoint evidence, contained
+  artifact paths, and final build/typecheck/test success. Exit code zero alone is insufficient.
 - Browser evidence proves declared DOM/interactions/screenshots and observable Canvas signatures,
   not aesthetics, complete visual correctness, WebGL semantics, or cross-browser behavior.
 - Production Evaluators require digest-bound observation attestations. A general collector for

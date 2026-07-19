@@ -154,12 +154,12 @@ function buildRunSpec(caseId) {
       session_continuity_required: true
     },
     evidence: {
-      raw_stdout: true,
-      raw_stderr: true,
-      normalized_events: true,
-      file_snapshots: true,
-      git_diff: true,
-      screenshots: true,
+      raw_stdout: $("#evidence-process").checked,
+      raw_stderr: $("#evidence-process").checked,
+      normalized_events: $("#evidence-process").checked,
+      file_snapshots: $("#evidence-workspace").checked,
+      git_diff: $("#evidence-workspace").checked,
+      screenshots: $("#evidence-browser").checked,
       redact_secrets: true,
       human_review_required: true
     }

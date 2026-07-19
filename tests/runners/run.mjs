@@ -152,6 +152,7 @@ check('claude adapter emits session-id on fresh runs and --resume on subsequent 
     prompt: 'go',
     session: { id: 'abc-123', started: false },
     maxCostUsd: 1.5,
+    allowedTools: ['shell', 'file_read', 'file_write', 'public_web'],
   });
   assert.ok(fresh.args.includes('--session-id'));
   assert.equal(fresh.args[fresh.args.indexOf('--session-id') + 1], 'abc-123');
@@ -163,6 +164,10 @@ check('claude adapter emits session-id on fresh runs and --resume on subsequent 
   assert.ok(fresh.args.includes('--no-chrome'));
   assert.equal(fresh.args[fresh.args.indexOf('--permission-mode') + 1], 'auto');
   assert.ok(fresh.args.includes('--verbose'));
+  assert.equal(
+    fresh.args[fresh.args.indexOf('--tools') + 1],
+    'Bash,Read,Glob,Grep,Edit,Write,WebFetch,WebSearch',
+  );
 
   const resumed = adapter.buildCommand({
     adapter: 'claude',
@@ -174,6 +179,7 @@ check('claude adapter emits session-id on fresh runs and --resume on subsequent 
     prompt: 'more',
     session: { id: 'abc-123', started: true },
     maxCostUsd: null,
+    allowedTools: ['shell', 'file_read', 'file_write'],
   });
   assert.equal(resumed.args[resumed.args.indexOf('--resume') + 1], 'abc-123');
   assert.ok(!resumed.args.includes('--max-budget-usd'));

@@ -187,9 +187,9 @@
           </header>
           <div class="section-body">
             <div class="card-grid">
-              <div class="select-card selected"><span class="card-code">PROCESS</span><h3>完整事件日志</h3><p>原始 stdout/stderr、归一化 JSONL、CLI 版本、参数和退出原因。</p></div>
-              <div class="select-card selected"><span class="card-code">WORKSPACE</span><h3>代码与文件证据</h3><p>输入哈希、前后文件树、Git diff、构建测试与最终产物。</p></div>
-              <div class="select-card selected"><span class="card-code">PRODUCTIVITY</span><h3>收敛与人效证据</h3><p>需求澄清、Spec 准备、首版 POC、微调轮数、回归、验收和端到端交付时间。</p></div>
+              <label class="select-card selected"><input id="evidence-process" type="checkbox" checked disabled><span class="card-code">PROCESS / REQUIRED</span><h3>完整事件日志</h3><p>强制采集原始 stdout/stderr、归一化 JSONL、CLI 版本、参数和退出原因。</p></label>
+              <label class="select-card selected"><input id="evidence-workspace" type="checkbox" checked disabled><span class="card-code">WORKSPACE / REQUIRED</span><h3>代码与文件证据</h3><p>强制采集输入哈希、前后文件树、Git diff、构建测试与最终产物。</p></label>
+              <label class="select-card selected"><input id="evidence-browser" type="checkbox" checked><span class="card-code">BROWSER + HUMAN</span><h3>浏览器与人效证据</h3><p>截图、交互状态、需求澄清、微调轮数、回归、验收和人工投入。</p></label>
             </div>
           </div>
         </section>

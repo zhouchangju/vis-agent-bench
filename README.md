@@ -186,6 +186,8 @@ node scripts/bench.mjs prepare \
 
 ```bash
 node scripts/bench.mjs validate --spec config/run-profile.example.yaml
+node scripts/bench.mjs prepare --spec config/run-profile.example.yaml
+node scripts/bench.mjs prepare-bundle --bundle vis-agent-bench-run-spec-bundle.json
 node scripts/bench.mjs build-fixture --case narrative-equity-relationship --run-dir <run-dir>
 node scripts/bench.mjs run --run-dir <run-dir>
 node scripts/bench.mjs evaluate --run-dir <run-dir>

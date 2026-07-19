@@ -20,6 +20,7 @@ import {
   resolveExclusionConfig,
   compileExclusionFilter,
 } from '../fixtures/exclusion.mjs';
+import { containedRunDirectory } from './run-id.mjs';
 
 /**
  * File-level isolation for development runs.
@@ -128,7 +129,10 @@ export function scanForAnswerLeakage(caseId, workspace, options = {}) {
 }
 
 export function createRunLayout(projectRoot, runId) {
-  const runDir = resolve(projectRoot, '.local', 'runs', runId);
+  const runDir = containedRunDirectory(resolve(projectRoot, '.local', 'runs'), runId);
+  if (existsSync(runDir)) {
+    throw new Error(`Run directory already exists; choose a new run-id: ${runDir}`);
+  }
   for (const part of ['input', 'workspace', 'logs', 'artifacts', 'review', '.empty-skills']) {
     mkdirSync(join(runDir, part), { recursive: true });
   }
