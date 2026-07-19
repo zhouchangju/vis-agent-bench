@@ -43,6 +43,7 @@ export function buildRunSpec(input) {
       adapter: engine.adapter,
       executable: engine.executable,
       configured_model: engine.configured_model,
+      reasoning_effort: engine.reasoning_effort ?? null,
       provider: engine.provider,
       credential_ref: engine.credential_ref,
     },

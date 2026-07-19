@@ -173,7 +173,7 @@ function stagePrompt(caseDir, scenario, stage) {
     `本阶段 checkpoint：${(stage.checkpoint || []).join('、')}`,
     ...developmentSmokeRules,
     `把符号型 checkpoint 写入 .vab/checkpoints/${stage.id}.json：`,
-    '{"schema_version":1,"stage_id":"当前阶段","artifacts":{"checkpoint-name":["相对 workspace 的证据文件"]}}',
+    `{"schema_version":1,"stage_id":"${stage.id}","artifacts":{"checkpoint-name":["相对 workspace 的证据文件"]}}`,
     'checkpoint 中带路径/扩展名的项目必须直接创建该文件；所有 manifest 引用必须存在且位于 workspace 内。',
     '最后阶段会由 Harness 自动运行 package.json 中存在的 build、typecheck、test 脚本；只报告真实结果。',
     '结束时简要输出：status、summary、next_actions、artifacts。',
@@ -181,7 +181,7 @@ function stagePrompt(caseDir, scenario, stage) {
   ].join('\n');
 }
 
-function verifyStageDeliverables(workspace, stage, logsDir, timeoutMs, env) {
+function verifyStageDeliverables(workspace, stage, logsDir, timeoutMs, env, requiredPackageScripts = []) {
   const required = Array.isArray(stage.checkpoint) ? stage.checkpoint : [];
   const missing = [];
   const artifacts = [];
@@ -238,9 +238,13 @@ function verifyStageDeliverables(workspace, stage, logsDir, timeoutMs, env) {
       missing.push('package.json');
     } else {
       const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
-      const commands = ['build', 'typecheck', 'test'].filter(name => pkg.scripts?.[name]);
+      const commands = [...requiredPackageScripts];
+      for (const name of commands) {
+        if (!pkg.scripts?.[name]) missing.push(`package.json scripts.${name}`);
+      }
       const perCommandTimeout = Math.max(1_000, Math.floor(timeoutMs / Math.max(commands.length, 1)));
       for (const name of commands) {
+        if (!pkg.scripts?.[name]) continue;
         const command = spawnSync('npm', ['run', name], {
           cwd: workspace,
           encoding: 'utf8',
@@ -279,6 +283,44 @@ function verifyStageDeliverables(workspace, stage, logsDir, timeoutMs, env) {
     throw error;
   }
   return { ...gate, gate_path: gatePath };
+}
+
+function baselinePackageScripts(workspace) {
+  const packagePath = join(workspace, 'package.json');
+  if (!existsSync(packagePath)) return [];
+  const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
+  return ['build', 'typecheck', 'test'].filter(name => typeof pkg.scripts?.[name] === 'string');
+}
+
+function explicitAgentStatus(runDir, stageId, rawStdout) {
+  const candidates = [];
+  const finalMessagePath = join(runDir, 'artifacts', `final-message-${stageId}.md`);
+  if (existsSync(finalMessagePath)) candidates.push(readFileSync(finalMessagePath, 'utf8'));
+  for (const line of rawStdout.split(/\r?\n/).filter(Boolean)) {
+    try {
+      const event = JSON.parse(line);
+      if (event.item?.type === 'agent_message' && typeof event.item.text === 'string') {
+        candidates.push(event.item.text);
+      }
+      if (event.role === 'assistant' && typeof event.content === 'string') {
+        candidates.push(event.content);
+      }
+      if (event.type === 'result' && typeof event.result === 'string') {
+        candidates.push(event.result);
+      }
+      if (event.message?.role === 'assistant' && Array.isArray(event.message.content)) {
+        candidates.push(event.message.content
+          .filter(item => item?.type === 'text' && typeof item.text === 'string')
+          .map(item => item.text)
+          .join('\n'));
+      }
+    } catch {
+      // Plain output is preserved as evidence but is not trusted as a final status envelope.
+    }
+  }
+  const finalText = candidates.at(-1) || '';
+  const match = finalText.match(/(?:^|\n)\s*(?:[-*]\s*)?status\s*:\s*[`"']?(success|warning|blocked|error)\b/i);
+  return match ? { status: match[1].toLowerCase(), source: finalMessagePath, text: finalText } : null;
 }
 
 function containedWorkspacePath(workspace, ref) {
@@ -427,6 +469,7 @@ function prepare(args, emit = true) {
       started: false,
     },
     run_spec_sha256: jsonDigest(spec),
+    required_package_scripts: baselinePackageScripts(join(runDir, 'workspace')),
   };
 
   writeFileSync(join(runDir, 'run-spec.json'), JSON.stringify(spec, null, 2));
@@ -616,7 +659,17 @@ async function run(args) {
     const stageUsage = aggregateUsage(normalized.events.map(event => event.data));
     let effectiveResult = result;
     let checkpointGate = null;
-    if (result.status === 'success') {
+    const agentStatus = explicitAgentStatus(runDir, stage.id, rawStdout);
+    if (result.status === 'success' && ['blocked', 'error'].includes(agentStatus?.status)) {
+      effectiveResult = {
+        ...result,
+        status: 'error',
+        error: `Agent explicitly reported ${agentStatus.status}.`,
+        failure_source: 'agent-status',
+        agent_status: agentStatus.status,
+      };
+    }
+    if (effectiveResult.status === 'success') {
       try {
         checkpointGate = verifyStageDeliverables(
           join(runDir, 'workspace'),
@@ -628,6 +681,7 @@ async function run(args) {
             VIS_AGENT_BENCH_STAGE_ID: stage.id,
             VIS_AGENT_BENCH_ISOLATION: 'file-isolated-development',
           }),
+          state.required_package_scripts || [],
         );
       } catch (error) {
         effectiveResult = {

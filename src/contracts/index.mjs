@@ -224,6 +224,9 @@ function validateEngine(value, errors) {
   if (!ADAPTERS.has(value.adapter)) errors.push(diagnostic('$.engine.adapter', 'ENUM', 'adapter is unsupported.'));
   for (const field of ['executable', 'configured_model', 'provider']) if (!isNonEmptyString(value[field])) errors.push(diagnostic(`$.engine.${field}`, 'STRING', 'Field must be non-empty.'));
   if (value.reasoning_effort != null && !['low', 'medium', 'high', 'xhigh'].includes(value.reasoning_effort)) errors.push(diagnostic('$.engine.reasoning_effort', 'ENUM', 'reasoning_effort must be low, medium, high, xhigh or null.'));
+  if (value.reasoning_effort != null && !['codex', 'codex-cli'].includes(value.adapter)) {
+    errors.push(diagnostic('$.engine.reasoning_effort', 'ENGINE_OPTION_UNSUPPORTED', 'reasoning_effort is supported only by the Codex adapter.'));
+  }
   if (!isNonEmptyString(value.credential_ref) || !/^[a-z][a-z0-9+.-]*:\/\//.test(value.credential_ref)) errors.push(diagnostic('$.engine.credential_ref', 'CREDENTIAL_REF', 'credential_ref must be a reference URI.'));
 }
 

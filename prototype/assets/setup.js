@@ -61,6 +61,7 @@ function applyEngineDefaults() {
   $("#model").value = meta.model;
   $("#executable").value = meta.executable;
   $("#credential").value = meta.credential;
+  $("#reasoning-effort").disabled = selectedEngine() !== "codex-cli";
   refreshCards();
 }
 
@@ -124,6 +125,7 @@ function buildRunSpec(caseId) {
       adapter: engine,
       executable: $("#executable").value,
       configured_model: $("#model").value,
+      reasoning_effort: engine === "codex-cli" ? $("#reasoning-effort").value : null,
       provider: $("#provider").value,
       credential_ref: $("#credential").value
     },

@@ -19,7 +19,22 @@
         "provider": { "type": "string", "minLength": 1 },
         "credential_ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://" }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "reasoning_effort": { "not": { "type": "null" } }
+            },
+            "required": ["reasoning_effort"]
+          },
+          "then": {
+            "properties": {
+              "adapter": { "enum": ["codex", "codex-cli"] }
+            }
+          }
+        }
+      ]
     },
     "isolation": {
       "type": "object",

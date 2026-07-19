@@ -177,6 +177,10 @@ try {
     const prepared = JSON.parse(prepare.stdout);
     localRunDirs.push(prepared.run_dir);
     assert.equal(prepared.status, 'success');
+    assert.match(
+      readFileSync(join(prepared.run_dir, 'input/stage-S0.md'), 'utf8'),
+      /"stage_id":"S0"/,
+    );
 
     const run = spawnSync(process.execPath, [
       join(projectRoot, 'scripts/bench.mjs'),
@@ -311,6 +315,74 @@ try {
     assert.equal(commands.length, 1);
   });
 
+  await check('explicit blocked agent status cannot advance a stage', () => {
+    const executable = join(outputRoot, 'blocked-codex.mjs');
+    writeFileSync(executable, [
+      '#!/usr/bin/env node',
+      'import fs from "node:fs";',
+      'import path from "node:path";',
+      'if (process.argv.includes("--version")) { process.stdout.write("blocked-codex 1.0.0\\n"); process.exit(0); }',
+      ...checkpointWriterLines(),
+      'process.stdout.write(JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "status: `blocked`\\nsummary: cannot continue" } }) + "\\n");',
+      '',
+    ].join('\n'));
+    chmodSync(executable, 0o755);
+    const prepare = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'), 'prepare',
+      '--case', 'narrative-equity-relationship',
+      '--engine', 'codex',
+      '--model', 'blocked-model',
+      '--executable', executable,
+      '--run-id', `bench-blocked-${process.pid}`,
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.equal(prepare.status, 0, prepare.stderr || prepare.stdout);
+    const prepared = JSON.parse(prepare.stdout);
+    localRunDirs.push(prepared.run_dir);
+    const run = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'), 'run', '--run-dir', prepared.run_dir,
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.notEqual(run.status, 0);
+    const result = JSON.parse(readFileSync(join(prepared.run_dir, 'result.json'), 'utf8'));
+    assert.equal(result.stages[0].failure_source, 'agent-status');
+    assert.equal(result.stages[0].agent_status, 'blocked');
+  });
+
+  await check('final gate rejects deletion of baseline package scripts', () => {
+    const executable = join(outputRoot, 'script-deleting-codex.mjs');
+    writeFileSync(executable, [
+      '#!/usr/bin/env node',
+      'import fs from "node:fs";',
+      'import path from "node:path";',
+      'if (process.argv.includes("--version")) { process.stdout.write("script-deleting-codex 1.0.0\\n"); process.exit(0); }',
+      ...checkpointWriterLines(),
+      'if (stage === "S5") { const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); pkg.scripts = {}; fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2)); }',
+      'process.stdout.write(JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "status: success" }, session_id: "delete-session-000001" }) + "\\n");',
+      '',
+    ].join('\n'));
+    chmodSync(executable, 0o755);
+    const prepare = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'), 'prepare',
+      '--case', 'narrative-equity-relationship',
+      '--engine', 'codex',
+      '--model', 'deleting-model',
+      '--executable', executable,
+      '--run-id', `bench-script-delete-${process.pid}`,
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.equal(prepare.status, 0, prepare.stderr || prepare.stdout);
+    const prepared = JSON.parse(prepare.stdout);
+    localRunDirs.push(prepared.run_dir);
+    const run = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'), 'run', '--run-dir', prepared.run_dir,
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.notEqual(run.status, 0);
+    const result = JSON.parse(readFileSync(join(prepared.run_dir, 'result.json'), 'utf8'));
+    const finalStage = result.stages.at(-1);
+    assert.equal(finalStage.failure_source, 'checkpoint-gate');
+    assert.match(finalStage.error, /scripts\.build/);
+    assert.match(finalStage.error, /scripts\.typecheck/);
+    assert.match(finalStage.error, /scripts\.test/);
+  });
+
   await check('report command automatically quarantines demo and ineligible evidence', () => {
     const runDir = join(outputRoot, 'golden-narrative-equity-relationship');
     const outDir = join(outputRoot, 'cli-report');
@@ -334,7 +406,7 @@ try {
 
 const result = {
   status: failures.length ? 'error' : 'success',
-  summary: failures.length ? `${failures.length} T08 E2E check(s) failed.` : '8/8 T08 E2E checks passed.',
+  summary: failures.length ? `${failures.length} T08 E2E check(s) failed.` : '10/10 T08 E2E checks passed.',
   next_actions: failures.length ? ['Fix the golden pipeline before real model runs.'] : [],
   artifacts: process.env.VAB_KEEP_E2E === '1' ? [outputRoot] : ['tests/e2e/run.mjs'],
   ...(failures.length ? { failures } : {}),

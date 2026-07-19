@@ -72,6 +72,12 @@ const checks = [
     value.permissions.read_answer_repository = true;
     expectInvalid(validateRunSpec(value), 'FORBIDDEN_ACCESS');
   }],
+  ['RunSpec rejects Codex-only reasoning effort on other adapters', () => {
+    const value = structuredClone(readYaml('config/run-profile.example.yaml'));
+    value.engine.adapter = 'kimi';
+    value.engine.reasoning_effort = 'xhigh';
+    expectInvalid(validateRunSpec(value), 'ENGINE_OPTION_UNSUPPORTED');
+  }],
   ['error result requires an actionable recovery contract', () => {
     expectInvalid(validateResultEnvelope({ status: 'error', summary: 'failed', next_actions: [], artifacts: [] }), 'REQUIRED');
   }],
