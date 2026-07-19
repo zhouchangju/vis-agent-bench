@@ -203,6 +203,20 @@ function previousStageFailure(runDir, stageId) {
   }
 }
 
+const PROVIDER_QUOTA_PATTERN = /(?:reached your usage limit|quota will be refreshed|usage limit for this billing cycle)/i;
+
+function quotaPausedAttemptCount(runDir, stageId) {
+  const stageDir = join(runDir, 'logs', 'stages', stageId);
+  if (!existsSync(stageDir)) return 0;
+  return readdirSync(stageDir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .filter(entry => {
+      const stderrPath = join(stageDir, entry.name, 'stderr.raw');
+      return existsSync(stderrPath) && PROVIDER_QUOTA_PATTERN.test(readFileSync(stderrPath, 'utf8'));
+    })
+    .length;
+}
+
 function retryFeedback(stageId, error) {
   if (!error) return '';
   return [
@@ -800,7 +814,11 @@ async function run(args) {
       break;
     }
     const previousAttempts = state.scenario.attempts?.[stage.id] || 0;
-    if (previousAttempts >= 1 + spec.budget.max_retries) {
+    // 服务商额度耗尽/限流并不反映 Agent 的实现能力；保留这些 attempt 的完整日志，但不计入
+    // “首轮 + N 次实现重试”的额度。这样用户可在配额恢复后继续同一 Run。
+    const quotaPausedAttempts = quotaPausedAttemptCount(runDir, stage.id);
+    const chargedAttempts = Math.max(0, previousAttempts - quotaPausedAttempts);
+    if (chargedAttempts >= 1 + spec.budget.max_retries) {
       stageResults.push({
         stage_id: stage.id,
         status: 'error',
@@ -818,7 +836,7 @@ async function run(args) {
     }
 
     const inputPath = join(runDir, 'input', `stage-${stage.id}.md`);
-    const retryError = previousAttempts > 0 ? previousStageFailure(runDir, stage.id) : null;
+    const retryError = chargedAttempts > 0 ? previousStageFailure(runDir, stage.id) : null;
     writeFileSync(inputPath, `${stagePrompt(caseDir, scenario, stage)}${retryFeedback(stage.id, retryError)}`);
     state.scenario.attempts = state.scenario.attempts || {};
     const attempt = (state.scenario.attempts[stage.id] || 0) + 1;
