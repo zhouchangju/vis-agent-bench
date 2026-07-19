@@ -68,6 +68,18 @@ Claude Code 使用 `--print --permission-mode auto` 避免审批等待。多阶�
 设置，报告只记录 configured provider；除非 CLI 事件能证明实际 provider/model，不能凭模型
 别名推断供应商。
 
+同一个 L1 Smoke 也可使用 Kimi K3：
+
+```bash
+npm run smoke:flow:real -- \
+  --engine kimi \
+  --model kimi-code/k3 \
+  --acknowledge-no-cost-cap
+```
+
+Kimi Code 没有原生费用上限，Harness 仅能强制墙钟超时。`--prompt` 已是非交互 auto 语义，
+Adapter 不再叠加 `--yolo` 或 `--auto`。
+
 ### L2：指定正式 Case
 
 同一个入口也可以运行股权关系、3D、热力地图等正式 Case：

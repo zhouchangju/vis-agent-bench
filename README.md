@@ -124,6 +124,20 @@ P0 待评审，直到补齐浏览器证据和人工评审。完整说明见
 
 生成的 HTML、Markdown 和管理结论文案默认使用中文；JSON 字段名和枚举保持稳定，便于程序处理。
 
+使用 Kimi K3：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine kimi \
+  --model kimi-code/k3 \
+  --wall-time-minutes 180 \
+  --acknowledge-no-cost-cap
+```
+
+Kimi CLI 没有原生费用上限，必须显式确认这一点；建议先增加 `--dry-run` 做零费用配置检查。
+所有参数的含义和默认值见[评测运行手册](docs/operations/RUNBOOK.md#参数说明)。
+
 ## Runner MVP
 
 检查本机 CLI：

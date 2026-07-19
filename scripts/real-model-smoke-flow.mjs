@@ -15,6 +15,7 @@ import { buildReport } from '../src/reporting/builders.mjs';
 import { loadEntry } from '../src/reporting/load.mjs';
 import { renderHtml, renderMarkdown } from '../src/reporting/render/index.mjs';
 import { validateReport } from '../src/reporting/validate.mjs';
+import { aggregateUsage } from '../src/telemetry/usage.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -22,8 +23,8 @@ function parseArgs(argv) {
   const parsed = {
     case: 'dev-workflow-smoke',
     engine: 'claude',
-    model: 'deepseek-v4-flash',
-    provider: 'claude-code-configured-provider',
+    model: null,
+    provider: null,
     wall_time_minutes: null,
     max_stage_cost_usd: null,
   };
@@ -186,32 +187,35 @@ function collectReportedUsage(runDir, caseDir) {
     const stdoutPath = join(stagesDir, stage.id, 'stdout.raw');
     if (!existsSync(stdoutPath)) continue;
     const lines = readFileSync(stdoutPath, 'utf8').split(/\r?\n/).filter(Boolean);
-    const resultEvents = [];
+    const events = [];
     for (const line of lines) {
       try {
         const event = JSON.parse(line);
-        if (event.type === 'result') resultEvents.push(event);
+        events.push(event);
+        if (typeof event.model === 'string') observedModels.add(event.model);
+        for (const model of Object.keys(event.modelUsage || {})) observedModels.add(model);
       } catch {
         // Raw non-JSON output remains available in stdout.raw.
       }
     }
-    const event = resultEvents.at(-1);
-    if (!event) continue;
+    // Prefer terminal usage events so providers that repeat cumulative usage
+    // on intermediate messages are not double-counted.
+    const terminalUsageEvents = events.filter(event =>
+      event.type === 'result' || event.event === 'message.end');
+    const usage = aggregateUsage(terminalUsageEvents.length ? terminalUsageEvents : events);
+    if (usage.provenance === 'unavailable') continue;
     reports += 1;
-    const usage = event.usage || {};
     totals.input_tokens += Number(usage.input_tokens || 0);
     totals.output_tokens += Number(usage.output_tokens || 0);
-    totals.cached_tokens += Number(usage.cache_read_input_tokens || 0);
-    totals.cost_usd += Number(event.total_cost_usd || 0);
-    for (const model of Object.keys(event.modelUsage || {})) observedModels.add(model);
+    totals.cached_tokens += Number(usage.cached_tokens || 0);
+    totals.cost_usd += Number(usage.cost_usd || 0);
     totals.stage_reports.push({
       stage_id: stage.id,
-      subtype: event.subtype || null,
-      cost_usd: event.total_cost_usd ?? null,
+      provenance: usage.provenance,
+      cost_usd: usage.cost_usd,
       input_tokens: usage.input_tokens ?? null,
       output_tokens: usage.output_tokens ?? null,
-      cached_tokens: usage.cache_read_input_tokens ?? null,
-      observed_models: Object.keys(event.modelUsage || {}),
+      cached_tokens: usage.cached_tokens ?? null,
     });
   }
   totals.cost_usd = Number(totals.cost_usd.toFixed(6));
@@ -265,9 +269,13 @@ function generateReport(runDir, caseMeta, outcome) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (args.engine !== 'claude') {
-    throw new Error('当前真实模型统一入口仅验证了 --engine claude；启用其他引擎前需先完成适配器验证。');
+  if (!['claude', 'kimi'].includes(args.engine)) {
+    throw new Error('当前真实模型统一入口支持 --engine claude 或 --engine kimi。');
   }
+  const provider = args.provider || (args.engine === 'kimi'
+    ? 'kimi-code-managed-provider'
+    : 'claude-code-configured-provider');
+  const model = args.model || (args.engine === 'kimi' ? 'kimi-code/k3' : 'deepseek-v4-flash');
   const caseId = String(args.case);
   const caseDir = join(projectRoot, 'cases', caseId);
   const caseMetaPath = join(caseDir, 'case.yaml');
@@ -288,26 +296,35 @@ function main() {
   if (!existsSync(workspaceSource)) {
     throw new Error(`Case 缺少可运行 Fixture：${workspaceSource}`);
   }
-  if (!isDevelopmentSmoke && maxStageCostUsd == null && !args.dry_run) {
+  if (args.engine === 'claude' && !isDevelopmentSmoke && maxStageCostUsd == null && !args.dry_run) {
     throw new Error('正式 Case 必须显式设置 --max-stage-cost-usd，避免无人值守运行失控。');
   }
+  if (args.engine === 'kimi' && args.max_stage_cost_usd != null) {
+    throw new Error('Kimi Code CLI 不支持原生费用上限，请移除 --max-stage-cost-usd，并显式传入 --acknowledge-no-cost-cap。');
+  }
+  if (args.engine === 'kimi' && !args.acknowledge_no_cost_cap && !args.dry_run) {
+    throw new Error('Kimi Code CLI 不支持原生费用上限；真实运行必须显式传入 --acknowledge-no-cost-cap。');
+  }
+  const effectiveMaxStageCostUsd = args.engine === 'claude' ? maxStageCostUsd : null;
 
   const resolvedConfig = {
     case_id: caseId,
     case_title: caseMeta.title,
     task_type: caseMeta.task_type,
     engine: args.engine,
-    model: args.model,
-    provider: args.provider,
+    model,
+    provider,
     workspace_source: workspaceSource,
     stage_count: stageCount,
     wall_time_minutes: Number(wallTimeMinutes),
-    max_stage_cost_usd: maxStageCostUsd === 'none' || maxStageCostUsd == null
+    max_stage_cost_usd: effectiveMaxStageCostUsd === 'none' || effectiveMaxStageCostUsd == null
       ? null
-      : Number(maxStageCostUsd),
-    max_possible_run_cost_usd: maxStageCostUsd === 'none' || maxStageCostUsd == null
+      : Number(effectiveMaxStageCostUsd),
+    max_possible_run_cost_usd: effectiveMaxStageCostUsd === 'none' || effectiveMaxStageCostUsd == null
       ? null
-      : Number(maxStageCostUsd) * stageCount,
+      : Number(effectiveMaxStageCostUsd) * stageCount,
+    cost_cap_enforcement: args.engine === 'claude' ? 'native-cli-per-stage' : 'unavailable',
+    permission_mode: args.engine === 'kimi' ? 'prompt-mode-auto' : 'auto',
     business_acceptance_requires_human_review: !isDevelopmentSmoke,
   };
   if (args.dry_run) {
@@ -326,13 +343,13 @@ function main() {
     'prepare',
     '--case', caseId,
     '--engine', args.engine,
-    '--model', args.model,
-    '--provider', args.provider,
+    '--model', model,
+    '--provider', provider,
     '--wall-time-minutes', wallTimeMinutes,
     '--workspace-source', workspaceSource,
   ];
-  if (maxStageCostUsd !== 'none') {
-    prepareArgs.push('--max-cost-usd', maxStageCostUsd);
+  if (effectiveMaxStageCostUsd != null && effectiveMaxStageCostUsd !== 'none') {
+    prepareArgs.push('--max-cost-usd', effectiveMaxStageCostUsd);
   }
 
   const prepared = runNode(prepareArgs);
@@ -357,8 +374,8 @@ function main() {
   process.stdout.write(`${JSON.stringify({
     status: outcome.flowPassed ? 'success' : 'warning',
     summary: outcome.flowPassed
-      ? `${caseMeta.title} 已使用 ${args.model} 跑完；流程门禁通过${isDevelopmentSmoke ? '。' : '，业务验收仍待浏览器与人工评审。'}`
-      : `${caseMeta.title} 已使用 ${args.model} 运行，但一个或多个流程门禁失败。`,
+      ? `${caseMeta.title} 已使用 ${model} 跑完；流程门禁通过${isDevelopmentSmoke ? '。' : '，业务验收仍待浏览器与人工评审。'}`
+      : `${caseMeta.title} 已使用 ${model} 运行，但一个或多个流程门禁失败。`,
     next_actions: outcome.flowPassed
       ? [isDevelopmentSmoke
         ? '检查模型事件和演示报告；该运行不可用于正式排行榜结论。'
@@ -373,11 +390,12 @@ function main() {
     run_dir: runDir,
     case_id: caseId,
     case_title: caseMeta.title,
-    configured_model: args.model,
-    configured_provider: args.provider,
-    configured_stage_cost_cap_usd: maxStageCostUsd === 'none'
+    configured_model: model,
+    configured_provider: provider,
+    configured_stage_cost_cap_usd: effectiveMaxStageCostUsd === 'none'
       ? null
-      : Number(maxStageCostUsd),
+      : (effectiveMaxStageCostUsd == null ? null : Number(effectiveMaxStageCostUsd)),
+    cost_cap_enforcement: resolvedConfig.cost_cap_enforcement,
     observed_models: usage.observed_models,
     reported_cost_usd: usage.cost_usd,
     reported_tokens: {

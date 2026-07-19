@@ -55,6 +55,24 @@ try {
   assert.equal(dryRunEnvelope.resolved_config.business_acceptance_requires_human_review, true);
   assert.match(dryRunEnvelope.resolved_config.workspace_source, /fixture\/starter$/);
 
+  const kimiDryRun = spawnSync(
+    process.execPath,
+    [
+      'scripts/real-model-smoke-flow.mjs',
+      '--case', 'narrative-equity-relationship',
+      '--engine', 'kimi',
+      '--model', 'kimi-code/k3',
+      '--dry-run',
+    ],
+    { cwd: repoRoot, encoding: 'utf8', shell: false },
+  );
+  assert.equal(kimiDryRun.status, 0, kimiDryRun.stderr || kimiDryRun.stdout);
+  const kimiEnvelope = JSON.parse(kimiDryRun.stdout);
+  assert.equal(kimiEnvelope.resolved_config.model, 'kimi-code/k3');
+  assert.equal(kimiEnvelope.resolved_config.provider, 'kimi-code-managed-provider');
+  assert.equal(kimiEnvelope.resolved_config.cost_cap_enforcement, 'unavailable');
+  assert.equal(kimiEnvelope.resolved_config.permission_mode, 'prompt-mode-auto');
+
   process.stdout.write('development smoke flow passed\n');
 } finally {
   rmSync(outDir, { recursive: true, force: true });
