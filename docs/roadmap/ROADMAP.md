@@ -34,12 +34,13 @@
 - [x] 三类 CLI 的多阶段会话构建和逐阶段日志目录；
 - [x] 将当前 Codex + 主力 GPT 工作流设为主比较基线；
 - [x] 为三个主 Case 建设可运行起始工程和脱敏 fixture；
-- [ ] 实际运行一个模型 × 一个 Case 的端到端试验；
+- [x] 实际运行多个模型 × 复杂 Case 的端到端开发 Pilot；
 - [x] 确定性 Evaluator；
 - [x] Playwright 真实 Chromium 证据与显式访问策略；
 - [x] 合并机器证据与人工评审生成 Markdown/HTML 报告；
 - [x] 三个主 Case 的 deterministic golden E2E 与 checkpoint 恢复；
 - [x] 设置页按同一契约导出 RunSpec；
+- [x] 支持长任务断点恢复、额度暂停诊断与视觉反馈 Revision 子 Run；
 - [ ] 后续升级容器隔离。
 
 ## M3：视觉与性能

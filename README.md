@@ -10,7 +10,8 @@
 
 ## 当前阶段
 
-当前处于 `M2：已完成确定性总集成，准备首轮真实模型试验`。
+当前已完成 `M2` 确定性总集成和首轮真实模型 Pilot，正在补齐人工视觉评审、
+Human Touch Time 与同口径基线，形成可用于人效判断的完整证据链。
 
 首批范围已收敛为：
 
@@ -34,6 +35,7 @@ StandardChart 产业链双向树保留为备选 Case；StandardChart TODO / 存�
 - [人工评审与最终报告](docs/design/HUMAN_REVIEW_WORKFLOW.md)
 - [视觉反馈 Revision 子 Run](docs/design/VISUAL_FEEDBACK_REVISION.md)
 - [开发阶段快速闭环](docs/design/DEVELOPMENT_SMOKE_FLOW.md)
+- [首轮开发与真实模型运行复盘](docs/retrospectives/2026-07-19-20-DEVELOPMENT-RETROSPECTIVE.md)
 - [评测运行手册：测试、真实模型与指定 Case](docs/operations/RUNBOOK.md)
 - [多 Agent 开发总控](docs/agent-orchestration/README.md)
 - [可直接派发的任务目录](docs/agent-orchestration/task-catalog.yaml)
