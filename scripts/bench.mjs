@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
+  statSync,
   realpathSync,
   writeFileSync,
 } from 'node:fs';
@@ -43,7 +45,11 @@ function parseArgs(args) {
       const next = args[i + 1];
       if (next == null || next.startsWith('--')) parsed[key] = true;
       else {
-        parsed[key] = next;
+        if (key === 'reference' && parsed[key] != null) {
+          parsed[key] = Array.isArray(parsed[key]) ? [...parsed[key], next] : [parsed[key], next];
+        } else {
+          parsed[key] = next;
+        }
         i += 1;
       }
     }
@@ -164,6 +170,12 @@ function loadScenario(caseDir) {
     throw new Error(`Scenario has no stages: ${path}`);
   }
   return scenario;
+}
+
+function loadRunScenario(runDir, caseDir) {
+  const revisionScenario = join(runDir, 'scenario', 'stages.yaml');
+  if (existsSync(revisionScenario)) return parseYaml(readFileSync(revisionScenario, 'utf8'));
+  return loadScenario(caseDir);
 }
 
 function stagePrompt(caseDir, scenario, stage) {
@@ -672,6 +684,212 @@ function prepareBundleCommand(args) {
   );
 }
 
+const REVISION_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg']);
+
+function resolveRunDirectory(value) {
+  const root = resolve(projectRoot, '.local', 'runs');
+  const direct = resolve(value);
+  const candidate = existsSync(direct) ? direct : join(root, value);
+  const resolved = resolve(candidate);
+  if (!resolved.startsWith(`${root}/`) || !existsSync(resolved)) {
+    throw new Error(`Run 不存在或不在 .local/runs 下：${value}`);
+  }
+  return resolved;
+}
+
+function fileDigest(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+function referencePaths(value) {
+  const raw = Array.isArray(value) ? value : [value];
+  const paths = raw.flatMap(item => String(item || '').split(',')).map(item => item.trim()).filter(Boolean);
+  if (!paths.length) throw new Error('Revision 至少需要一个 --reference 图片。');
+  if (paths.length > 6) throw new Error('单次 Revision 最多允许 6 张参考图片，避免上下文失焦。');
+  return paths.map(path => resolve(path));
+}
+
+function revisionScenario(references) {
+  const imagePaths = references.map(ref => `.vab/revision-inputs/images/${ref.file}`).join('、');
+  return {
+    version: 1,
+    mode: 'progressive-disclosure',
+    requirement_truth: '.vab/revision-inputs/revision.json',
+    revision: true,
+    stages: [
+      {
+        id: 'R0',
+        name: 'visual-grounding',
+        stakeholder_message: [
+          '这是在已有交付代码基础上的人工视觉反馈修订，不要从零重写组件。',
+          '先阅读 `.vab/revision-inputs/feedback.md` 与 `.vab/revision-inputs/references.json`。',
+          `必须逐张使用可用的图片读取工具读取：${imagePaths}。Kimi Code 请使用 ReadMediaFile；其他 Runner 使用其原生图片输入或读取工具。`,
+          '在未完成视觉理解前不得修改产品代码。将图片中可观察到的布局、层级、留白、颜色、连线、标签、动效意图，与当前实现的差距分别写入 `docs/revision/visual-grounding.md`；明确哪些是图片事实、哪些是推断、哪些仍不确定。',
+          '更新 requirement-ledger.yaml，保留既有 must 约束；新增的视觉约束必须标明来自本次反馈。',
+        ].join('\n'),
+        checkpoint: ['requirement-ledger.yaml', 'visual-grounding'],
+        observe: ['image_grounding', 'feedback_understanding', 'assumption_transparency'],
+      },
+      {
+        id: 'R1',
+        name: 'targeted-visual-revision',
+        stakeholder_message: [
+          '基于 R0 的 visual-grounding、反馈包和图片，定向修订现有实现。',
+          '优先修复人工明确标出的视觉表达、布局、层级和交互问题；保留父 Run 已通过的功能与 API，不要为了模仿截图删除原有能力。',
+          '实现后写入 `docs/revision/change-log.md`：每项修改对应的反馈编号、涉及文件、验证方式和仍未解决的边界。',
+          '补充针对本轮视觉/布局约束的独立回归测试或证据，不得篡改基线 build/typecheck/test scripts。',
+        ].join('\n'),
+        checkpoint: ['requirement-ledger.yaml', 'targeted-visual-revision', 'revision-regression-evidence'],
+        observe: ['visual_delta', 'requirement_retention', 'regressions'],
+      },
+      {
+        id: 'R2',
+        name: 'revision-acceptance',
+        stakeholder_message: [
+          '完成本轮修订验收：运行真实的 build、typecheck、test 和必要的新增回归检查。',
+          '生成可供人工比对的固定状态截图/HTML 证据，写入 `docs/revision/before-after.md`，说明每张参考图对应的实现变化与尚未满足项。',
+          '更新 `limitations.md`，并收口 requirement-ledger.yaml。不要声称图片无法证明的视觉结论已经完全达标。',
+        ].join('\n'),
+        checkpoint: ['candidate-delivery', 'revision-test-results', 'revision-visual-evidence', 'final-requirement-ledger', 'limitations.md'],
+        observe: ['revision_acceptance', 'visual_evidence', 'manual_follow_up'],
+      },
+    ],
+  };
+}
+
+function createRevision(args) {
+  const parentRunDir = resolveRunDirectory(requireOption(args, 'parent_run'));
+  const parentSpecPath = join(parentRunDir, 'run-spec.json');
+  const parentWorkspace = join(parentRunDir, 'workspace');
+  if (!existsSync(parentSpecPath) || !existsSync(parentWorkspace)) {
+    throw new Error('父 Run 缺少 run-spec.json 或 workspace，无法创建 Revision。');
+  }
+  const parentSpec = JSON.parse(readFileSync(parentSpecPath, 'utf8'));
+  const validation = validateRunSpec(parentSpec);
+  if (!validation.valid) throw new Error(`父 RunSpec 无效：${JSON.stringify(validation.errors)}`);
+  const parentStatePath = join(parentRunDir, 'run-state.json');
+  const parentState = existsSync(parentStatePath) ? JSON.parse(readFileSync(parentStatePath, 'utf8')) : null;
+  const parentRunId = parentState?.run_id || basename(parentRunDir);
+  if (parentState?.status === 'running' && processIsAlive(parentState.process_pid)) {
+    throw new Error(`父 Run 仍在执行（PID ${parentState.process_pid}）；请结束后再创建 Revision。`);
+  }
+
+  const feedbackSource = resolve(requireOption(args, 'feedback'));
+  if (!existsSync(feedbackSource) || !statSync(feedbackSource).isFile()) {
+    throw new Error(`反馈文件不存在：${feedbackSource}`);
+  }
+  const references = referencePaths(args.reference).map((source, index) => {
+    if (!existsSync(source) || !statSync(source).isFile()) throw new Error(`参考图片不存在：${source}`);
+    const extension = source.slice(source.lastIndexOf('.')).toLowerCase();
+    if (!REVISION_IMAGE_EXTENSIONS.has(extension)) throw new Error(`不支持的参考图片格式：${source}`);
+    const bytes = statSync(source).size;
+    if (bytes > 20 * 1024 * 1024) throw new Error(`参考图片超过 20 MiB：${source}`);
+    // Do not expose arbitrary user file names in a model prompt. Stable generated
+    // names also make same-name reference images unambiguous.
+    return {
+      source,
+      original_name: basename(source),
+      file: `reference-${String(index + 1).padStart(2, '0')}${extension}`,
+      bytes,
+      sha256: fileDigest(source),
+    };
+  });
+
+  const engine = adapterId(parentSpec.engine.adapter);
+  const runId = args.run_id || `${new Date().toISOString().replaceAll(/[:.]/g, '-')}_revision_${engine}_${randomUUID().slice(0, 8)}`;
+  const runDir = createRunLayout(projectRoot, runId);
+  mkdirSync(join(runDir, '.empty-skills'), { recursive: true });
+  copyWorkspaceSource(parentWorkspace, join(runDir, 'workspace'));
+
+  const revisionInput = join(runDir, 'workspace', '.vab', 'revision-inputs');
+  const imageDir = join(revisionInput, 'images');
+  mkdirSync(imageDir, { recursive: true });
+  copyFileSync(feedbackSource, join(revisionInput, 'feedback.md'));
+  for (const reference of references) copyFileSync(reference.source, join(imageDir, reference.file));
+  const lineage = {
+    schema_version: 1,
+    kind: 'visual-feedback-revision',
+    revision_index: 1,
+    parent_run_id: parentRunId,
+    parent_run_status: parentState?.status || 'unknown',
+    session_policy: 'fresh-focused',
+    parent_workspace_file_count: listFiles(parentWorkspace).length,
+    feedback: {
+      path: '.vab/revision-inputs/feedback.md',
+      bytes: statSync(feedbackSource).size,
+      sha256: fileDigest(feedbackSource),
+    },
+    references: references.map(reference => ({
+      path: `.vab/revision-inputs/images/${reference.file}`,
+      original_name: reference.original_name,
+      bytes: reference.bytes,
+      sha256: reference.sha256,
+    })),
+    created_at: new Date().toISOString(),
+  };
+  writeFileSync(join(revisionInput, 'references.json'), `${JSON.stringify(lineage.references, null, 2)}\n`);
+  writeFileSync(join(revisionInput, 'revision.json'), `${JSON.stringify(lineage, null, 2)}\n`);
+  writeFileSync(join(runDir, 'revision.json'), `${JSON.stringify(lineage, null, 2)}\n`);
+  writeFileSync(join(runDir, 'input', 'revision-feedback.md'), readFileSync(feedbackSource, 'utf8'));
+  const scenario = revisionScenario(references);
+  mkdirSync(join(runDir, 'scenario'), { recursive: true });
+  writeFileSync(join(runDir, 'scenario', 'stages.yaml'), `${JSON.stringify(scenario, null, 2)}\n`);
+
+  const spec = structuredClone(parentSpec);
+  spec.name = `${parentSpec.name} · visual revision`;
+  spec.isolation.workspace_root = join(runDir, 'workspace');
+  spec.scenario = {
+    ...spec.scenario,
+    baseline_type: 'parent-run-visual-revision',
+    session_continuity_required: false,
+  };
+  const specValidation = validateRunSpec(spec);
+  if (!specValidation.valid) throw new Error(`Revision RunSpec 无效：${JSON.stringify(specValidation.errors)}`);
+  const state = {
+    schema_version: 1,
+    run_id: runId,
+    status: 'prepared',
+    scenario: {
+      mode: scenario.mode,
+      stage_ids: scenario.stages.map(stage => stage.id),
+      current_stage: null,
+      completed_stages: [],
+      attempts: {},
+      future_stage_inputs_copied: false,
+    },
+    session: {
+      id: engine === 'claude' ? randomUUID() : null,
+      continuity: getAdapter(engine).session_continuity,
+      started: false,
+    },
+    revision: { parent_run_id: lineage.parent_run_id, session_policy: lineage.session_policy },
+    run_spec_sha256: jsonDigest(spec),
+    package_gate: baselinePackageGate(join(runDir, 'workspace')),
+  };
+  writeFileSync(join(runDir, 'run-spec.json'), `${JSON.stringify(spec, null, 2)}\n`);
+  spawnSync('git', ['init', '-q'], { cwd: join(runDir, 'workspace'), shell: false });
+  spawnSync('git', ['add', '.'], { cwd: join(runDir, 'workspace'), shell: false });
+  const commit = spawnSync('git', ['-c', 'user.name=vis-agent-bench', '-c', 'user.email=bench@local', 'commit', '-qm', 'revision baseline'], {
+    cwd: join(runDir, 'workspace'), encoding: 'utf8', shell: false,
+  });
+  if (commit.status !== 0) throw new Error(`无法创建 Revision baseline：${commit.stderr || commit.stdout}`);
+  const baseline = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: join(runDir, 'workspace'), encoding: 'utf8', shell: false });
+  if (baseline.status !== 0) throw new Error('无法记录 Revision baseline commit。');
+  state.baseline_commit = baseline.stdout.trim();
+  writeFileSync(join(runDir, 'run-state.json'), `${JSON.stringify(state, null, 2)}\n`);
+  writeFileSync(join(runDir, 'logs', 'files-before.json'), `${JSON.stringify(listFiles(join(runDir, 'workspace')), null, 2)}\n`);
+  writeFileSync(join(runDir, 'logs', 'revision-parent-snapshot.json'), `${JSON.stringify(lineage, null, 2)}\n`);
+  output('success', `已从父 Run 创建视觉反馈 Revision：${runId}。`, [
+    `运行：node scripts/bench.mjs run --run-dir "${runDir}"`,
+    'Revision 使用新会话，仅继承父 Run 的代码快照与结构化反馈，避免旧对话上下文稀释。',
+  ], [
+    join(runDir, 'revision.json'),
+    join(runDir, 'scenario', 'stages.yaml'),
+    join(runDir, 'workspace', '.vab', 'revision-inputs', 'feedback.md'),
+    join(runDir, 'workspace', '.vab', 'revision-inputs', 'references.json'),
+  ], { run_id: runId, run_dir: runDir, parent_run_id: lineage.parent_run_id, revision: lineage });
+}
+
 function migrateLegacyRun(runDir, legacySpec) {
   const legacyResultPath = join(runDir, 'result.json');
   const legacyResult = existsSync(legacyResultPath)
@@ -800,7 +1018,7 @@ async function run(args) {
   state.process_pid = process.pid;
   writeFileSync(statePath, JSON.stringify(state, null, 2));
   const caseDir = join(projectRoot, 'cases', spec.case_id);
-  const scenario = loadScenario(caseDir);
+  const scenario = loadRunScenario(runDir, caseDir);
   const stageResults = [];
   const commandLogPath = join(runDir, 'logs', 'commands.json');
   const commandLogs = existsSync(commandLogPath)
@@ -1258,6 +1476,7 @@ async function main() {
   if (command === 'build-fixture') return buildFixtureCommand(args);
   if (command === 'prepare') return prepare(args);
   if (command === 'prepare-bundle') return prepareBundleCommand(args);
+  if (command === 'revise') return createRevision(args);
   if (command === 'run') return run(args);
   if (command === 'evaluate') return evaluateCommand(args);
   if (command === 'capture') return captureCommand(args);
@@ -1273,6 +1492,7 @@ async function main() {
       'node scripts/bench.mjs prepare --spec <run-spec.json>',
       'node scripts/bench.mjs prepare --case <id> --engine <codex|kimi|claude> --model <id> [--workspace-source <path>]',
       'node scripts/bench.mjs prepare-bundle --bundle <setup-export.json>',
+      'node scripts/bench.mjs revise --parent-run <run-id> --feedback <feedback.md> --reference <image.png> [--reference <image2.png>]',
       'node scripts/bench.mjs run --run-dir <path>',
       'node scripts/bench.mjs evaluate --run-dir <path> [--attestation observation-attestation.json]',
       'node scripts/bench.mjs capture --capture-spec <path> --out-dir <path> --allow-origin <origin>',

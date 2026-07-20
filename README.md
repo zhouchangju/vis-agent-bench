@@ -32,6 +32,7 @@ StandardChart 产业链双向树保留为备选 Case；StandardChart TODO / 存�
 - [人效评估设计](docs/design/EFFICIENCY_EVALUATION.md)
 - [Run 日志规范](docs/design/RUN_LOG_SPEC.md)
 - [人工评审与最终报告](docs/design/HUMAN_REVIEW_WORKFLOW.md)
+- [视觉反馈 Revision 子 Run](docs/design/VISUAL_FEEDBACK_REVISION.md)
 - [开发阶段快速闭环](docs/design/DEVELOPMENT_SMOKE_FLOW.md)
 - [评测运行手册：测试、真实模型与指定 Case](docs/operations/RUNBOOK.md)
 - [多 Agent 开发总控](docs/agent-orchestration/README.md)
@@ -180,6 +181,19 @@ npm run bench:status -- --run <run-id> --watch
 ```bash
 npm run bench:case -- --resume-run <run-id>
 ```
+
+首轮运行已产出可用代码、但人工发现视觉表达或布局仍需按参考图微调时，不要覆盖或重跑父 Run；创建视觉反馈 Revision 子 Run。它复制父代码快照、使用新会话处理窄上下文，并保留父子血缘和图片哈希：
+
+```bash
+npm run bench:case -- \
+  --revise-run <parent-run-id> \
+  --feedback /absolute/path/feedback.md \
+  --reference /absolute/path/reference-1.png \
+  --reference /absolute/path/reference-2.png \
+  --acknowledge-no-cost-cap
+```
+
+完整流程与产物说明见[视觉反馈 Revision 子 Run](docs/design/VISUAL_FEEDBACK_REVISION.md)。
 
 每次运行都创建 `.local/runs/<run-id>/workspace`，但当前只是文件级软隔离，不能阻止同一用户权限
 下的 CLI 通过绝对路径读取宿主机其他目录，因此不进入正式排行榜。

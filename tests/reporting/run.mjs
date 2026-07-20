@@ -89,6 +89,24 @@ const checks = [
     assert.equal(report.case_conclusions.length, 3);
   }],
 
+  ['visual feedback revision retains parent lineage in report evidence', () => {
+    const entry = buildAcceptedEntry({ runId: 'revision-child' });
+    entry.revision = {
+      parent_run_id: 'parent-run',
+      revision_index: 2,
+      session_policy: 'fresh-focused',
+      path: '/tmp/revision.json',
+    };
+    const report = buildReport({
+      entries: [entry], reportId: 'revision-lineage', generatedAt: '2026-07-20T00:00:00Z', baseline: buildBaseline(),
+    });
+    assert.equal(validateReport(report).valid, true);
+    assert.equal(report.data_provenance.inputs[0].parent_run_id, 'parent-run');
+    assert.equal(report.data_provenance.inputs[0].revision_index, 2);
+    assert.ok(report.evidence_index.some(item => item.handle === 'revision:revision-child'));
+    assert.ok(report.fact_layers.machine.some(item => item.statement.includes('父 Run parent-run')));
+  }],
+
   ['report is a deterministic function of its inputs (snapshot)', () => {
     const reportA = makeSingleRunReport();
     const reportB = makeSingleRunReport();

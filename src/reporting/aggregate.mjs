@@ -280,12 +280,21 @@ export function buildFactLayers(entries, aggregates) {
     const run = entry?.run || {};
     const evaluator = entry?.evaluator;
     const review = entry?.human_review;
+    const revision = entry?.revision;
 
     if (run?.status) {
       push('machine', 'machine', `运行 ${runId} 的最终状态为 ${run.status}。`, [`run:${runId}`]);
     }
     if (run?.duration_ms != null) {
       push('machine', 'machine', `运行 ${runId} 的 CLI 墙钟时间为 ${Math.round(run.duration_ms / 60000)} 分钟。`, [`run:${runId}`]);
+    }
+    if (revision?.parent_run_id) {
+      push(
+        'machine',
+        'machine',
+        `运行 ${runId} 是父 Run ${revision.parent_run_id} 的第 ${revision.revision_index || 1} 次视觉反馈修订；使用新会话并复用父 Run 代码快照。`,
+        [`revision:${runId}`],
+      );
     }
     if (evaluator) {
       const p0 = p0StateFromEvaluator(evaluator);

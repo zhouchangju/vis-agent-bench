@@ -52,7 +52,13 @@ export function loadEntry(runDir, { demo = false, caseMeta } = {}) {
   const browser = readJson(join(runDir, 'browser-evidence.json'));
   if (browser) attachPath(browser, join(runDir, 'browser-evidence.json'));
 
-  return { run, evaluator, human_review: humanReview, isolation, browser, demo, case_meta: caseMeta || null };
+  const revision = readJson(join(runDir, 'revision.json'));
+  if (revision) attachPath(revision, join(runDir, 'revision.json'));
+
+  return {
+    run, evaluator, human_review: humanReview, isolation, browser, revision,
+    demo, case_meta: caseMeta || null,
+  };
 }
 
 export function loadBaseline(baselinePath) {

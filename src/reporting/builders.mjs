@@ -39,6 +39,7 @@ export function normalizeEntry(entry) {
     evaluator: entry.evaluator || null,
     isolation: entry.isolation || null,
     browser: entry.browser || null,
+    revision: entry.revision || null,
     baseline: entry.baseline || null,
     case_meta: entry.case_meta || null,
     demo: Boolean(entry.demo),
@@ -173,21 +174,36 @@ function buildEvidenceIndex(entries) {
     if (entry.browser) {
       index.push({ handle: `browser:${runId}`, kind: 'browser', label: `浏览器证据 ${runId}`, path: entry.browser?.path || '' });
     }
+    if (entry.revision) {
+      index.push({
+        handle: `revision:${runId}`,
+        kind: 'stage-log',
+        label: `视觉反馈修订血缘 ${runId}`,
+        path: entry.revision?.path || '',
+      });
+    }
   }
   return index;
 }
 
 function buildDataProvenance(entries) {
-  const inputs = entries.map(entry => ({
-    run_id: runIdOf(entry),
-    case_id: caseIdOf(entry),
-    model_label: modelLabel(entry),
-    demo: Boolean(entry.demo),
-    has_human_review: Boolean(entry.human_review),
-    has_evaluator: Boolean(entry.evaluator),
-    accepted: Boolean(entry.human_review
-      && ['accepted', 'accepted-with-fixes'].includes(entry.human_review.decision)),
-  }));
+  const inputs = entries.map(entry => {
+    const input = {
+      run_id: runIdOf(entry),
+      case_id: caseIdOf(entry),
+      model_label: modelLabel(entry),
+      demo: Boolean(entry.demo),
+      has_human_review: Boolean(entry.human_review),
+      has_evaluator: Boolean(entry.evaluator),
+      accepted: Boolean(entry.human_review
+        && ['accepted', 'accepted-with-fixes'].includes(entry.human_review.decision)),
+    };
+    if (entry.revision?.parent_run_id) {
+      input.parent_run_id = entry.revision.parent_run_id;
+      input.revision_index = entry.revision.revision_index || 1;
+    }
+    return input;
+  });
   return {
     inputs,
     demo_inputs_present: inputs.some(input => input.demo),

@@ -402,7 +402,10 @@ function validateDataProvenance(value, errors) {
       return;
     }
     requireFields(input, ['run_id', 'case_id', 'model_label', 'demo'], iPath, errors);
-    ensureNoExtraFields(input, new Set(['run_id', 'case_id', 'model_label', 'demo', 'has_human_review', 'has_evaluator', 'accepted']), iPath, errors);
+    ensureNoExtraFields(input, new Set([
+      'run_id', 'case_id', 'model_label', 'demo', 'has_human_review', 'has_evaluator', 'accepted',
+      'parent_run_id', 'revision_index',
+    ]), iPath, errors);
     for (const key of ['run_id', 'case_id', 'model_label']) {
       if (!isNonEmptyString(input[key])) errors.push(diagnostic(`${iPath}.${key}`, 'STRING', `${key} must be non-empty.`));
     }
@@ -410,5 +413,7 @@ function validateDataProvenance(value, errors) {
     if (input.has_human_review !== undefined && typeof input.has_human_review !== 'boolean') errors.push(diagnostic(`${iPath}.has_human_review`, 'BOOLEAN', 'has_human_review must be boolean.'));
     if (input.has_evaluator !== undefined && typeof input.has_evaluator !== 'boolean') errors.push(diagnostic(`${iPath}.has_evaluator`, 'BOOLEAN', 'has_evaluator must be boolean.'));
     if (input.accepted !== undefined && typeof input.accepted !== 'boolean') errors.push(diagnostic(`${iPath}.accepted`, 'BOOLEAN', 'accepted must be boolean.'));
+    if (input.parent_run_id !== undefined && !isNonEmptyString(input.parent_run_id)) errors.push(diagnostic(`${iPath}.parent_run_id`, 'STRING', 'parent_run_id must be non-empty when present.'));
+    if (input.revision_index !== undefined && (!Number.isInteger(input.revision_index) || input.revision_index < 1)) errors.push(diagnostic(`${iPath}.revision_index`, 'RANGE', 'revision_index must be an integer >= 1 when present.'));
   });
 }

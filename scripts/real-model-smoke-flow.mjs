@@ -38,7 +38,12 @@ function parseArgs(argv) {
     const next = argv[index + 1];
     if (next == null || next.startsWith('--')) parsed[key] = true;
     else {
-      parsed[key] = next;
+      if (key === 'reference') {
+        const current = parsed[key];
+        parsed[key] = current == null ? [next] : [...(Array.isArray(current) ? current : [current]), next];
+      } else {
+        parsed[key] = next;
+      }
       index += 1;
     }
   }
@@ -198,7 +203,11 @@ function runNodeWithProgress(args, { runDir, timeout }) {
 }
 
 function evaluateCheckpoints(runDir, caseDir) {
-  const scenario = parseYaml(readFileSync(join(caseDir, 'scenario', 'stages.yaml'), 'utf8'));
+  const runScenarioPath = join(runDir, 'scenario', 'stages.yaml');
+  const scenarioPath = existsSync(runScenarioPath)
+    ? runScenarioPath
+    : join(caseDir, 'scenario', 'stages.yaml');
+  const scenario = parseYaml(readFileSync(scenarioPath, 'utf8'));
   const workspace = join(runDir, 'workspace');
   const runnerResultPath = join(runDir, 'result.json');
   const runnerStages = existsSync(runnerResultPath)
@@ -384,7 +393,11 @@ export function collectReportedUsage(runDir, caseDir) {
   };
   if (!existsSync(stagesDir)) return totals;
 
-  const scenario = parseYaml(readFileSync(join(caseDir, 'scenario', 'stages.yaml'), 'utf8'));
+  const runScenarioPath = join(runDir, 'scenario', 'stages.yaml');
+  const scenario = parseYaml(readFileSync(
+    existsSync(runScenarioPath) ? runScenarioPath : join(caseDir, 'scenario', 'stages.yaml'),
+    'utf8',
+  ));
   const observedModels = new Set();
   let attempts = 0;
   let reports = 0;
@@ -522,6 +535,9 @@ function collectQuickViewArtifacts(runDir, reportArtifacts) {
     ['自动化测试结果', join(workspace, 'automated-test-results.md')],
     ['性能证据', join(workspace, 'performance-evidence.md')],
     ['需求 Ledger', join(workspace, 'requirement-ledger.yaml')],
+    ['视觉反馈修订血缘', join(runDir, 'revision.json')],
+    ['视觉理解记录', join(workspace, 'docs', 'revision', 'visual-grounding.md')],
+    ['修订前后对照', join(workspace, 'docs', 'revision', 'before-after.md')],
     ['视觉走查版本', join(workspace, 'reviewable-poc-v2', 'index.html')],
     ['交互扩展版本', join(workspace, 'interaction-demo', 'index.html')],
   ];
@@ -548,6 +564,109 @@ function resolveResumeRun(value) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+async function reviseExistingRun(args) {
+  const parentRunDir = resolveResumeRun(String(args.revise_run));
+  const parentSpecPath = join(parentRunDir, 'run-spec.json');
+  if (!existsSync(parentSpecPath)) throw new Error(`父 Run 缺少 run-spec.json：${parentRunDir}`);
+  const parentSpec = readJson(parentSpecPath);
+  const parentStatePath = join(parentRunDir, 'run-state.json');
+  const parentRunId = existsSync(parentStatePath)
+    ? (readJson(parentStatePath).run_id || basename(parentRunDir))
+    : basename(parentRunDir);
+  const caseId = parentSpec.case_id;
+  const engine = parentSpec.engine?.adapter;
+  const model = parentSpec.engine?.configured_model || parentSpec.engine?.model;
+  const provider = parentSpec.engine?.provider || 'unspecified';
+  const feedback = args.feedback ? resolve(String(args.feedback)) : null;
+  const references = Array.isArray(args.reference) ? args.reference : (args.reference ? [args.reference] : []);
+  if (!caseId || !engine || !model) throw new Error('父 Run 缺少 case、engine 或 model，拒绝猜测 Revision 配置。');
+  if (!feedback || !existsSync(feedback)) throw new Error('Revision 必须传入存在的 --feedback <反馈.md>。');
+  if (!references.length) throw new Error('Revision 至少需要一张 --reference <图片>。');
+  if (['kimi', 'codex', 'pi'].includes(engine) && !args.acknowledge_no_cost_cap && !args.dry_run) {
+    const label = { kimi: 'Kimi Code', codex: 'Codex', pi: 'Pi' }[engine];
+    throw new Error(`${label} CLI 不支持原生费用上限；执行视觉反馈 Revision 必须显式传入 --acknowledge-no-cost-cap。`);
+  }
+  const caseDir = join(projectRoot, 'cases', caseId);
+  const caseMetaPath = join(caseDir, 'case.yaml');
+  if (!existsSync(caseMetaPath)) throw new Error(`父 Run 的 Case 不存在：${caseId}`);
+  const caseMeta = parseYaml(readFileSync(caseMetaPath, 'utf8'));
+  const isDevelopmentSmoke = caseMeta.task_type === 'development-smoke';
+  const wallTimeMinutes = Number(parentSpec.budget?.wall_time_minutes || 180);
+  if (args.dry_run) {
+    process.stdout.write(`${JSON.stringify({
+      status: 'success',
+      summary: '视觉反馈 Revision 配置解析成功；未创建 Run 或调用模型。',
+      resolved_config: {
+        parent_run_id: parentRunId, case_id: caseId, engine, model, provider,
+        feedback, reference_count: references.length, wall_time_minutes: wallTimeMinutes,
+        session_policy: 'fresh-focused',
+      },
+      next_actions: ['移除 --dry-run 后创建不可变父 Run 的 Revision 子 Run。'],
+      artifacts: [parentSpecPath],
+    }, null, 2)}\n`);
+    return;
+  }
+
+  const createArgs = [
+    'scripts/bench.mjs', 'revise', '--parent-run', parentRunDir, '--feedback', feedback,
+    ...references.flatMap(reference => ['--reference', resolve(String(reference))]),
+  ];
+  const created = runNode(createArgs);
+  if (created.envelope.status !== 'success') throw new Error(`创建 Revision 失败：${created.envelope.summary}`);
+  const runDir = created.envelope.run_dir;
+  const runId = created.envelope.run_id;
+  process.stderr.write(
+    `[VAB] 视觉反馈 Revision 已创建：${runId}\n`
+    + `[VAB] 父 Run：${parentRunId}（保持不变）\n`
+    + `[VAB] Run 目录：${runDir}\n`
+    + `[VAB] 另开终端观察：npm run bench:status -- --run ${runId} --watch\n`,
+  );
+  writeJson(join(runDir, 'logs', 'real-smoke-revision.json'), {
+    created_at: new Date().toISOString(),
+    requested_via: 'bench:case --revise-run',
+    parent_run_id: parentRunId,
+    configured_engine: engine,
+    configured_model: model,
+    configured_provider: provider,
+    session_policy: 'fresh-focused',
+  });
+  const executed = await runNodeWithProgress(
+    ['scripts/bench.mjs', 'run', '--run-dir', runDir],
+    { runDir, timeout: wallTimeMinutes * 60_000 + 30_000 },
+  );
+  const usage = collectReportedUsage(runDir, caseDir);
+  const outcome = createMachineEvidence(runDir, executed.envelope, caseDir, isDevelopmentSmoke);
+  const report = generateReport(runDir, caseMeta, outcome);
+  const quickView = collectQuickViewArtifacts(runDir, report.artifacts);
+  printQuickViewArtifacts(quickView);
+  process.stdout.write(`${JSON.stringify({
+    status: outcome.flowPassed ? 'success' : 'warning',
+    summary: outcome.flowPassed
+      ? `${caseMeta.title} 的视觉反馈 Revision 已完成；流程门禁通过，仍待人工视觉评审。`
+      : `${caseMeta.title} 的视觉反馈 Revision 已运行，但一个或多个流程门禁失败。`,
+    next_actions: outcome.flowPassed
+      ? ['在浏览器中对照参考图与 docs/revision/before-after.md，补录人工视觉评分和验收结论。']
+      : (outcome.providerFailure?.next_actions || ['检查 real-smoke-checkpoints.json、视觉修订证据与对应阶段 stderr。']),
+    artifacts: [
+      ...report.artifacts, ...quickView.map(item => item.path), join(runDir, 'revision.json'),
+      join(runDir, 'logs', 'real-smoke-checkpoints.json'), join(runDir, 'logs', 'stages'),
+    ],
+    quick_view: quickView,
+    run_id: runId,
+    run_dir: runDir,
+    parent_run_id: parentRunId,
+    revision: true,
+    case_id: caseId,
+    case_title: caseMeta.title,
+    configured_model: model,
+    configured_provider: provider,
+    reported_cost_usd: usage.cost_usd,
+    reported_tokens: { input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cached_tokens: usage.cached_tokens },
+    business_acceptance: 'pending-human-review',
+  }, null, 2)}\n`);
+  if (!outcome.flowPassed) process.exitCode = 2;
 }
 
 async function resumeExistingRun(args) {
@@ -664,6 +783,7 @@ async function finalizeExistingRun(args) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.revise_run) return reviseExistingRun(args);
   if (args.resume_run) return resumeExistingRun(args);
   if (args.finalize_run) return finalizeExistingRun(args);
   if (args.help) {
@@ -672,6 +792,7 @@ async function main() {
       summary: '真实模型评测入口参数。',
       next_actions: [
         'node scripts/real-model-smoke-flow.mjs --case <id> --engine <codex|kimi|claude|pi> --model <id> [--dry-run]',
+        'node scripts/real-model-smoke-flow.mjs --revise-run <parent-run-id> --feedback <feedback.md> --reference <image.png> [--reference <image2.png>] --acknowledge-no-cost-cap',
         'node scripts/real-model-smoke-flow.mjs --finalize-run <run-id|run-dir>  # 只重建后处理证据与报告，不调用模型',
       ],
       artifacts: [],

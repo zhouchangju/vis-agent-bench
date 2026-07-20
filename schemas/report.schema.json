@@ -219,7 +219,9 @@
               "demo": { "type": "boolean" },
               "has_human_review": { "type": "boolean" },
               "has_evaluator": { "type": "boolean" },
-              "accepted": { "type": "boolean" }
+              "accepted": { "type": "boolean" },
+              "parent_run_id": { "type": "string", "minLength": 1 },
+              "revision_index": { "type": "integer", "minimum": 1 }
             },
             "additionalProperties": false
           }

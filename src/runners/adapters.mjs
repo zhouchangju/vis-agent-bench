@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -34,6 +34,21 @@ function readPrompt(runDir, stageId) {
   return readFileSync(join(runDir, 'input', `stage-${stageId}.md`), 'utf8');
 }
 
+function revisionImagePaths(runDir, stageId) {
+  if (stageId !== 'R0') return [];
+  const revisionPath = join(runDir, 'revision.json');
+  if (!existsSync(revisionPath)) return [];
+  try {
+    const revision = JSON.parse(readFileSync(revisionPath, 'utf8'));
+    return (revision.references || [])
+      .map(reference => reference?.path)
+      .filter(path => typeof path === 'string')
+      .map(path => join(runDir, 'workspace', path));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * 提取版本号中第一段看起来像 semver 的内容。
  * 对 "codex-cli 0.144.6"、"2.1.177"、"0.27.0" 都生效。
@@ -62,6 +77,7 @@ export function parseSemverVersion(text) {
  * @property {string|null} reasoningEffort   Codex 思考强度（low / medium / high / xhigh）。
  * @property {string|null} modelProvider     Pi 实际模型 Provider（例如 deepseek）。
  * @property {boolean} networkEnabled        是否请求 Codex workspace-write 公网访问。
+ * @property {string[]} imagePaths           初始 Prompt 的图片附件（仅支持的 Adapter 使用）。
  */
 
 function buildCodexCommand(ctx) {
@@ -69,6 +85,9 @@ function buildCodexCommand(ctx) {
   const session = ctx.session || {};
   const reasoningConfig = ctx.reasoningEffort
     ? ['-c', `model_reasoning_effort=${JSON.stringify(ctx.reasoningEffort)}`]
+    : [];
+  const imageArgs = !session.started && Array.isArray(ctx.imagePaths) && ctx.imagePaths.length
+    ? ['--image', ...ctx.imagePaths]
     : [];
   if (session.started && (session.id || session.resumeFrom)) {
     args.push(
@@ -97,6 +116,7 @@ function buildCodexCommand(ctx) {
       '--ignore-rules',
       '--json',
       '--output-last-message', join(ctx.outputDir, `final-message-${ctx.stageId}.md`),
+      ...imageArgs,
       '-',
     );
   }
@@ -227,6 +247,7 @@ const adapters = {
         session: session || {},
         reasoningEffort: spec.engine.reasoning_effort || null,
         networkEnabled: networkEnabled(spec.isolation?.network),
+        imagePaths: revisionImagePaths(runDir, stageId),
       });
     },
     buildCommand: buildCodexCommand,
