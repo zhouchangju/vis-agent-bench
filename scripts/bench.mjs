@@ -748,7 +748,7 @@ function revisionScenario(references) {
         stakeholder_message: [
           '完成本轮修订验收：运行真实的 build、typecheck、test 和必要的新增回归检查。',
           '生成可供人工比对的固定状态截图/HTML 证据，写入 `docs/revision/before-after.md`，说明每张参考图对应的实现变化与尚未满足项。',
-          '更新 `limitations.md`，并收口 requirement-ledger.yaml。不要声称图片无法证明的视觉结论已经完全达标。',
+          '更新工作区根目录的 `limitations.md`（不得仅写入 `docs/limitations.md`），并收口 requirement-ledger.yaml。不要声称图片无法证明的视觉结论已经完全达标。',
         ].join('\n'),
         checkpoint: ['candidate-delivery', 'revision-test-results', 'revision-visual-evidence', 'final-requirement-ledger', 'limitations.md'],
         observe: ['revision_acceptance', 'visual_evidence', 'manual_follow_up'],
