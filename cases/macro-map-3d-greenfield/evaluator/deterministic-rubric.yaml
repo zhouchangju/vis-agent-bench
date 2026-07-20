@@ -5,6 +5,7 @@ hard_gates:
   - input-validation
   - scale-ladder-data-completeness
   - deterministic-layer-layout
+  - relation-data-integrity
   - browser-runtime-clean
   - browser-canvas-observable-state
   - repeated-mount-dispose-cleanup
@@ -18,6 +19,7 @@ categories:
       - deterministic-layer-layout
       - importance-size-mapping
       - relation-semantics-mapping
+      - relation-data-integrity
   visual_quality:
     weight: 15
     checks:
@@ -26,6 +28,7 @@ categories:
       - relation-encoding-state
       - language-label-runtime-state
       - theme-depth-runtime-state
+      - perspective-depth-state
   interaction_state_machine:
     weight: 25
     checks:
@@ -38,6 +41,8 @@ categories:
       - view-mode-operation-switch
       - runtime-aggregation-switches
       - visible-offset-hit-state
+      - camera-rotation-axis-stability
+      - label-scoping-state
   performance_stability:
     weight: 20
     checks:

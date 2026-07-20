@@ -39,6 +39,16 @@ export function createMinimalCompliantObservation(browser) {
           { importance: 20, size: 12 },
         ],
       },
+      renderedRelationIntegrity: {
+        totalInput: 2106,
+        totalRendered: 2106,
+        endpointIdPairsMatch: true,
+        relationTypeMappingCorrect: true,
+        directionPreserved: true,
+        orphanEdges: 0,
+        duplicateEdges: 0,
+        mismatchedEdges: 0,
+      },
     },
     render: {
       relations: {
@@ -60,6 +70,11 @@ export function createMinimalCompliantObservation(browser) {
       themes: { light: true, dark: true },
       themeSwitchPreservedState: true,
       depthStates: ['near', 'far', 'background'],
+      projection: {
+        mode: 'perspective',
+        orthographicFallbackDetected: false,
+        nearFarSizeRatio: 1.8,
+      },
     },
     browser,
     camera: {
@@ -68,6 +83,12 @@ export function createMinimalCompliantObservation(browser) {
       pausedOnHover: true,
       pausedOnUserInput: true,
       resumedAfterIdle: true,
+      rotationAxisStable: {
+        upVectorAxis: 'world-y',
+        sampledDuringDrag: true,
+        offAxisDriftDetected: false,
+        upVectorDeviation: 0.01,
+      },
     },
     interactions: {
       controls: {
@@ -102,6 +123,12 @@ export function createMinimalCompliantObservation(browser) {
         hoverVisible: true,
         nodeId: 'factor-core-001',
         relationVisible: true,
+      },
+      labelScoping: {
+        observedInLocalState: true,
+        relatedLabelsVisible: true,
+        nonRelatedLabelsHidden: true,
+        unrelatedLabelLeaks: 0,
       },
     },
     runtime: {
@@ -224,6 +251,15 @@ export function createIntentionalFailure(browser) {
   observation.datasets[2].renderedNodes = 800;
   observation.layout.repeatSnapshotEqual = false;
   observation.layout.layerRadii.core.max = 300;
+  observation.layout.renderedRelationIntegrity.endpointIdPairsMatch = false;
+  observation.layout.renderedRelationIntegrity.duplicateEdges = 3;
+  observation.layout.renderedRelationIntegrity.totalRendered = 2109;
+  observation.render.projection.mode = 'orthographic';
+  observation.render.projection.nearFarSizeRatio = 1;
+  observation.camera.rotationAxisStable.offAxisDriftDetected = true;
+  observation.camera.rotationAxisStable.upVectorDeviation = 0.2;
+  observation.selection.labelScoping.unrelatedLabelLeaks = 4;
+  observation.selection.labelScoping.nonRelatedLabelsHidden = false;
   observation.browser = {
     ...browser,
     status: 'warning',

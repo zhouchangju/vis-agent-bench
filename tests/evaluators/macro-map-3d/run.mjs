@@ -86,9 +86,9 @@ try {
 
 await test('rubric IDs, hard gates, and assertions are one-to-one', () => {
   const mapping = validateCheckMapping(loadMacroMap3dRubric());
-  assert.equal(mapping.declared.length, 30);
-  assert.equal(new Set(mapping.declared).size, 30);
-  assert.equal(mapping.hardGates.length, 7);
+  assert.equal(mapping.declared.length, 34);
+  assert.equal(new Set(mapping.declared).size, 34);
+  assert.equal(mapping.hardGates.length, 8);
   assert.ok(mapping.hardGates.every(id => mapping.declared.includes(id)));
 });
 
@@ -111,7 +111,7 @@ await test('minimal compliant sample uses real Chromium evidence and passes all 
   });
   assert.equal(evaluation.status, 'success');
   assert.equal(evaluation.scorecard.total, 100);
-  assert.equal(evaluation.bundle.results.length, 30);
+  assert.equal(evaluation.bundle.results.length, 34);
   assert.deepEqual([...new Set(evaluation.bundle.results.map(item => item.status))], ['pass']);
   assert.match(evaluation.bundle.notes, /do not prove aesthetics or WebGL correctness/);
   assert.equal(evaluation.bundle.evidence_trust.conclusion_eligible, false);
@@ -144,10 +144,14 @@ await test('intentionally wrong sample fails critical deterministic checks', asy
     'input-validation',
     'scale-ladder-data-completeness',
     'deterministic-layer-layout',
+    'relation-data-integrity',
     'browser-runtime-clean',
     'performance-budget-and-stats',
     'context-loss-and-degradation',
     'repeated-mount-dispose-cleanup',
+    'perspective-depth-state',
+    'camera-rotation-axis-stability',
+    'label-scoping-state',
   ]) {
     assert.ok(failed.has(id), `${id} should fail`);
   }

@@ -5,6 +5,7 @@ const HARD_GATES = new Set([
   'input-validation',
   'scale-ladder-data-completeness',
   'deterministic-layer-layout',
+  'relation-data-integrity',
   'browser-runtime-clean',
   'browser-canvas-observable-state',
   'repeated-mount-dispose-cleanup',
@@ -155,6 +156,26 @@ const ASSERTIONS = {
     );
   },
 
+  relation_data_integrity: observation => {
+    const integrity = observation.layout?.renderedRelationIntegrity || {};
+    const orphanEdges = Number(integrity.orphanEdges || 0);
+    const duplicateEdges = Number(integrity.duplicateEdges || 0);
+    const mismatchedEdges = Number(integrity.mismatchedEdges || 0);
+    const totalRendered = Number(integrity.totalRendered ?? -1);
+    const totalInput = Number(integrity.totalInput ?? -1);
+    return result(
+      integrity.endpointIdPairsMatch === true
+        && integrity.relationTypeMappingCorrect === true
+        && integrity.directionPreserved === true
+        && orphanEdges === 0
+        && duplicateEdges === 0
+        && mismatchedEdges === 0
+        && totalRendered === totalInput
+        && totalInput > 0,
+      integrity,
+    );
+  },
+
   browser_canvas_observable_state: observation => {
     const browser = observation.browser || {};
     const canvases = (browser.dom_snapshots || [])
@@ -217,6 +238,18 @@ const ASSERTIONS = {
         && render.themeSwitchPreservedState === true
         && includesAll(render.depthStates || [], ['near', 'far', 'background']),
       render,
+    );
+  },
+
+  perspective_depth_state: observation => {
+    const projection = observation.render?.projection || {};
+    const ratio = Number(projection.nearFarSizeRatio ?? -1);
+    return result(
+      projection.mode === 'perspective'
+        && projection.orthographicFallbackDetected === false
+        && finite(ratio)
+        && ratio > 1,
+      projection,
     );
   },
 
@@ -288,6 +321,31 @@ const ASSERTIONS = {
         && node.unrelatedClickPreservedSelection === true
         && node.clearReturnedOverview === true,
       node,
+    );
+  },
+
+  camera_rotation_axis_stability: observation => {
+    const axis = observation.camera?.rotationAxisStable || {};
+    const deviation = Number(axis.upVectorDeviation ?? Number.POSITIVE_INFINITY);
+    return result(
+      axis.upVectorAxis === 'world-y'
+        && axis.sampledDuringDrag === true
+        && axis.offAxisDriftDetected === false
+        && finite(deviation)
+        && deviation <= 0.05,
+      axis,
+    );
+  },
+
+  label_scoping_state: observation => {
+    const scoping = observation.selection?.labelScoping || {};
+    const leaked = Number(scoping.unrelatedLabelLeaks || 0);
+    return result(
+      scoping.observedInLocalState === true
+        && scoping.relatedLabelsVisible === true
+        && scoping.nonRelatedLabelsHidden === true
+        && leaked === 0,
+      scoping,
     );
   },
 
