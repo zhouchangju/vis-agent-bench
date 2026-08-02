@@ -1,0 +1,53 @@
+source:
+  label: "Deterministic synthetic StandardChart two-way tree starter generated for VAB-T12"
+  type: synthetic
+
+exclusion:
+  paths:
+    - "data/private/**"
+    - "**/*.answer.*"
+    - "**/*.reference.*"
+
+leakage:
+  path:
+    - id: production-extension-path
+      pattern: "dvTwoWayTree|TwoWayTreeView|extension/series/dvTwoWayTree"
+      recovery: "Remove production extension paths; this fixture must remain synthetic."
+  content:
+    - id: production-component-identifier
+      pattern: "dvTwoWayTree|TwoWayTreeView|twoWayTree\\.js|StandardChartTwoWayTree"
+      recovery: "Remove production implementation identifiers from the starter."
+    - id: production-network-reference
+      pattern: "standard-chart\\.com|paradigm-chart|ainvest\\.com"
+      recovery: "Remove production URLs and repository references from worker-visible files."
+    - id: production-history-reference
+      pattern: "c2d5a3a7fffc789a06bbce73965ca2a59b72a5af|94c2a1c3|f7c74483"
+      recovery: "Remove production git history commit references from worker-visible files."
+
+baseline:
+  build:
+    command: ["npm", "run", "build"]
+    required: true
+  typecheck:
+    command: ["npm", "run", "typecheck"]
+    required: true
+  test:
+    command: ["npm", "test"]
+    required: true
+
+provenance:
+  - kind: manual
+    label: "Behavioral requirements distilled from approved Case documents; no source files copied"
+    source_type: observed
+    modified: false
+  - kind: generated
+    label: "Synthetic industry chain nodes, asymmetric edges, boundary tags, and starter scaffolding"
+    ref: "starter/public/assets/sample-data.json"
+    source_type: synthetic
+    modified: false
+
+notes:
+  - "Invoke the builder with fixture/starter as source_root."
+  - "No network access is needed by the Starter or its tests."
+  - "The Starter contains no bidirectional layout coordinates, no edge-routing answer, and no expected visual screenshot."
+  - "The sample industry-chain data is fabricated; it is not derived from any real product database."

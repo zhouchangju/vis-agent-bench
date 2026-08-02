@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-01-15T14:30:00.000Z",
+  "description": "Synthetic industry chain fixture for the StandardChart two-way tree benchmark. Names, changePct, and groups are fabricated and do NOT correspond to any real product, company, or market dataset.",
+  "root_id": "node-battery",
+  "nodes": [
+    { "id": "node-lithium-ore", "name": "Synthetic Lithium Ore Concentrate", "changePct": 3.4, "group": "mining" },
+    { "id": "node-cobalt-ore", "name": "Synthetic Cobalt Ore", "changePct": -2.1, "group": "mining" },
+    { "id": "node-nickel-sulfate", "name": "Synthetic Nickel Sulfate", "changePct": 1.2, "group": "intermediate" },
+    { "id": "node-lithium-carbonate", "name": "Synthetic Lithium Carbonate", "changePct": 4.7, "group": "intermediate" },
+    { "id": "node-cathode-powder", "name": "Synthetic Cathode Powder Blend", "changePct": -0.8, "group": "intermediate" },
+    { "id": "node-anode-powder", "name": "Synthetic Anode Graphite Powder", "changePct": 0.4, "group": "intermediate" },
+    { "id": "node-separator", "name": "Synthetic Separator Film", "changePct": null, "group": "intermediate" },
+    { "id": "node-electrolyte", "name": "Synthetic Electrolyte Solution", "changePct": 0.0, "group": "intermediate" },
+    { "id": "node-cell", "name": "Synthetic Battery Cell", "changePct": 1.9, "group": "cell" },
+    { "id": "node-battery", "name": "Synthetic Lithium Battery Pack", "changePct": 2.6, "group": "cell" },
+    { "id": "node-pack-assembly", "name": "Synthetic Pack Assembly Line", "changePct": 0.9, "group": "assembly" },
+    { "id": "node-ev", "name": "Synthetic Electric Vehicle", "changePct": 5.3, "group": "application" },
+    { "id": "node-ess", "name": "Synthetic Energy Storage System", "changePct": -1.4, "group": "application" },
+    { "id": "node-consumer", "name": "Synthetic Consumer Electronics", "changePct": 0.6, "group": "application" },
+    { "id": "node-recycling", "name": "Synthetic Battery Recycling Loop", "changePct": 8.2, "group": "aftermarket" },
+    { "id": "node-extreme-pos", "name": "Synthetic Extreme Positive Spike Sample With A Very Long Display Label That Stress Tests The Renderer", "changePct": 42.5, "group": "boundary" },
+    { "id": "node-extreme-neg", "name": "Synthetic Extreme Negative Drop", "changePct": -37.9, "group": "boundary" },
+    { "id": "node-null-change", "name": "Synthetic Null Metric Sample", "changePct": null, "group": "boundary" },
+    { "id": "node-zero-change", "name": "Synthetic Zero Change Sample", "changePct": 0.0, "group": "boundary" },
+    { "id": "node-duplicate-name", "name": "Synthetic Lithium Battery Pack", "changePct": 0.3, "group": "boundary" }
+  ],
+  "edges": [
+    { "from": "node-lithium-ore", "to": "node-lithium-carbonate", "direction": "upstream" },
+    { "from": "node-cobalt-ore", "to": "node-cathode-powder", "direction": "upstream" },
+    { "from": "node-nickel-sulfate", "to": "node-cathode-powder", "direction": "upstream" },
+    { "from": "node-lithium-carbonate", "to": "node-cathode-powder", "direction": "upstream" },
+    { "from": "node-cathode-powder", "to": "node-cell", "direction": "upstream" },
+    { "from": "node-anode-powder", "to": "node-cell", "direction": "upstream" },
+    { "from": "node-separator", "to": "node-cell", "direction": "upstream" },
+    { "from": "node-electrolyte", "to": "node-cell", "direction": "upstream" },
+    { "from": "node-cell", "to": "node-battery", "direction": "upstream" },
+    { "from": "node-cell", "to": "node-battery", "direction": "downstream" },
+
+    { "from": "node-battery", "to": "node-pack-assembly", "direction": "downstream" },
+    { "from": "node-pack-assembly", "to": "node-ev", "direction": "downstream" },
+    { "from": "node-pack-assembly", "to": "node-ess", "direction": "downstream" },
+    { "from": "node-pack-assembly", "to": "node-consumer", "direction": "downstream" },
+    { "from": "node-ev", "to": "node-recycling", "direction": "downstream" },
+
+    { "from": "node-extreme-pos", "to": "node-battery", "direction": "upstream" },
+    { "from": "node-extreme-neg", "to": "node-battery", "direction": "upstream" },
+    { "from": "node-null-change", "to": "node-battery", "direction": "upstream" },
+    { "from": "node-zero-change", "to": "node-battery", "direction": "upstream" },
+    { "from": "node-duplicate-name", "to": "node-battery", "direction": "upstream" }
+  ]
+}

@@ -1,0 +1,58 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #f7f8fa;
+  color: #1c1f23;
+}
+.starter-header { padding: 24px 32px 0; }
+.starter-header .eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: #5a6072;
+  margin: 0 0 4px;
+}
+.starter-header h1 { margin: 0 0 8px; font-size: 22px; }
+.starter-header p { margin: 0; color: #5a6072; font-size: 14px; }
+
+.implementation-surface {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  padding: 24px 32px;
+}
+.column {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  min-height: 320px;
+}
+.column h2 { font-size: 14px; margin: 0 0 12px; text-transform: uppercase; color: #5a6072; }
+.node-list { list-style: none; padding: 0; margin: 0; }
+.node {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.node:focus-visible {
+  outline: 2px solid #1f6feb;
+  outline-offset: 2px;
+}
+.node:hover { background: #f0f3f7; }
+.node-name { font-weight: 600; font-size: 14px; }
+.node-change { font-variant-numeric: tabular-nums; font-size: 13px; color: #5a6072; }
+
+#event-stream {
+  display: block;
+  white-space: pre-wrap;
+  padding: 16px 32px 48px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  color: #5a6072;
+}

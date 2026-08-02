@@ -1,14 +1,58 @@
-weights:
-  business_semantics: 20
-  layout_quality: 25
-  interaction_correctness: 20
-  standard_chart_integration: 20
-  testing_compatibility: 10
-  documentation: 5
-gates:
-  p0_min_score: 80
-  critical_failure_cap: 49
-levels:
-  p0: required
-  p1: differentiator
-  p2: production_readiness
+version: 1
+total: 100
+hard_gates:
+  - build-and-test
+  - input-validation
+  - bidirectional-tree-expansion
+  - symmetric-traversal
+  - data-driven-layout
+  - no-uncaught-runtime-errors
+  - selection-and-toggle
+  - resize-state-preservation
+categories:
+  tree_structure:
+    weight: 25
+    checks:
+      - build-and-test
+      - input-validation
+      - bidirectional-tree-expansion
+      - symmetric-traversal
+      - asymmetric-and-empty-sides
+      - deep-tree-render
+  bidirectional_traversal:
+    weight: 20
+    checks:
+      - upstream-and-downstream-direction
+      - path-highlight-on-select
+      - parent-child-edge-fidelity
+      - duplicate-and-boundary-nodes
+  node_selection:
+    weight: 15
+    checks:
+      - selection-and-toggle
+      - blank-click-deselect
+      - event-contract
+      - expand-collapse-stability
+  layout:
+    weight: 15
+    checks:
+      - data-driven-layout
+      - no-edge-node-overlap
+      - long-label-degradation
+  performance:
+    weight: 10
+    checks:
+      - large-tree-interaction-budget
+      - lifecycle-cleanup
+  engineering_integrity:
+    weight: 15
+    checks:
+      - no-uncaught-runtime-errors
+      - resize-state-preservation
+      - keyboard-accessibility
+      - theme-and-group-style
+      - implementation-notes
+caps:
+  p0_failure_max_score: 49
+  screenshot_or_hardcoded_layout_max_score: 0
+  incomplete_cap: 0
