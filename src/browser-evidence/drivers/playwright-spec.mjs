@@ -9,6 +9,9 @@ const STEP_KINDS = new Set([
   'assert-visible',
   'assert-text',
   'collect-state',
+  // Roadmap M3 evidence extensions.
+  'webgl-inspect',
+  'perf-measure',
 ]);
 
 const LABEL = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
@@ -83,6 +86,8 @@ function validateStep(step, index, errors) {
     'assert-visible': ['selector'],
     'assert-text': ['selector', 'text', 'match'],
     'collect-state': ['selectors'],
+    'webgl-inspect': ['sample_ms', 'threshold'],
+    'perf-measure': ['sample_ms', 'threshold'],
   };
   const allowed = new Set([...common, ...fields[step.kind]]);
   for (const key of Object.keys(step)) {
@@ -128,6 +133,14 @@ function validateStep(step, index, errors) {
   if (step.kind === 'collect-state') {
     if (!Array.isArray(step.selectors) || !step.selectors.length || step.selectors.some(selector => !nonEmpty(selector))) {
       errors.push(diagnostic(`${path}.selectors`, 'ARRAY', 'collect-state requires a non-empty array of CSS selectors.'));
+    }
+  }
+  if (step.kind === 'webgl-inspect' || step.kind === 'perf-measure') {
+    if (step.sample_ms != null && (!Number.isInteger(step.sample_ms) || step.sample_ms < 1 || step.sample_ms > 5_000)) {
+      errors.push(diagnostic(`${path}.sample_ms`, 'NUMBER_RANGE', 'sample_ms must be an integer from 1 to 5000.'));
+    }
+    if (step.threshold != null && (typeof step.threshold !== 'number' || step.threshold < 0 || step.threshold > 1)) {
+      errors.push(diagnostic(`${path}.threshold`, 'NUMBER_RANGE', 'threshold must be a number in [0,1].'));
     }
   }
 }

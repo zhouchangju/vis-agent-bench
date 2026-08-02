@@ -11,6 +11,8 @@ import {
   validateSpecUrlsAgainstPolicy,
 } from './playwright-policy.mjs';
 import { validatePlaywrightSpec } from './playwright-spec.mjs';
+import { extractWebGLFacts } from '../webgl-inspector.mjs';
+import { collectPerformance } from '../perf-collector.mjs';
 
 function nowIso() {
   return new Date().toISOString();
@@ -109,6 +111,8 @@ function emptyEvidence(spec, started, failures, environment = {}) {
     failures,
     status: 'error',
     canvas_webgl_proven: false,
+    webgl_facts: [],
+    perf_facts: [],
     environment,
     notes: [
       'Browser startup did not complete; no product behavior was evaluated.',
@@ -264,6 +268,16 @@ async function executeStep(page, step, context) {
     case 'collect-state':
       context.domSnapshots.push(await collectState(page, step.selectors, label));
       break;
+    case 'webgl-inspect': {
+      const facts = await extractWebGLFacts(page, step);
+      context.webglFacts.push({ label, ts: nowIso(), facts });
+      break;
+    }
+    case 'perf-measure': {
+      const facts = await collectPerformance(page, step);
+      context.perfFacts.push({ label, ts: nowIso(), facts });
+      break;
+    }
     default:
       throw new Error(`Unsupported step: ${step.kind}`);
   }
@@ -453,6 +467,8 @@ async function runCapture(spec, {
   const actionLog = [];
   const screenshots = [];
   const domSnapshots = [];
+  const webglFacts = [];
+  const perfFacts = [];
   let pageUrl = null;
   let viewport = { ...spec.viewport };
   let pageLoaded = false;
@@ -499,6 +515,7 @@ async function runCapture(spec, {
       try {
         await deadline.race(executeStep(page, step, {
           spec, index, outDir, writeArtifact, screenshots, domSnapshots, viewport, pageUrl,
+          webglFacts, perfFacts,
         }));
         if (step.kind === 'resize') viewport = { width: step.width, height: step.height };
         if (step.kind === 'goto') {
@@ -590,10 +607,13 @@ async function runCapture(spec, {
       chromium_source: executable.source,
       browser_version: browserVersion,
     },
+    webgl_facts: webglFacts,
+    perf_facts: perfFacts,
     notes: [
       'Captured with a real headless Chromium through Playwright using declarative steps only.',
       'DOM presence, interactions, assertions, screenshots, and collected canvas signatures prove only the declared smoke contract.',
       'Aesthetics, complete visual correctness, pixel-level equivalence, cross-browser behavior, and WebGL correctness require separate review.',
+      'webgl_facts and perf_facts are observations only; their assertions are quality-enhancement signals, not business-correctness gates.',
     ],
   };
   const contract = validateEvidencePackage(evidence);

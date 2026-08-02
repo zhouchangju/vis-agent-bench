@@ -32,6 +32,11 @@ const WAIT_KINDS = new Set(['load', 'domcontentloaded', 'networkidle', 'selector
 const ACTION_KINDS = new Set([
   'click', 'focus', 'scroll', 'type', 'keypress', 'select',
   'wait', 'screenshot', 'domSnapshot', 'assert',
+  // Roadmap M3 extensions: WebGL semantic probe and performance sample.
+  // Drivers that lack a real browser should no-op these and emit a skip
+  // entry in their evidence; the assertions in webgl-inspector.mjs and
+  // perf-collector.mjs degrade to skip status.
+  'webglInspect', 'perfMeasure',
 ]);
 
 function diagnostic(path, code, message) {
@@ -98,7 +103,7 @@ function validateAction(action, index, root, errors) {
     errors.push(diagnostic(path, 'OBJECT', 'Action must be an object.'));
     return;
   }
-  const allowed = new Set(['kind', 'label', 'selector', 'text', 'key', 'value', 'x', 'y', 'expression', 'wait', 'timeout_ms', 'note']);
+  const allowed = new Set(['kind', 'label', 'selector', 'text', 'key', 'value', 'x', 'y', 'expression', 'wait', 'timeout_ms', 'note', 'sample_ms', 'threshold', 'baseline']);
   for (const key of Object.keys(action)) {
     if (!allowed.has(key)) errors.push(diagnostic(`${path}.${key}`, 'UNEXPECTED_FIELD', 'Field is not allowed on an action.'));
   }
@@ -114,6 +119,15 @@ function validateAction(action, index, root, errors) {
   }
   if (action.timeout_ms != null && !isInteger(action.timeout_ms, { min: 0 })) {
     errors.push(diagnostic(`${path}.timeout_ms`, 'NUMBER_RANGE', 'action.timeout_ms must be a non-negative integer.'));
+  }
+  if (action.sample_ms != null && !isInteger(action.sample_ms, { min: 1 })) {
+    errors.push(diagnostic(`${path}.sample_ms`, 'NUMBER_RANGE', 'action.sample_ms must be a positive integer when present.'));
+  }
+  if (action.threshold != null && (typeof action.threshold !== 'number' || action.threshold < 0 || action.threshold > 1)) {
+    errors.push(diagnostic(`${path}.threshold`, 'NUMBER_RANGE', 'action.threshold must be a number in [0,1] when present.'));
+  }
+  if (action.baseline != null && !isNonEmptyString(action.baseline)) {
+    errors.push(diagnostic(`${path}.baseline`, 'STRING', 'action.baseline must be a non-empty string when present.'));
   }
   switch (action.kind) {
     case 'click':
@@ -141,6 +155,11 @@ function validateAction(action, index, root, errors) {
       break;
     case 'wait':
       validateWait(action.wait, `${path}.wait`, errors);
+      break;
+    case 'webglInspect':
+    case 'perfMeasure':
+      // Declarative probe actions. No required fields; the driver collects
+      // a facts object tagged with `label`.
       break;
     default:
       break;
