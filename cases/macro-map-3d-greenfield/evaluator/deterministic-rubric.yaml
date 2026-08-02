@@ -29,6 +29,8 @@ categories:
       - language-label-runtime-state
       - theme-depth-runtime-state
       - perspective-depth-state
+      - webgl-semantic-correctness
+      - visual-baseline-diff
   interaction_state_machine:
     weight: 25
     checks:
@@ -52,6 +54,7 @@ categories:
       - context-loss-and-degradation
       - repeated-mount-dispose-cleanup
       - hot-path-resource-bounds
+      - performance-budget
   engineering_quality:
     weight: 15
     checks:

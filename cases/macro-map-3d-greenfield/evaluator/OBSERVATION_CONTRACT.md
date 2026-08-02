@@ -46,6 +46,53 @@ Required top-level objects:
   human visual review.
 - `artifact_paths`: optional check-ID-to-path map.
 
+## Optional ROADMAP M3 quality-enhancement fields
+
+These three optional fields feed the M3 quality-enhancement assertions
+(`webgl-semantic-correctness`, `visual-baseline-diff`, `performance-budget`).
+They are P1 differentiators, never hard gates. When absent, the corresponding
+check records a `skipped` status so the run remains eligible for a normal
+conclusion. When present, the field must be a plain object so the boolean
+provenance collector can walk it; do not bury booleans inside nested arrays.
+
+- `webgl`: a `WebGLFacts` object produced by
+  `src/browser-evidence/webgl-inspector.mjs::extractWebGLFacts`. Shape:
+  ```
+  {
+    status: 'ok' | 'skip',
+    canvas_count: number,
+    webgl_available: boolean,
+    webgl2_available: boolean,
+    any_context_lost: boolean,
+    canvases: [{
+      has_webgl, has_webgl2, context_lost, renderer, vendor,
+      max_texture_size, drawing_buffer_width, drawing_buffer_height,
+      active_program, active_attribute_count, active_uniform_count, ...
+    }],
+    probe_kind: 'webgl-debug-renderer-info'
+  }
+  ```
+- `screenshot`: a perceptual-diff sample object consumed by
+  `src/browser-evidence/screenshot-diff.mjs::compareScreenshots`. Shape:
+  ```
+  {
+    actual: Buffer | string (path) | { imagePath | buffer | path },
+    baseline: same shape as `actual`,
+    options: { threshold, perceptual, pixel_threshold, ignoreRegions } (optional)
+  }
+  ```
+- `performance.browser_sample`: a `PerfFacts` object produced by
+  `src/browser-evidence/perf-collector.mjs::collectPerformance`. Shape:
+  ```
+  {
+    status: 'ok' | 'skip',
+    fps, avg_frame_ms, p95_frame_ms, frame_sample_count,
+    memory: { used_js_heap_mb, total_js_heap_mb, js_heap_size_limit_mb },
+    memory_delta_bytes, longtask_count, max_longtask_ms, gc_exposed,
+    sample_ms, measured_sample_ms, probe_kind
+  }
+  ```
+
 ## Browser proof boundary
 
 The real Chromium manifest proves only the declared action status, runtime

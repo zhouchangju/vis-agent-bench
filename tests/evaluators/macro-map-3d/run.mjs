@@ -86,8 +86,8 @@ try {
 
 await test('rubric IDs, hard gates, and assertions are one-to-one', () => {
   const mapping = validateCheckMapping(loadMacroMap3dRubric());
-  assert.equal(mapping.declared.length, 34);
-  assert.equal(new Set(mapping.declared).size, 34);
+  assert.equal(mapping.declared.length, 37);
+  assert.equal(new Set(mapping.declared).size, 37);
   assert.equal(mapping.hardGates.length, 8);
   assert.ok(mapping.hardGates.every(id => mapping.declared.includes(id)));
 });
@@ -111,7 +111,7 @@ await test('minimal compliant sample uses real Chromium evidence and passes all 
   });
   assert.equal(evaluation.status, 'success');
   assert.equal(evaluation.scorecard.total, 100);
-  assert.equal(evaluation.bundle.results.length, 34);
+  assert.equal(evaluation.bundle.results.length, 37);
   assert.deepEqual([...new Set(evaluation.bundle.results.map(item => item.status))], ['pass']);
   assert.match(evaluation.bundle.notes, /do not prove aesthetics or WebGL correctness/);
   assert.equal(evaluation.bundle.evidence_trust.conclusion_eligible, false);
@@ -128,6 +128,101 @@ await test('Canvas check reports observation-only proof and never claims WebGL c
   assert.equal(canvas.status, 'pass');
   assert.equal(canvas.evidence.details.canvas_webgl_proven, false);
   assert.match(canvas.evidence.details.claim, /not visual or WebGL correctness/);
+});
+
+await test('ROADMAP M3 quality-enhancement checks pass when optional fields are absent', async () => {
+  const evaluation = await evaluateMacroMap3d({
+    observation: asTestDouble(createMinimalCompliantObservation(structuredClone(browser))),
+    runId: 'm3-fields-absent',
+    allowTestDouble: true,
+  });
+  for (const id of ['webgl-semantic-correctness', 'visual-baseline-diff', 'performance-budget']) {
+    const item = evaluation.bundle.results.find(entry => entry.check_id === id);
+    assert.ok(item, `missing check ${id}`);
+    assert.equal(item.status, 'pass', `${id} should pass when field is absent`);
+    assert.equal(item.evidence.details.collected, false, `${id} should report collected:false`);
+  }
+});
+
+await test('ROADMAP M3 quality-enhancement checks evaluate when fields are present', async () => {
+  const observation = createMinimalCompliantObservation(structuredClone(browser));
+  observation.webgl = {
+    status: 'ok',
+    canvas_count: 1,
+    webgl_available: true,
+    webgl2_available: true,
+    any_context_lost: false,
+    canvases: [{
+      index: 0,
+      has_webgl: true,
+      has_webgl2: true,
+      context_lost: false,
+      renderer: 'ANGLE (NVIDIA)',
+      vendor: 'Google Inc.',
+      max_texture_size: 16384,
+      drawing_buffer_width: 1280,
+      drawing_buffer_height: 800,
+      active_program: 1,
+      active_attribute_count: 3,
+      active_uniform_count: 8,
+    }],
+  };
+  observation.performance.browser_sample = {
+    status: 'ok',
+    sample_ms: 1000,
+    measured_sample_ms: 1001,
+    fps: 55,
+    avg_frame_ms: 18,
+    p95_frame_ms: 32,
+    frame_sample_count: 55,
+    memory: { used_js_heap_mb: 80, total_js_heap_mb: 120, js_heap_size_limit_mb: 2048 },
+    memory_delta_bytes: 1024,
+    longtask_count: 1,
+    max_longtask_ms: 60,
+    gc_exposed: false,
+  };
+  const evaluation = await evaluateMacroMap3d({
+    observation: asTestDouble(observation),
+    runId: 'm3-fields-present',
+    allowTestDouble: true,
+  });
+  const webgl = evaluation.bundle.results.find(item => item.check_id === 'webgl-semantic-correctness');
+  assert.equal(webgl.status, 'pass');
+  assert.equal(webgl.evidence.details.collected, true);
+  const perf = evaluation.bundle.results.find(item => item.check_id === 'performance-budget');
+  assert.equal(perf.status, 'pass');
+  assert.equal(perf.evidence.details.collected, true);
+});
+
+await test('ROADMAP M3 webgl check fails when context_lost is true', async () => {
+  const observation = createMinimalCompliantObservation(structuredClone(browser));
+  observation.webgl = {
+    status: 'ok',
+    canvas_count: 1,
+    webgl_available: true,
+    webgl2_available: false,
+    any_context_lost: true,
+    canvases: [{
+      index: 0,
+      has_webgl: true,
+      has_webgl2: false,
+      context_lost: true,
+      renderer: 'SwiftShader',
+      vendor: 'Google Inc.',
+      max_texture_size: 4096,
+      drawing_buffer_width: 1280,
+      drawing_buffer_height: 800,
+      active_program: 0,
+    }],
+  };
+  const evaluation = await evaluateMacroMap3d({
+    observation: asTestDouble(observation),
+    runId: 'm3-webgl-fail',
+    allowTestDouble: true,
+  });
+  const webgl = evaluation.bundle.results.find(item => item.check_id === 'webgl-semantic-correctness');
+  assert.equal(webgl.status, 'fail');
+  assert.equal(webgl.evidence.details.collected, true);
 });
 
 await test('intentionally wrong sample fails critical deterministic checks', async () => {
@@ -190,7 +285,7 @@ const summary = {
   status: failures.length ? 'error' : 'success',
   summary: failures.length
     ? `${failures.length} Macro Map 3D evaluator test(s) failed.`
-    : '7/7 Macro Map 3D evaluator tests passed.',
+    : '10/10 Macro Map 3D evaluator tests passed.',
   next_actions: failures.length ? ['Fix the listed evaluator failures.'] : [],
   artifacts: [
     join(OUTPUT_ROOT, 'browser', 'browser-evidence.json'),

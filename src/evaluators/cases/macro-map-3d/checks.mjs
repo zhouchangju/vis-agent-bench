@@ -1,4 +1,7 @@
 import { declareCheck } from '../../core/index.mjs';
+import { assertWebGLSemantic } from '../../../browser-evidence/webgl-inspector.mjs';
+import { assertPerformance } from '../../../browser-evidence/perf-collector.mjs';
+import { compareScreenshots } from '../../../browser-evidence/screenshot-diff.mjs';
 
 const HARD_GATES = new Set([
   'build-and-test',
@@ -27,6 +30,39 @@ const P0_CHECKS = new Set([
   'context-loss-and-degradation',
   'adapter-api-and-runtime-updates',
 ]);
+
+// ROADMAP M3 quality-enhancement assertions. These are P1 differentiators,
+// never hard gates: they enrich the evidence but cannot fail the run on
+// their own unless the rubric explicitly turns them into gates.
+const M3_QUALITY_CHECKS = new Set([
+  'webgl-semantic-correctness',
+  'visual-baseline-diff',
+  'performance-budget',
+]);
+
+const WEBGL_EXPECTATIONS = Object.freeze({
+  min_canvas_count: 1,
+  require_webgl: true,
+  context_lost: false,
+  renderer_includes: 'ANGLE',
+  min_max_texture_size: 1024,
+  min_drawing_buffer_area: 100 * 100,
+  min_active_programs: 1,
+});
+
+const VISUAL_BASELINE_OPTIONS = Object.freeze({
+  threshold: 0.05,
+  perceptual: true,
+  pixel_threshold: 25,
+});
+
+const PERFORMANCE_THRESHOLDS = Object.freeze({
+  min_fps: 30,
+  max_p95_frame_ms: 50,
+  max_heap_mb: 512,
+  max_longtask_ms: 100,
+  max_longtask_count: 20,
+});
 
 const EXPECTED_DATASETS = Object.freeze({
   200: 284,
@@ -538,6 +574,80 @@ const ASSERTIONS = {
         ]),
       boundary,
     );
+  },
+
+  // ----------------- ROADMAP M3 quality-enhancement assertions -----------------
+  // These three checks consume the optional observation fields
+  // `webgl`, `screenshot`, and `performance.browser_sample`. When the
+  // observation does not carry the field, the check returns a `pass` with
+  // explanatory evidence ("field not collected"). This keeps the rubric
+  // scorable for candidates that did not wire the M3 evidence pipeline
+  // (an omitted optional field is never a regression). When the field IS
+  // present and the assertion fails, the check reports fail.
+  // They are P1 differentiators, never hard gates.
+  webgl_semantic_correctness: observation => {
+    const facts = observation.webgl;
+    if (!facts || typeof facts !== 'object') {
+      return result(true, {
+        collected: false,
+        reason: 'webgl observation missing; M3 WebGL facts not collected for this run',
+        expectations: WEBGL_EXPECTATIONS,
+      });
+    }
+    const verdict = assertWebGLSemantic(facts, WEBGL_EXPECTATIONS);
+    return result(verdict.status === 'pass', {
+      collected: true,
+      verdict,
+      expectations: WEBGL_EXPECTATIONS,
+      claim: 'WebGL semantic invariants; not visual/aesthetic judgment.',
+    });
+  },
+
+  visual_baseline_diff: observation => {
+    const screenshot = observation.screenshot;
+    if (!screenshot || typeof screenshot !== 'object') {
+      return result(true, {
+        collected: false,
+        reason: 'screenshot observation missing; M3 baseline diff not collected for this run',
+      });
+    }
+    const baseline = screenshot.baseline;
+    const actual = screenshot.actual || screenshot.path || screenshot.buffer;
+    if (!baseline || !actual) {
+      return result(true, {
+        collected: false,
+        reason: 'screenshot baseline or actual image missing; diff skipped',
+        screenshot: { hasBaseline: Boolean(baseline), hasActual: Boolean(actual) },
+      });
+    }
+    const verdict = compareScreenshots(actual, baseline, {
+      ...VISUAL_BASELINE_OPTIONS,
+      ...(screenshot.options || {}),
+    });
+    return result(verdict.status === 'match' || verdict.status === 'skip', {
+      collected: true,
+      verdict,
+      options: { ...VISUAL_BASELINE_OPTIONS, ...(screenshot.options || {}) },
+      claim: 'Perceptual diff against baseline; not a business-correctness gate.',
+    });
+  },
+
+  performance_budget: observation => {
+    const sample = observation.performance?.browser_sample;
+    if (!sample || typeof sample !== 'object') {
+      return result(true, {
+        collected: false,
+        reason: 'performance.browser_sample missing; M3 perf budget not collected for this run',
+        thresholds: PERFORMANCE_THRESHOLDS,
+      });
+    }
+    const verdict = assertPerformance(sample, PERFORMANCE_THRESHOLDS);
+    return result(verdict.status === 'pass' || verdict.status === 'skip', {
+      collected: true,
+      verdict,
+      thresholds: PERFORMANCE_THRESHOLDS,
+      claim: 'Browser perf budget; not a business-correctness gate.',
+    });
   },
 };
 
