@@ -1,0 +1,3 @@
+clarifications:
+  - question: Should prerelease metadata be supported?
+    answer: No. The fixture contains numeric major.minor.patch versions only.

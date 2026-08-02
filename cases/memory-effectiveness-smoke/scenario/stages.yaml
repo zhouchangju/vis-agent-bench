@@ -1,0 +1,19 @@
+version: 1
+mode: progressive-disclosure
+requirement_truth: ../prompt/requirement.md
+stages:
+  - id: S0
+    name: sort-versions
+    input: initial-brief.md
+    checkpoint: [sorted-versions.json]
+    observe: [semantic-version-order]
+  - id: S1
+    name: record-evidence
+    stakeholder_message: Record the deterministic output and intervention metadata.
+    checkpoint: [memory-intervention.json]
+    observe: [selected-memory-ids]
+  - id: S2
+    name: evaluate
+    stakeholder_message: Evaluate the output against numeric semantic-version ordering.
+    checkpoint: [evaluator-summary.json]
+    observe: [historical-trap-result]

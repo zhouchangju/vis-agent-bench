@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vis-agent-bench.local/schemas/memory-feedback.schema.json",
+  "title": "MemoryFeedback",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "feedbackId", "interventionId", "memoryId", "outcome", "evidenceRefs", "note", "createdAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "feedbackId": { "type": "string", "minLength": 17, "maxLength": 128, "pattern": "^memory_feedback_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "interventionId": { "type": "string", "minLength": 21, "maxLength": 128, "pattern": "^memory_intervention_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "memoryId": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^memory_(?!(?:intervention|retrieval|feedback)_)[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+      ]
+    },
+    "outcome": { "enum": ["helpful", "neutral", "harmful", "unobserved"] },
+    "evidenceRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 5, "maxLength": 128, "pattern": "^(?:run|artifact)_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "note": { "type": "string", "minLength": 1, "maxLength": 10000, "pattern": ".*\\S.*" },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?!0000)\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$",
+      "$comment": "Runtime validation additionally enforces the real Gregorian day for the selected month and year."
+    }
+  }
+}

@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vis-agent-bench.local/schemas/memory-paired-report.schema.json",
+  "title": "MemoryPairedReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "experimentId", "projectId", "taskId", "comparisonStatus", "armControls", "arms", "controls", "feedbackCounts", "utilization", "deltas", "evidenceRefs", "generatedAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "experimentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "projectId": { "type": "string", "minLength": 9, "maxLength": 128, "pattern": "^project_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "taskId": { "type": "string", "minLength": 6, "maxLength": 128, "pattern": "^task_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "comparisonStatus": { "enum": ["eligible", "ineligible"] },
+    "armControls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseId", "caseVersion", "model", "provider", "engine", "reasoningEffort", "tools", "budget", "baseCommit", "fixtureHash", "memorySnapshotHash"],
+      "properties": {
+        "caseId": { "const": "matched" },
+        "caseVersion": { "const": "matched" },
+        "model": { "const": "matched" },
+        "provider": { "const": "matched" },
+        "engine": { "const": "matched" },
+        "reasoningEffort": { "const": "matched" },
+        "tools": { "const": "matched" },
+        "budget": { "const": "matched" },
+        "baseCommit": { "const": "matched" },
+        "fixtureHash": { "const": "matched" },
+        "memorySnapshotHash": { "const": "matched" }
+      }
+    },
+    "arms": {
+      "type": "object",
+      "$comment": "validateMemoryPairedReport additionally requires distinct sessionId and workspaceId values across arms.",
+      "required": ["off", "approved_only"],
+      "additionalProperties": false,
+      "properties": {
+        "off": { "$ref": "#/$defs/offArm" },
+        "approved_only": { "$ref": "#/$defs/approvedArm" }
+      }
+    },
+    "controls": { "$ref": "memory-experiment-spec.schema.json#/properties/controls" },
+    "feedbackCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["helpful", "neutral", "harmful", "unobserved"],
+      "properties": {
+        "helpful": { "type": "integer", "minimum": 0 },
+        "neutral": { "type": "integer", "minimum": 0 },
+        "harmful": { "type": "integer", "minimum": 0 },
+        "unobserved": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "utilization": {
+      "type": "object",
+      "additionalProperties": false,
+      "$comment": "validateMemoryPairedReport additionally enforces selectedCount == approved_only.selectedMemoryIds.length, observedCount <= selectedCount, and exact derived rate.",
+      "required": ["availability", "selectedCount", "observedCount", "rate"],
+      "properties": {
+        "availability": { "enum": ["reported", "unavailable"] },
+        "selectedCount": { "type": "integer", "minimum": 0 },
+        "observedCount": { "type": "integer", "minimum": 0 },
+        "rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "availability": { "const": "reported" },
+            "selectedCount": { "type": "integer", "minimum": 1 },
+            "rate": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "required": ["availability", "selectedCount", "observedCount", "rate"],
+          "not": { "required": ["reason"] }
+        },
+        {
+          "properties": {
+            "availability": { "const": "unavailable" },
+            "selectedCount": { "const": 0 },
+            "observedCount": { "const": 0 },
+            "rate": { "type": "null" }
+          },
+          "required": ["availability", "selectedCount", "observedCount", "rate", "reason"]
+        }
+      ]
+    },
+    "deltas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quality", "time", "cost"],
+      "properties": {
+        "quality": { "$ref": "#/$defs/delta" },
+        "time": { "$ref": "#/$defs/delta" },
+        "cost": { "$ref": "#/$defs/delta" }
+      }
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 5, "maxLength": 128, "pattern": "^(?:run|artifact)_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+      "minItems": 2,
+      "uniqueItems": true
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?!0000)\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$",
+      "$comment": "Runtime validation additionally enforces the real Gregorian day for the selected month and year."
+    }
+  },
+  "$defs": {
+    "offArm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interventionId", "retrievalRunId", "contextPackHash", "selectedMemoryIds", "resultStatus", "sessionId", "workspaceId"],
+      "properties": {
+        "interventionId": { "type": "string", "minLength": 21, "maxLength": 128, "pattern": "^memory_intervention_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+        "retrievalRunId": { "type": "string", "minLength": 18, "maxLength": 128, "pattern": "^memory_retrieval_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+        "contextPackHash": { "type": "null" },
+        "resultStatus": { "enum": ["success", "failed"] },
+        "sessionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+        "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+        "selectedMemoryIds": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^memory_(?!(?:intervention|retrieval|feedback)_)[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+          "uniqueItems": true,
+          "maxItems": 0
+        }
+      }
+    },
+    "approvedArm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interventionId", "retrievalRunId", "contextPackHash", "selectedMemoryIds", "resultStatus", "sessionId", "workspaceId"],
+      "properties": {
+        "interventionId": { "type": "string", "minLength": 21, "maxLength": 128, "pattern": "^memory_intervention_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+        "retrievalRunId": { "type": "string", "minLength": 18, "maxLength": 128, "pattern": "^memory_retrieval_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+        "contextPackHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "resultStatus": { "enum": ["success", "failed"] },
+        "sessionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+        "workspaceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+        "selectedMemoryIds": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^memory_(?!(?:intervention|retrieval|feedback)_)[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+          "uniqueItems": true,
+          "maxItems": 3
+        }
+      }
+    },
+    "delta": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["availability", "value", "unit", "direction"],
+          "properties": {
+            "availability": { "const": "reported" },
+            "value": { "type": "number" },
+            "unit": { "type": "string", "minLength": 1 },
+            "direction": { "const": "approved_only_minus_off" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["availability", "value", "unit", "reason"],
+          "properties": {
+            "availability": { "const": "unavailable" },
+            "value": { "type": "null" },
+            "unit": { "type": "string", "minLength": 1 },
+            "reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "comparisonStatus": { "const": "eligible" } } },
+      "then": {
+        "properties": {
+          "arms": {
+            "properties": {
+              "off": { "properties": { "resultStatus": { "const": "success" } } },
+              "approved_only": { "properties": { "resultStatus": { "const": "success" } } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "comparisonStatus": { "const": "ineligible" } } },
+      "then": {
+        "properties": {
+          "arms": {
+            "anyOf": [
+              { "properties": { "off": { "properties": { "resultStatus": { "const": "failed" } } } } },
+              { "properties": { "approved_only": { "properties": { "resultStatus": { "const": "failed" } } } } }
+            ]
+          },
+          "deltas": {
+            "properties": {
+              "quality": { "properties": { "availability": { "const": "unavailable" } } },
+              "time": { "properties": { "availability": { "const": "unavailable" } } },
+              "cost": { "properties": { "availability": { "const": "unavailable" } } }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

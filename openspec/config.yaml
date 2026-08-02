@@ -1,0 +1,26 @@
+schema: spec-driven
+
+context: |
+  Product: a reproducible benchmark and productivity-regression harness for
+  visualization coding agents. The benchmark evaluates a complete delivery system
+  (model, CLI or API, tool permissions, context, and acceptance gates), not model
+  prose in isolation. Authoritative product and architecture baselines live under
+  docs/product/ and docs/architecture/. Formal cases live under cases/; model-visible
+  requirements and evaluator-visible acceptance criteria remain separate.
+  Runs are evidence-producing experiments. A report must preserve unavailable data
+  as unavailable, bind conclusions to immutable run inputs, and never turn a process
+  success into a business-quality claim.
+
+rules:
+  proposal:
+    - State the observable benchmark outcome, non-goals, affected capabilities, and compatibility impact.
+    - Identify which conclusions remain unavailable until evidence is collected.
+  specs:
+    - Every requirement SHALL include at least one exact four-hash WHEN/THEN scenario.
+    - Paired comparisons SHALL define arm controls, failure behavior, and missing-evidence semantics.
+  design:
+    - Explain experiment isolation, trust boundaries, persistence and recovery semantics, and rejected alternatives.
+    - Keep scoring and contract validation deterministic; model output is evidence, not authority.
+  tasks:
+    - Every implementation task MUST name owned paths, acceptance evidence, a verification command or fixture, and rollback.
+    - Include plan review, integration verification, zero-charge automated tests, and independent review for public behavior.

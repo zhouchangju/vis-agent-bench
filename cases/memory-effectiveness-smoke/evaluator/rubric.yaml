@@ -1,0 +1,16 @@
+version: 1
+total: 100
+hard_gates:
+  - semantic-version-order
+categories:
+  historical_trap:
+    weight: 80
+    checks:
+      - semantic-version-order
+  memory_trace:
+    weight: 20
+    checks:
+      - approved-memory-trace
+caps:
+  p0_failure_max_score: 0
+  incomplete_cap: 0

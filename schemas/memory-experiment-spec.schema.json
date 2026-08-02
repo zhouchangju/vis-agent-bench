@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vis-agent-bench.local/schemas/memory-experiment-spec.schema.json",
+  "title": "MemoryExperimentSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "experimentId", "projectId", "taskId", "arms", "controls", "createdAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "experimentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "projectId": { "type": "string", "minLength": 9, "maxLength": 128, "pattern": "^project_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "taskId": { "type": "string", "minLength": 6, "maxLength": 128, "pattern": "^task_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "arms": {
+      "type": "array",
+      "prefixItems": [{ "const": "off" }, { "const": "approved_only" }],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseId", "caseVersion", "model", "provider", "engine", "reasoningEffort", "tools", "budget", "baseCommit", "fixtureHash", "memorySnapshotHash"],
+      "properties": {
+        "caseId": { "type": "string", "minLength": 1 },
+        "caseVersion": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "engine": { "type": "string", "minLength": 1 },
+        "reasoningEffort": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "tools": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["wallTimeMinutes", "maxRetries", "maxTokens", "maxCostUsd"],
+          "properties": {
+            "wallTimeMinutes": { "type": "number", "exclusiveMinimum": 0 },
+            "maxRetries": { "type": "integer", "minimum": 0 },
+            "maxTokens": {
+              "oneOf": [
+                { "type": "null" },
+                { "type": "integer", "exclusiveMinimum": 0 }
+              ]
+            },
+            "maxCostUsd": {
+              "oneOf": [
+                { "type": "null" },
+                { "type": "number", "minimum": 0 }
+              ]
+            }
+          }
+        },
+        "baseCommit": { "type": "string", "pattern": "^[a-fA-F0-9]{7,64}$" },
+        "fixtureHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "memorySnapshotHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?!0000)\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$",
+      "$comment": "Runtime validation additionally enforces the real Gregorian day for the selected month and year."
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "memoryId": "memory_semver_numeric_sort",
+  "status": "approved",
+  "content": "Compare semantic-version segments numerically; lexical ordering puts 1.10 before 1.9."
+}

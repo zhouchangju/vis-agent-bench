@@ -1,0 +1,73 @@
+{
+  "experimentSpec": {
+    "schemaVersion": 1,
+    "experimentId": "exp-semver-001",
+    "projectId": "project_vis_agent_bench",
+    "taskId": "task_semver_sort",
+    "arms": ["off", "approved_only"],
+    "controls": {
+      "caseId": "memory-effectiveness-smoke",
+      "caseVersion": "1",
+      "model": "deterministic-fixture",
+      "provider": "local",
+      "engine": "local-node",
+      "reasoningEffort": null,
+      "tools": ["file_read"],
+      "budget": { "wallTimeMinutes": 1, "maxRetries": 0, "maxTokens": null, "maxCostUsd": 0 },
+      "baseCommit": "cccccccccccccccccccccccccccccccccccccccc",
+      "fixtureHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "memorySnapshotHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "createdAt": "2026-07-26T00:00:00.000Z"
+  },
+  "intervention": {
+    "schemaVersion": 1,
+    "interventionId": "memory_intervention_approved_001",
+    "retrievalRunId": "memory_retrieval_approved_001",
+    "experimentId": "exp-semver-001",
+    "projectId": "project_vis_agent_bench",
+    "taskId": "task_semver_sort",
+    "arm": "approved_only",
+    "policyVersion": "memory-policy-v1",
+    "contextPackHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "selectedMemoryIds": ["memory_semver_numeric_sort", "memory_semver_lexical_outdated"],
+    "createdAt": "2026-07-26T00:01:00.000Z"
+  },
+  "execution": {
+    "sessionId": "session_approved_001",
+    "workspaceId": "workspace_approved_001"
+  },
+  "feedback": [
+    {
+      "schemaVersion": 1,
+      "feedbackId": "memory_feedback_approved_helpful",
+      "interventionId": "memory_intervention_approved_001",
+      "memoryId": "memory_semver_numeric_sort",
+      "outcome": "helpful",
+      "evidenceRefs": ["artifact_approved_semantic_version_order"],
+      "note": "Numeric segment comparison avoided the historical trap.",
+      "createdAt": "2026-07-26T00:02:00.000Z"
+    },
+    {
+      "schemaVersion": 1,
+      "feedbackId": "memory_feedback_approved_harmful",
+      "interventionId": "memory_intervention_approved_001",
+      "memoryId": "memory_semver_lexical_outdated",
+      "outcome": "harmful",
+      "evidenceRefs": ["artifact_approved_outdated_memory"],
+      "note": "The outdated lexical-sort guidance conflicts with semantic versions.",
+      "createdAt": "2026-07-26T00:02:01.000Z"
+    }
+  ],
+  "result": {
+    "status": "success",
+    "qualityScore": 100,
+    "durationMs": 60,
+    "costUsd": null,
+    "evidenceRefs": [
+      "run_approved_result",
+      "artifact_approved_semantic_version_order",
+      "artifact_approved_outdated_memory"
+    ]
+  }
+}

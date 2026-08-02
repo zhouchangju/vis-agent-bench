@@ -1,0 +1,5 @@
+version: 1
+case_id: memory-effectiveness-smoke
+mode: deterministic
+source_root: starter
+baseline: []

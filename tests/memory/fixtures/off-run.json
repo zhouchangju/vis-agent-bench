@@ -1,0 +1,59 @@
+{
+  "experimentSpec": {
+    "schemaVersion": 1,
+    "experimentId": "exp-semver-001",
+    "projectId": "project_vis_agent_bench",
+    "taskId": "task_semver_sort",
+    "arms": ["off", "approved_only"],
+    "controls": {
+      "caseId": "memory-effectiveness-smoke",
+      "caseVersion": "1",
+      "model": "deterministic-fixture",
+      "provider": "local",
+      "engine": "local-node",
+      "reasoningEffort": null,
+      "tools": ["file_read"],
+      "budget": { "wallTimeMinutes": 1, "maxRetries": 0, "maxTokens": null, "maxCostUsd": 0 },
+      "baseCommit": "cccccccccccccccccccccccccccccccccccccccc",
+      "fixtureHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "memorySnapshotHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "createdAt": "2026-07-26T00:00:00.000Z"
+  },
+  "intervention": {
+    "schemaVersion": 1,
+    "interventionId": "memory_intervention_off_001",
+    "retrievalRunId": "memory_retrieval_off_001",
+    "experimentId": "exp-semver-001",
+    "projectId": "project_vis_agent_bench",
+    "taskId": "task_semver_sort",
+    "arm": "off",
+    "policyVersion": "memory-policy-v1",
+    "contextPackHash": null,
+    "selectedMemoryIds": [],
+    "createdAt": "2026-07-26T00:01:00.000Z"
+  },
+  "execution": {
+    "sessionId": "session_off_001",
+    "workspaceId": "workspace_off_001"
+  },
+  "feedback": [
+    {
+      "schemaVersion": 1,
+      "feedbackId": "memory_feedback_off_001",
+      "interventionId": "memory_intervention_off_001",
+      "memoryId": null,
+      "outcome": "unobserved",
+      "evidenceRefs": ["artifact_off_evaluator_summary"],
+      "note": "No memory intervention was present.",
+      "createdAt": "2026-07-26T00:02:00.000Z"
+    }
+  ],
+  "result": {
+    "status": "success",
+    "qualityScore": 0,
+    "durationMs": 100,
+    "costUsd": null,
+    "evidenceRefs": ["run_off_result", "artifact_off_evaluator_summary"]
+  }
+}

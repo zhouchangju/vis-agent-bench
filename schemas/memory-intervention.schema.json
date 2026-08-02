@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vis-agent-bench.local/schemas/memory-intervention.schema.json",
+  "title": "MemoryIntervention",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "interventionId", "retrievalRunId", "experimentId", "projectId", "taskId", "arm", "policyVersion", "contextPackHash", "selectedMemoryIds", "createdAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "interventionId": { "type": "string", "minLength": 21, "maxLength": 128, "pattern": "^memory_intervention_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "retrievalRunId": { "type": "string", "minLength": 18, "maxLength": 128, "pattern": "^memory_retrieval_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "experimentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "projectId": { "type": "string", "minLength": 9, "maxLength": 128, "pattern": "^project_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "taskId": { "type": "string", "minLength": 6, "maxLength": 128, "pattern": "^task_[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "arm": { "enum": ["off", "approved_only"] },
+    "policyVersion": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "contextPackHash": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      ]
+    },
+    "selectedMemoryIds": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^memory_(?!(?:intervention|retrieval|feedback)_)[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+      "uniqueItems": true,
+      "maxItems": 3
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?!0000)\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$",
+      "$comment": "Runtime validation additionally enforces the real Gregorian day for the selected month and year."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "arm": { "const": "off" } } },
+      "then": {
+        "properties": {
+          "contextPackHash": { "type": "null" },
+          "selectedMemoryIds": { "maxItems": 0 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "arm": { "const": "approved_only" } } },
+      "then": {
+        "properties": {
+          "contextPackHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    }
+  ]
+}
