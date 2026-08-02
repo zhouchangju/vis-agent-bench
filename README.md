@@ -78,6 +78,38 @@ vis-agent-bench/
 - 内部代码和敏感截图不得直接进入公开 fixture；
 - 所有结论必须能回溯到 Run、Case、模型配置和代码版本。
 
+## 持续集成
+
+推送到 `main` 或面向 `main` 的 Pull Request 会触发 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)。
+所有 job 都在 Node 20 / `ubuntu-latest` 上运行，并使用 `npm ci` 安装依赖。每个 job 的 npm 缓存通过
+`setup-node` 的 `cache: 'npm'` 复用。
+
+CI 运行的 job：
+
+- **lint-and-structure** — `npm run validate:structure` + `npm run test:syntax`
+- **test-core** — `test:contracts` / `test:runners` / `test:fixtures` / `test:cases` / `test:reporting` /
+  `test:revision`
+- **test-evaluators** — `test:evaluators`（不调用真实模型）
+- **test-e2e** — `test:e2e`（端到端 harness 检查，仍为确定性）
+- **test-smoke-flow** — `test:smoke-flow`（开发 smoke，不调真实 CLI）
+- **test-browser** — `test:browser`；CI 会先 `npx playwright install --with-deps chromium`
+  装好无头浏览器，因为 Playwright 不在 `package.json` 的 dependencies 中（由
+  `src/browser-evidence/drivers/playwright-loader.mjs` 动态加载）
+
+CI **刻意跳过**以下需要真实 API key / 真实 CLI、或会消耗费用的命令，它们仍需本地或专人运行：
+
+- `smoke:flow:real`
+- `bench:case`
+- `bench:doctor`
+
+PR 必须 CI 全绿才能合并（GitHub 默认分支保护行为）。本地推荐在推送前跑：
+
+```bash
+npm test
+```
+
+如本地缺 Playwright，可只跑非浏览器子集，例如 `npm run test:contracts && npm run test:runners`。
+
 ## 本地校验
 
 ```bash
@@ -236,6 +268,40 @@ node scripts/bench.mjs report --run-dir <run-dir>
 
 真实 CLI Run 会记录实际 CLI 版本、阶段日志、归一化事件、原生 Token/费用字段（CLI
 不提供时明确标记 `unavailable`）、文件快照、Git diff 和人工评审占位。
+
+## 记忆效果配对评测
+
+Memory Effectiveness Benchmark 用两个受控 Arm 判断项目记忆是否带来可归因变化：
+`off` 完全关闭记忆，`approved_only` 最多注入三条已审批记忆。两边的 model、provider、
+engine、reasoning effort、工具、预算、Case ID/版本、基础提交、Fixture hash 和 Memory
+Snapshot hash 必须完全一致。缺少结果证据、同臂输入、控制变量不一致、Feedback 引用非本臂证据
+或复用两臂证据都会被拒绝，不会生成报告。每个输入还必须提供
+`execution.{sessionId,workspaceId}`；两臂必须使用不同 Session 和不同 Workspace。
+
+每个输入 JSON 包含 `experimentSpec`、`execution`、`intervention`、`feedback` 和 `result`。
+生成结构化报告：
+
+```bash
+npm run bench:memory-report -- \
+  --off <off-run.json> \
+  --approved-only <approved-only-run.json> \
+  --out .local/reports/memory-paired-report.json
+```
+
+报告固定包含 Schema/实验/项目/任务身份、`comparisonStatus`、每字段均为 `matched` 的
+`armControls`、带 `resultStatus` 的 `arms`、`controls`、`feedbackCounts`、`utilization`、
+其中 `arms` 保留每臂的 `sessionId`/`workspaceId`；
+`deltas.{quality,time,cost}`、`evidenceRefs` 和 `generatedAt`。任一 Arm 失败时比较为
+`ineligible`，三项 delta 全部不可用；两个 Arm 均成功时，只有实际缺失的指标才标记为
+`unavailable`。
+
+`memory-effectiveness-smoke` 是显式选择的备选 Case，不进入默认主榜。契约、Case、比较和 CLI
+测试全部使用 deterministic fixture；`npm run test:memory` 不调用外部模型，也不会产生模型费用。
+当前专项门禁为 16/16；它还通过正式 Golden Pipeline 验证 `control-plane-attested` 证据。
+所有共享契约时间戳使用严格 canonical RFC3339：非零四位年份、大写 `T`/`Z`（或数字时区偏移）、
+真实 Gregorian 日期，且不接受 `24` 时或闰秒。
+完整契约和操作步骤见
+[评测运行手册](docs/operations/RUNBOOK.md#记忆效果配对评测)。
 
 ## 确定性 Golden Run
 

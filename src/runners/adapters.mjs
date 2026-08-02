@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { semiAutomaticAdapter } from './semi-automatic-adapter.mjs';
 
 /**
  * CLI Adapter 协议（VAB-T01）。
@@ -328,13 +329,14 @@ const adapters = {
 };
 
 export function getAdapter(engine) {
+  if (engine === 'semi-auto' || engine === 'semi-automatic') return semiAutomaticAdapter;
   const adapter = adapters[engine];
   if (!adapter) throw new Error(`Unsupported engine: ${engine}`);
   return adapter;
 }
 
 export function listAdapters() {
-  return ['codex', 'kimi', 'claude', 'pi'].map(getAdapter);
+  return [...['codex', 'kimi', 'claude', 'pi'].map(id => adapters[id]), semiAutomaticAdapter];
 }
 
 /**

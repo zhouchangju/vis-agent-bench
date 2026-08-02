@@ -18,6 +18,10 @@ const schemaFiles = [
   'run-spec.schema.json',
   'result-envelope.schema.json',
   'rubric.schema.json',
+  'memory-experiment-spec.schema.json',
+  'memory-intervention.schema.json',
+  'memory-feedback.schema.json',
+  'memory-paired-report.schema.json',
 ];
 
 function readYaml(path) {

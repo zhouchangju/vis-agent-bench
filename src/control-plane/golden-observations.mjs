@@ -20,6 +20,12 @@ export function loadGoldenObservation(projectRoot, caseId, browserEvidence) {
       'tests/evaluators/ainvest-heatmap/samples/minimal-compliant.json',
     ));
     observation.browserEvidence = browserEvidence;
+  } else if (caseId === 'memory-effectiveness-smoke') {
+    observation = {
+      arm: 'approved_only',
+      sortedVersions: ['1.9.0', '1.10.0', '2.0.0'],
+      selectedMemoryIds: ['memory_semver_numeric_sort'],
+    };
   } else {
     throw new Error(`No deterministic golden observation for ${caseId}.`);
   }

@@ -28,6 +28,11 @@
         "version": { "const": 1 },
         "total": { "const": 100 },
         "hard_gates": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "judge_review_checks": {
+          "description": "Optional array of check ids that should receive a secondary Judge model review. Judge verdicts are stored separately and never override deterministic check statuses. When absent, the integration layer falls back to reviewing all executed fail/warning checks.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
         "categories": {
           "type": "object",
           "minProperties": 1,
@@ -36,7 +41,12 @@
             "required": ["weight", "checks"],
             "properties": {
               "weight": { "type": "number", "exclusiveMinimum": 0 },
-              "checks": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+              "checks": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+              "judge_review_checks": {
+                "description": "Optional per-category override: check ids in this category that require Judge review.",
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              }
             },
             "additionalProperties": false
           }

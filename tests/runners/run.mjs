@@ -237,15 +237,22 @@ check('parseSemverVersion extracts the first semver-like substring', () => {
 
 check('adapter.parseVersion delegates to parseSemverVersion', () => {
   for (const adapter of listAdapters()) {
+    if (typeof adapter.parseVersion !== 'function') continue; // semi-auto has no CLI
     assert.equal(adapter.parseVersion('foo 1.2.3 bar'), '1.2.3', `${adapter.id} parseVersion`);
     assert.equal(adapter.parseVersion('garbage'), null);
   }
 });
 
-check('listAdapters returns the four supported engines with stable ids', () => {
-  assert.deepEqual(listAdapters().map(a => a.id), ['codex', 'kimi', 'claude', 'pi']);
+check('listAdapters returns the four CLI engines plus semi-auto with stable ids', () => {
+  const ids = listAdapters().map(a => a.id);
+  assert.ok(ids.includes('codex'));
+  assert.ok(ids.includes('kimi'));
+  assert.ok(ids.includes('claude'));
+  assert.ok(ids.includes('pi'));
+  assert.ok(ids.includes('semi-auto'));
   assert.equal(getAdapter('codex').session_continuity, 'native');
   assert.equal(getAdapter('pi').session_continuity, 'native-working-directory');
+  assert.equal(getAdapter('semi-auto').session_continuity, 'manual-checkpoint');
 });
 
 check('getAdapter throws on unknown engine', () => {

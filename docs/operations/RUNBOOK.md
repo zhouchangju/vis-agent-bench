@@ -224,7 +224,7 @@ Adapter 固定传入 `--approve`、`--no-context-files`、`--no-extensions`、`-
 - `narrative-equity-relationship`：股权关系叙事可视化，主 Case；
 - `macro-map-3d-greenfield`：从零 3D 场景，主 Case；
 - `ainvest-market-heatmap-rebuild`：AInvest 热力地图复刻，主 Case；
-- `standard-chart-two-way-tree`：产业链双向树，备选；当前缺少 Starter Fixture，不能直接运行；
+- `standard-chart-two-way-tree`：产业链双向树，备选；已具备合成 Starter Fixture 与确定性 evaluator（backup case，未加入 PRIMARY_CASES，需显式指定 case id 才会运行）；
 - `dev-workflow-smoke`：平台开发专用，不评估复杂可视化能力。
 
 默认优先使用 `cases/<case-id>/fixture/starter`；不存在时使用 `fixture`。也可显式覆盖：
@@ -420,3 +420,125 @@ npm run bench:case -- \
 非交互确认、Session 连续性、流式事件、超时、预算及失败证据均使用统一 Runner 协议；具体模型
 是否完成真实试跑，仍以对应 Run 的 `result.json`、日志和人工评审为准，不能以 Adapter 已接入替代
 实际能力结论。
+
+## 记忆效果配对评测
+
+### 实验边界
+
+配对评测只比较一个 `off` Arm 和一个 `approved_only` Arm。除记忆模式和对应干预证据外，两边必须
+固定以下控制变量：
+
+- `caseId`、`caseVersion`；
+- `model`、`provider`、`engine`、`reasoningEffort`；
+- 唯一的 `tools` 列表；
+- `budget.wallTimeMinutes`、`maxRetries`、`maxTokens`、`maxCostUsd`；
+- 7–64 位十六进制 `baseCommit`；
+- 64 位小写 SHA-256 `fixtureHash` 和 `memorySnapshotHash`。
+
+`MemoryExperimentSpec` 顶层字段固定为 `schemaVersion`、`experimentId`、`projectId`、
+`taskId`、`arms`、`controls`、`createdAt`，且 `arms` 必须严格为
+`["off", "approved_only"]`。预算中 `maxTokens` 可为 `null` 或正整数，`maxCostUsd`
+可为 `null` 或非负数。
+
+每个 Arm wrapper 还必须含顶层 `execution`，且只能包含 `sessionId` 与 `workspaceId`。两者均为
+1–128 字符 bounded ID（首字符为字母或数字，其余可使用字母、数字、`.`、`_`、`:`、`-`）。
+`off` 与 `approved_only` 的 Session 必须不同以证明 fresh session，Workspace 也必须不同以证明
+独立执行目录；复用任一项都会拒绝 Pair。
+
+`off` Arm 的 `contextPackHash` 必须为 `null`，且 `selectedMemoryIds=[]`。
+`approved_only` 即使没有匹配记忆，也必须记录空 Context Pack 的 SHA-256 hash；其
+`selectedMemoryIds` 可以为空，但最多三条。每个 `MemoryIntervention` 还必须记录非空
+`retrievalRunId`。ID 命名空间固定为 `memory_intervention_…`、
+`memory_retrieval_…` 和 `memory_…`。两种状态不能互换。
+
+反馈可指向某条实际注入的记忆，也可指向整次干预：
+
+- `memoryId` 非空时，必须属于该干预的 `selectedMemoryIds`；
+- `memoryId=null` 时，表示 intervention-level feedback；
+- `feedbackId` 使用 `memory_feedback_…`；
+- `evidenceRefs` 至少一项，且每项使用 `run_…` 或 `artifact_…`；
+- 每条 Feedback 证据必须同时存在于本 Arm 的 `result.evidenceRefs`；
+- Feedback 契约不含 `source` 字段；
+- 孤立、越界或无证据反馈会使契约校验失败，不会被静默忽略。
+
+四份共享契约均使用 camelCase 和 `schemaVersion: 1`：
+
+```text
+schemas/memory-experiment-spec.schema.json
+schemas/memory-intervention.schema.json
+schemas/memory-feedback.schema.json
+schemas/memory-paired-report.schema.json
+```
+
+### 零费用验证
+
+日常开发和 CI 只使用 deterministic fixture，不启动 Codex、Claude、Kimi、Pi 或外部模型 API：
+
+```bash
+npm run test:memory
+npm test
+```
+
+需要单独检查记忆链路时，显式选择备选 Case `memory-effectiveness-smoke`。它不属于默认主 Case
+集合，不进入排行榜，只验证语义化版本历史陷阱、干预、反馈、配对比较和报告接线。
+`test:memory` 全程使用本地 fixture，不产生模型调用，并运行正式 Golden Pipeline，要求最终
+evaluator 证据为 `control-plane-attested`。
+
+### 生成配对报告
+
+准备两个 Arm JSON。每个文件都必须包含 `experimentSpec`、`execution`、`intervention`、
+`feedback` 和 `result`，其中 `result.evidenceRefs` 至少一项：
+
+```bash
+node scripts/bench.mjs memory-report \
+  --off <off-run.json> \
+  --approved-only <approved-only-run.json> \
+  --out .local/reports/memory-paired-report.json
+```
+
+也可以使用 npm 别名：
+
+```bash
+npm run bench:memory-report -- \
+  --off <off-run.json> \
+  --approved-only <approved-only-run.json> \
+  --out <paired-report.json>
+```
+
+命令只读取两个源结果并原子写入一个结构化报告，不重新调用模型、不修改源 Run。输入不符合 Schema
+或反馈不属于本 Arm 结果证据时，命令非零退出且不保留部分输出。`--out` 不能与任一输入为同一文件，
+也不能指向任何既存文件。写入流程先独占创建同目录临时文件，再通过 `linkSync(temp, out)` 做
+原子、排他的 no-clobber 发布；两个并发进程竞争同一输出时恰好一个成功。`finally` 在成功或失败后
+都会 unlink 临时文件，避免 TOCTOU 覆盖和残留。
+
+### 解释报告
+
+报告字段为：
+
+- `schemaVersion`、`experimentId`、`projectId`、`taskId` 和 `generatedAt`；
+- `comparisonStatus`：两臂成功时为 `eligible`，任一失败时为 `ineligible`；
+- `armControls`：`caseId`、`caseVersion`、模型/运行时、工具、预算、提交、Fixture 和 Memory
+  Snapshot 等每个控制字段均记录为 `matched`；
+- `arms`：两边的 `interventionId`、`retrievalRunId`、Context Pack hash、选中记忆和
+  `resultStatus`，以及 `sessionId`、`workspaceId`；
+- `controls`：已验证为两边完全一致的实验控制；
+- `feedbackCounts`：`helpful`、`neutral`、`harmful`、`unobserved` 数量；
+- `utilization`：已选记忆中得到可观测反馈的比例；
+- `deltas.quality|time|cost`：统一使用 `approved_only_minus_off` 方向；
+- `evidenceRefs`：两臂独立结果证据和有效 Feedback 证据的去重集合。
+
+缺证据、同臂输入、控制或 `policyVersion` 不一致、Feedback 引用非本臂结果证据、两臂复用
+结果证据、Session 或 Workspace 都属于无效 Pair：命令直接拒绝。合法 Pair 中任一 Arm 的
+`result.status=failed` 时，
+`comparisonStatus=ineligible`，quality/time/cost 三项 delta 全部为 `unavailable`。两臂均成功时，
+某项 `qualityScore`、`durationMs` 或 `costUsd` 缺失才只影响对应 delta；没有选中记忆时
+utilization 因无分母标记为 `unavailable`。`unavailable` 不是零，系统不会估算缺失值。
+运行时权威校验还要求 utilization 的 `selectedCount` 等于 approved Arm 的实际选中数量，
+`observedCount` 不得超过它，reported `rate` 必须等于两者比值（保留六位小数）。JSON Schema
+通过 `$comment` 声明这些跨字段不变量，最终以 runtime validator 为准。所有契约时间戳只接受
+canonical RFC3339 子集：年份为 `0001`–`9999`，分隔符必须是大写 `T`，时区必须是大写 `Z` 或
+数字 `±HH:MM`，小时为 `00`–`23`，秒为 `00`–`59`（禁止 leap second）。Schema `pattern`
+执行词法约束，`$comment` 声明 runtime 还会验证真实 Gregorian 日期，因此 lowercase `t/z`、
+year `0000`、`2026-02-30`、hour `24` 和 second `60` 都会失败。
+Report Schema 用 `$comment` 声明两臂 `sessionId`/`workspaceId` 必须分别不同；跨臂唯一性同样以
+runtime validator 为权威。

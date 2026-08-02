@@ -2,11 +2,13 @@
 import {
   copyFileSync,
   existsSync,
+  linkSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   statSync,
   realpathSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -17,9 +19,19 @@ import { parse as parseYaml } from 'yaml';
 import { getAdapter, listAdapters } from '../src/runners/adapters.mjs';
 import { validateRunSpec } from '../src/contracts/index.mjs';
 import { getCaseRuntime } from '../src/control-plane/case-registry.mjs';
+import {
+  collectRunObservation,
+  writeAttestation,
+} from '../src/control-plane/run-observation-collector.mjs';
 import { runGoldenPipeline } from '../src/control-plane/pipeline.mjs';
 import { buildHumanReviewPackage } from '../src/review/human-review-package.mjs';
 import { aggregateUsage, normalizeStdout } from '../src/telemetry/index.mjs';
+import {
+  runSemiAutomaticSession,
+  resumeSemiAutomaticSession,
+  getSemiAutoStatus,
+  watchSemiAutomaticSession,
+} from '../src/runners/semi-automatic-session.mjs';
 import {
   adapterId,
   buildRunSpec,
@@ -32,6 +44,7 @@ import {
   scanForAnswerLeakage,
 } from '../src/core/file-isolation.mjs';
 import { detectExecutable, runCommand } from '../src/core/process-runner.mjs';
+import { buildMemoryPairedReport } from '../src/memory/index.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -178,33 +191,70 @@ function loadRunScenario(runDir, caseDir) {
   return loadScenario(caseDir);
 }
 
+function readCaseTaskType(caseDir) {
+  const configPath = join(caseDir, 'case.yaml');
+  if (!existsSync(configPath)) return null;
+  try {
+    const config = parseYaml(readFileSync(configPath, 'utf8'));
+    return typeof config?.task_type === 'string' ? config.task_type : null;
+  } catch {
+    return null;
+  }
+}
+
+// Per-task-type delivery protocols appended to every stage prompt.
+// Code-gen tasks keep the package.json build/typecheck/test gate contract;
+// diagnostic tasks produce Markdown/patch deliverables and skip that gate.
+const DELIVERY_PROTOCOLS = {
+  'development-smoke': stage => [
+    '这是开发管道 Smoke：禁止启动子 Agent、后台任务和联网。',
+    '不要扩展需求或过度设计；直接完成 checkpoint，使用尽可能少的工具调用。',
+    '本阶段最多进行一次必要的本地验证，不要反复自检。',
+    '不得修改 package.json 中既有的 build、typecheck、test script，也不得修改父 Run 中任何已存在的 scripts/*.mjs；它们都是 Harness 的基线完整性门禁。',
+    `更新 workspace 根目录的 requirement-ledger.yaml：必须使用 JSON 语法（JSON 也是合法 YAML），且只能有一个文档。严格采用对象数组字段 \`confirmed\`、\`decisions\`、\`assumptions\`、\`open_questions\`；每项写成 \`{"priority":"must|should|may","text":"..."}\`，文本中的中文引号和冒号必须位于 JSON 字符串内。不要写 \`---\`、\`...\`、Markdown 标题或 \`- dec:\` 这类 YAML 简写。`,
+    `本阶段 checkpoint：${(stage.checkpoint || []).join('、')}`,
+    `把符号型 checkpoint 写入 .vab/checkpoints/${stage.id}.json：`,
+    `{"schema_version":1,"stage_id":"${stage.id}","artifacts":{"checkpoint-name":["相对 workspace 的证据文件"]}}`,
+    'checkpoint 中带路径/扩展名的项目必须直接创建该文件；所有 manifest 引用必须存在且位于 workspace 内。',
+    '最后阶段会由 Harness 自动运行 package.json 中存在的 build、typecheck、test 脚本；只报告真实结果。',
+    '结束时简要输出：status、summary、next_actions、artifacts。',
+  ],
+  'visual-debugging': stage => [
+    '这是诊断答疑任务：产出是结构化 Markdown 诊断与可执行修复，不需要构建或测试代码。',
+    '不得修改或删除 Harness 提供的截图、源码样本和参考材料。',
+    `更新 workspace 根目录的 requirement-ledger.yaml：必须使用 JSON 语法（JSON 也是合法 YAML），且只能有一个文档。严格采用对象数组字段 \`confirmed\`、\`decisions\`、\`assumptions\`、\`open_questions\`；每项写成 \`{"priority":"must|should|may","text":"..."}\`，文本中的中文引号和冒号必须位于 JSON 字符串内。不要写 \`---\`、\`...\`、Markdown 标题或 \`- dec:\` 这类 YAML 简写。`,
+    `本阶段 checkpoint：${(stage.checkpoint || []).join('、')}`,
+    `把符号型 checkpoint 写入 .vab/checkpoints/${stage.id}.json：`,
+    `{"schema_version":1,"stage_id":"${stage.id}","artifacts":{"checkpoint-name":["相对 workspace 的证据文件"]}}`,
+    'checkpoint 中带路径/扩展名的项目必须直接创建该文件（Markdown、patch、option 均可）；所有 manifest 引用必须存在且位于 workspace 内。',
+    '结束时简要输出：status、summary、next_actions、artifacts。',
+  ],
+  default: stage => [
+    '只处理当前已知信息，不要猜测后续需求。',
+    '不得修改 package.json 中既有的 build、typecheck、test script，也不得修改父 Run 中任何已存在的 scripts/*.mjs；它们都是 Harness 的基线完整性门禁。可以新增功能代码、文档、数据和以 revision- 开头的独立测试脚本。',
+    '更新 workspace 根目录的 requirement-ledger.yaml：必须使用 JSON 语法（JSON 也是合法 YAML），且只能有一个文档。严格采用对象数组字段 `confirmed`、`decisions`、`assumptions`、`open_questions`；每项写成 `{"priority":"must|should|may","text":"..."}`，文本中的中文引号和冒号必须位于 JSON 字符串内。不要写 `---`、`...`、Markdown 标题或 `- dec:` 这类 YAML 简写。',
+    `本阶段 checkpoint：${(stage.checkpoint || []).join('、')}`,
+    `把符号型 checkpoint 写入 .vab/checkpoints/${stage.id}.json：`,
+    `{"schema_version":1,"stage_id":"${stage.id}","artifacts":{"checkpoint-name":["相对 workspace 的证据文件"]}}`,
+    'checkpoint 中带路径/扩展名的项目必须直接创建该文件；所有 manifest 引用必须存在且位于 workspace 内。',
+    '最后阶段会由 Harness 自动运行 package.json 中存在的 build、typecheck、test 脚本；只报告真实结果。',
+    '结束时简要输出：status、summary、next_actions、artifacts。',
+  ],
+};
+
 function stagePrompt(caseDir, scenario, stage) {
   const content = stage.input
     ? readFileSync(join(caseDir, 'scenario', stage.input), 'utf8')
     : stage.stakeholder_message;
-  const developmentSmokeRules = basename(caseDir) === 'dev-workflow-smoke'
-    ? [
-        '这是开发管道 Smoke：禁止启动子 Agent、后台任务和联网。',
-        '不要扩展需求或过度设计；直接完成 checkpoint，使用尽可能少的工具调用。',
-        '本阶段最多进行一次必要的本地验证，不要反复自检。',
-      ]
-    : [];
+  const taskType = readCaseTaskType(caseDir);
+  const protocolBuilder = DELIVERY_PROTOCOLS[taskType] || DELIVERY_PROTOCOLS.default;
   return [
     content.trim(),
     '',
     '## 本阶段交付协议',
     '',
     `当前阶段：${stage.id} / ${stage.name}`,
-    '只处理当前已知信息，不要猜测后续需求。',
-    '不得修改 package.json 中既有的 build、typecheck、test script，也不得修改父 Run 中任何已存在的 scripts/*.mjs；它们都是 Harness 的基线完整性门禁。可以新增功能代码、文档、数据和以 revision- 开头的独立测试脚本。',
-    '更新 workspace 根目录的 requirement-ledger.yaml：必须使用 JSON 语法（JSON 也是合法 YAML），且只能有一个文档。严格采用对象数组字段 `confirmed`、`decisions`、`assumptions`、`open_questions`；每项写成 `{"priority":"must|should|may","text":"..."}`，文本中的中文引号和冒号必须位于 JSON 字符串内。不要写 `---`、`...`、Markdown 标题或 `- dec:` 这类 YAML 简写。',
-    `本阶段 checkpoint：${(stage.checkpoint || []).join('、')}`,
-    ...developmentSmokeRules,
-    `把符号型 checkpoint 写入 .vab/checkpoints/${stage.id}.json：`,
-    `{"schema_version":1,"stage_id":"${stage.id}","artifacts":{"checkpoint-name":["相对 workspace 的证据文件"]}}`,
-    'checkpoint 中带路径/扩展名的项目必须直接创建该文件；所有 manifest 引用必须存在且位于 workspace 内。',
-    '最后阶段会由 Harness 自动运行 package.json 中存在的 build、typecheck、test 脚本；只报告真实结果。',
-    '结束时简要输出：status、summary、next_actions、artifacts。',
+    ...protocolBuilder(stage),
     '',
   ].join('\n');
 }
@@ -302,7 +352,16 @@ function verifyStageDeliverables(workspace, stage, logsDir, timeoutMs, env, pack
   if (isFinalStage(stage)) {
     const packagePath = join(workspace, 'package.json');
     if (!existsSync(packagePath)) {
-      missing.push('package.json');
+      // Diagnostic/Markdown-only workspace: no package.json means no build/test
+      // gate applies. Record a skip entry for auditability instead of failing.
+      commandResults.push({
+        name: '_skip_no_package_json',
+        exit_code: 0,
+        signal: null,
+        error: null,
+        stdout: '',
+        stderr: 'workspace has no package.json; build/test gate skipped (non-code task)',
+      });
     } else {
       const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
       const trustedGate = packageGate || baselinePackageGateFromGit(workspace);
@@ -392,7 +451,9 @@ function baselinePackageGateFromGit(workspace, baselineCommit) {
     shell: false,
   });
   if (packageResult.status !== 0) {
-    throw new Error('Trusted package gate is unavailable: baseline package.json cannot be read.');
+    // Diagnostic/Markdown-only workspace: tolerate a baseline with no package.json
+    // (mirrors baselinePackageGate's empty-gate behaviour for the non-git path).
+    return { scripts: {}, protected_files: [] };
   }
   const pkg = JSON.parse(packageResult.stdout);
   const tree = spawnSync('git', ['ls-tree', '-r', '--name-only', baselineCommit, '--', 'scripts'], {
@@ -401,7 +462,15 @@ function baselinePackageGateFromGit(workspace, baselineCommit) {
     shell: false,
   });
   if (tree.status !== 0) {
-    throw new Error('Trusted package gate is unavailable: baseline scripts cannot be read.');
+    // Baseline has a package.json but no scripts/ dir: treat as empty protected list.
+    return {
+      scripts: Object.fromEntries(
+        ['build', 'typecheck', 'test']
+          .filter(name => typeof pkg.scripts?.[name] === 'string')
+          .map(name => [name, pkg.scripts[name]]),
+      ),
+      protected_files: [],
+    };
   }
   const protectedFiles = (tree.stdout || '').split(/\r?\n/).filter(Boolean).map(path => {
     const content = spawnSync('git', ['show', `${baselineCommit}:${path}`], {
@@ -506,8 +575,12 @@ function findSessionId(rawPath) {
 }
 
 async function doctor() {
-  const engines = listAdapters().map(adapter =>
-    ({ id: adapter.id, ...detectExecutable(adapter.executable, adapter.versionArgs) }));
+  const engines = listAdapters()
+    .filter(adapter => adapter.executable) // skip semi-auto (no CLI to detect)
+    .map(adapter =>
+      ({ id: adapter.id, ...detectExecutable(adapter.executable, adapter.versionArgs) }));
+  // Add semi-auto separately as always "available" (manual operation).
+  engines.push({ id: 'semi-auto', label: 'Semi-automatic (manual client)', available: true, version: 'manual', path: 'N/A (manual)' });
   const unavailable = engines.filter(engine => !engine.available);
   output(
     unavailable.length ? 'warning' : 'success',
@@ -1238,6 +1311,38 @@ async function run(args) {
     completed_at: new Date().toISOString(),
   };
   writeFileSync(join(runDir, 'result.json'), JSON.stringify(finalResult, null, 2));
+
+  // Collect the trusted observation + attestation so evaluators can consume
+  // this real CLI run without falling back to the golden demo pipeline. The
+  // collector reads result.json / commands.json / fixture manifest / browser
+  // evidence and writes observation-attestation.json. Failures here must not
+  // sink the run; they are recorded in result.attestation_error so the user
+  // can recover via `bench.mjs collect-attestation`.
+  try {
+    const caseRuntime = getCaseRuntime(projectRoot, spec.case_id);
+    const { attestation, warnings } = await collectRunObservation({
+      projectRoot,
+      runRoot: runDir,
+      caseId: spec.case_id,
+      runId: state.run_id,
+      caseRuntime,
+    });
+    writeAttestation(runDir, attestation);
+    if (warnings.length) {
+      console.warn(`[attestation] ${warnings.length} warning(s): ${warnings.join('; ')}`);
+    }
+  } catch (err) {
+    finalResult.attestation_error = {
+      message: err.message,
+      code: err.code || 'ATTESTATION_FAILED',
+      root_cause_hint: err.root_cause_hint || err.message,
+      safe_retry: err.safe_retry || 'Run `bench.mjs collect-attestation --run-dir <path>`.',
+      stop_condition: err.stop_condition || 'Stop after two identical failures.',
+    };
+    // Persist the attestation_error into result.json so it survives process exit.
+    writeFileSync(join(runDir, 'result.json'), JSON.stringify(finalResult, null, 2));
+    console.error(`[attestation] failed: ${err.message}`);
+  }
   const review = buildHumanReviewPackage({
     run_id: state.run_id,
     reviewer: 'pending-human-review',
@@ -1404,12 +1509,18 @@ async function evaluateCommand(args) {
     workspace: join(runDir, 'workspace'),
     logsDir: join(runDir, 'logs', 'evaluator'),
   });
+  const evaluationRubric = evaluation.bundle?.rubric || evaluation.rubric || null;
+  const p0MinScore = evaluation.p0_min_score
+    ?? evaluationRubric?.gates?.p0_min_score
+    ?? evaluationRubric?.p0_min_score
+    ?? evaluation.scorecard?.p0?.min_score
+    ?? 80;
   const summary = {
     ...evaluation,
     summary: {
       p0_state: evaluation.status === 'success' ? 'passed' : 'failed',
       score: evaluation.scorecard?.total ?? null,
-      p0_min_score: 80,
+      p0_min_score: p0MinScore,
     },
   };
   const target = join(runDir, 'evaluator-summary.json');
@@ -1419,6 +1530,71 @@ async function evaluateCommand(args) {
     case_id: spec.case_id,
     evidence_trust: evaluation.evidence_trust,
   });
+}
+
+async function collectAttestationCommand(args) {
+  const runDir = resolve(requireOption(args, 'run_dir'));
+  const statePath = join(runDir, 'run-state.json');
+  const specPath = join(runDir, 'run-spec.json');
+  if (!existsSync(statePath) || !existsSync(specPath)) {
+    output(
+      'error',
+      `Run directory is not prepared: ${runDir}`,
+      ['Run `bench.mjs prepare` and `bench.mjs run` first, then re-run collect-attestation.'],
+      [],
+      {
+        error: {
+          root_cause_hint: 'Missing run-state.json or run-spec.json.',
+          safe_retry: 'Re-run after preparing the run directory.',
+          stop_condition: 'Stop if the directory is genuinely not a run root.',
+        },
+      },
+    );
+    process.exitCode = 1;
+    return;
+  }
+  const state = JSON.parse(readFileSync(statePath, 'utf8'));
+  const spec = JSON.parse(readFileSync(specPath, 'utf8'));
+  try {
+    const caseRuntime = getCaseRuntime(projectRoot, spec.case_id);
+    const { attestation, warnings } = await collectRunObservation({
+      projectRoot,
+      runRoot: runDir,
+      caseId: spec.case_id,
+      runId: state.run_id,
+      caseRuntime,
+    });
+    const target = writeAttestation(runDir, attestation);
+    output(
+      'success',
+      `observation-attestation.json written for run ${state.run_id}.`,
+      warnings.length ? [`Warnings: ${warnings.join('; ')}`] : ['Run `bench.mjs evaluate --run-dir <path>` to score the run.'],
+      [target],
+      {
+        run_id: state.run_id,
+        case_id: spec.case_id,
+        warnings,
+      },
+    );
+  } catch (err) {
+    output(
+      'error',
+      `Failed to collect attestation: ${err.message}`,
+      ['Fix the reported issue and re-run `bench.mjs collect-attestation`.'],
+      [],
+      {
+        error: {
+          code: err.code || 'ATTESTATION_FAILED',
+          root_cause_hint: err.root_cause_hint || err.message,
+          safe_retry: err.safe_retry || 'Re-run after addressing the root cause.',
+          stop_condition: err.stop_condition || 'Stop after two identical failures.',
+        },
+        run_id: state.run_id,
+        case_id: spec.case_id,
+      },
+    );
+    process.exitCode = 1;
+  }
 }
 
 function captureCommand(args) {
@@ -1453,6 +1629,45 @@ function reportCommand(args) {
   proxyJsonScript('generate-report.mjs', argv);
 }
 
+function memoryReportCommand(args) {
+  const offPath = resolve(requireOption(args, 'off'));
+  const approvedPath = resolve(requireOption(args, 'approved_only'));
+  const outPath = resolve(requireOption(args, 'out'));
+  for (const path of [offPath, approvedPath]) {
+    if (!existsSync(path)) throw new Error(`Memory arm fixture not found: ${path}`);
+  }
+  const offRealPath = realpathSync(offPath);
+  const approvedRealPath = realpathSync(approvedPath);
+  if (existsSync(outPath)) {
+    const outRealPath = realpathSync(outPath);
+    if (outRealPath === offRealPath || outRealPath === approvedRealPath) {
+      throw new Error('Memory report output must not overwrite either input arm.');
+    }
+    throw new Error(`Memory report output already exists: ${outPath}`);
+  }
+  if (outPath === offPath || outPath === approvedPath) {
+    throw new Error('Memory report output must not overwrite either input arm.');
+  }
+  const off = JSON.parse(readFileSync(offPath, 'utf8'));
+  const approved = JSON.parse(readFileSync(approvedPath, 'utf8'));
+  const report = buildMemoryPairedReport(off, approved);
+  mkdirSync(dirname(outPath), { recursive: true });
+  const temporaryPath = `${outPath}.tmp-${process.pid}-${randomUUID()}`;
+  try {
+    writeFileSync(temporaryPath, `${JSON.stringify(report, null, 2)}\n`, { flag: 'wx' });
+    linkSync(temporaryPath, outPath);
+  } finally {
+    if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
+  }
+  output(
+    'success',
+    `Memory paired report created for ${report.experimentId}/${report.taskId}.`,
+    [],
+    [outPath],
+    { report },
+  );
+}
+
 async function goldenCommand(args) {
   const specPath = resolve(requireOption(args, 'spec'));
   const { value: spec } = loadRunSpec(specPath);
@@ -1468,6 +1683,129 @@ async function goldenCommand(args) {
   if (result.status === 'error') process.exitCode = 1;
 }
 
+async function prepareSemiAutoCommand(args) {
+  const specPath = resolve(requireOption(args, 'spec'));
+  if (!existsSync(specPath)) throw new Error(`RunSpec not found: ${specPath}`);
+  const spec = JSON.parse(readFileSync(specPath, 'utf8'));
+  const validation = validateRunSpec(spec);
+  if (!validation.valid) throw new Error(`RunSpec is invalid: ${JSON.stringify(validation.errors)}`);
+
+  const caseId = spec.case_id;
+  const caseDir = join(projectRoot, 'cases', caseId);
+  if (!existsSync(caseDir)) throw new Error(`Unknown case: ${caseId}`);
+  const scenario = loadScenario(caseDir);
+  const caseRuntime = getCaseRuntime(projectRoot, caseId);
+
+  const runId = args.run_id || `${new Date().toISOString().replaceAll(/[:.]/g, '-')}_semi-auto_${randomUUID().slice(0, 8)}`;
+  const runDir = createRunLayout(projectRoot, runId);
+
+  const result = await runSemiAutomaticSession({
+    projectRoot,
+    runRoot: runDir,
+    runSpec: spec,
+    scenario,
+    caseRuntime,
+    runId,
+  });
+
+  if (result.status === 'error') {
+    output(result.status, result.summary, result.next_actions, result.artifacts, {
+      run_id: runId,
+      run_dir: runDir,
+    });
+    process.exitCode = 1;
+    return;
+  }
+
+  output('success', `Semi-automatic run ${runId} prepared.`, result.instructions, [
+    join(runDir, 'run-spec.json'),
+    join(runDir, 'run-state.json'),
+    join(runDir, 'README-SEMI-AUTO.md'),
+  ], { run_id: runId, run_dir: runDir, next_stage: result.nextStage });
+}
+
+async function resumeSemiAutoCommand(args) {
+  const runDir = resolve(requireOption(args, 'run_dir'));
+  const specPath = join(runDir, 'run-spec.json');
+  const runSpec = existsSync(specPath) ? JSON.parse(readFileSync(specPath, 'utf8')) : null;
+
+  const result = await resumeSemiAutomaticSession({
+    runRoot: runDir,
+    runSpec,
+    projectRoot,
+  });
+
+  const payload = {
+    run_id: result.run_id,
+    run_dir: result.run_dir,
+    status: result.status,
+    completed: result.completed || false,
+    all_stages_complete: result.allStagesComplete || false,
+  };
+
+  if (result.waitingOnStage) payload.waiting_on_stage = result.waitingOnStage;
+  if (result.completedStages) payload.completed_stages = result.completedStages;
+  if (result.nextStage) payload.next_stage = result.nextStage;
+  if (result.message) payload.summary = result.message;
+  if (result.gate) payload.gate = result.gate;
+  if (result.result) payload.result = result.result;
+  if (result.artifacts) payload.artifacts = result.artifacts;
+  if (result.next_actions) payload.next_actions = result.next_actions;
+  if (result.attestation_error) payload.attestation_error = result.attestation_error;
+
+  output(
+    result.status === 'error' ? 'error' : 'success',
+    result.message || `Semi-auto session status: ${result.status}`,
+    result.next_actions || [],
+    result.artifacts || [],
+    payload,
+  );
+
+  if (result.status === 'error') process.exitCode = 1;
+}
+
+function semiAutoStatusCommand(args) {
+  const runDir = resolve(requireOption(args, 'run_dir'));
+  const result = getSemiAutoStatus(runDir);
+
+  output(
+    result.status === 'unknown' ? 'error' : 'success',
+    result.error
+      ? `Semi-auto status error: ${result.error}`
+      : `Semi-auto status for ${result.run_id}: ${result.status}`,
+    result.reminders || [],
+    [],
+    result,
+  );
+}
+
+async function watchSemiAutoCommand(args) {
+  const runDir = resolve(requireOption(args, 'run_dir'));
+  const timeoutMinutes = parseInt(args.timeout_minutes || '180', 10);
+  const result = await watchSemiAutomaticSession({
+    runRoot: runDir,
+    projectRoot,
+    timeoutMinutes,
+  });
+
+  output(
+    result.status === 'error' ? 'error' : 'success',
+    result.completed
+      ? 'All semi-auto stages completed. Run evaluation to score.'
+      : 'Semi-auto watch ended.',
+    result.next_actions || [],
+    result.artifacts || [],
+    {
+      run_id: result.run_id,
+      run_dir: result.run_dir,
+      status: result.status,
+      attestation_error: result.attestation_error,
+    },
+  );
+
+  if (result.status === 'error') process.exitCode = 1;
+}
+
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
   const args = parseArgs(rest);
@@ -1479,9 +1817,15 @@ async function main() {
   if (command === 'revise') return createRevision(args);
   if (command === 'run') return run(args);
   if (command === 'evaluate') return evaluateCommand(args);
+  if (command === 'collect-attestation') return collectAttestationCommand(args);
   if (command === 'capture') return captureCommand(args);
   if (command === 'report') return reportCommand(args);
+  if (command === 'memory-report') return memoryReportCommand(args);
   if (command === 'golden') return goldenCommand(args);
+  if (command === 'prepare-semi-auto') return prepareSemiAutoCommand(args);
+  if (command === 'resume-semi-auto') return resumeSemiAutoCommand(args);
+  if (command === 'semi-auto-status') return semiAutoStatusCommand(args);
+  if (command === 'watch-semi-auto') return watchSemiAutoCommand(args);
   output(
     'error',
     'Unknown or missing command.',
@@ -1495,9 +1839,15 @@ async function main() {
       'node scripts/bench.mjs revise --parent-run <run-id> --feedback <feedback.md> --reference <image.png> [--reference <image2.png>]',
       'node scripts/bench.mjs run --run-dir <path>',
       'node scripts/bench.mjs evaluate --run-dir <path> [--attestation observation-attestation.json]',
+      'node scripts/bench.mjs collect-attestation --run-dir <path>',
       'node scripts/bench.mjs capture --capture-spec <path> --out-dir <path> --allow-origin <origin>',
       'node scripts/bench.mjs report --run-dir <path>',
+      'node scripts/bench.mjs memory-report --off <run.json> --approved-only <run.json> --out <report.json>',
       'node scripts/bench.mjs golden --spec <path> --out-root <path> [--run-id <id>] [--resume]',
+      'node scripts/bench.mjs prepare-semi-auto --spec <run-spec.json> [--run-id <id>]',
+      'node scripts/bench.mjs resume-semi-auto --run-dir <path>',
+      'node scripts/bench.mjs semi-auto-status --run-dir <path>',
+      'node scripts/bench.mjs watch-semi-auto --run-dir <path> [--timeout-minutes <minutes>]',
     ],
   );
   process.exitCode = 1;
