@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vis Agent Bench · Side-by-Side Comparison</title>
+  <link rel="stylesheet" href="./assets/prototype.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html"><span class="brand-mark">VAB</span>Vis Agent Bench</a>
+      <nav class="nav" aria-label="Prototype pages">
+        <a href="./setup.html">运行设置</a>
+        <a href="./runs.html">Run 状态</a>
+        <a href="./evidence.html">证据查看</a>
+        <a href="./compare.html" class="active">横向对比</a>
+        <a href="./review.html">人工评审</a>
+        <a href="./report.html">领导报告</a>
+      </nav>
+      <div class="top-meta">COMPARE / PROTOTYPE</div>
+    </header>
+
+    <div class="demo-ribbon"><b>SAMPLE DATA</b> 示例数据，非真实评测结果。并排对比两个 Run 的差异。</div>
+
+    <section class="hero" style="padding:40px 0 28px">
+      <div>
+        <div class="eyebrow">Model comparison</div>
+        <h1>横向对比</h1>
+        <p>选择两个 Run 进行并排对比：时间、Token、费用、阶段完成率、Scorecard、Hard Gate 失败。</p>
+      </div>
+      <aside class="hero-note">
+        <strong>对比维度</strong><br>
+        墙钟时间 · Token 使用 · 费用 · 阶段完成率 · Scorecard（P0/P1/P2）· Hard Gate 失败 · 时间趋势
+      </aside>
+    </section>
+
+    <div id="selector-section">
+      <div class="compare-selectors">
+        <div class="compare-selector" id="left-selector">
+          <label>Run A（基线）</label>
+          <select id="left-run" onchange="onSelect()">
+            <option value="">-- 选择 Run --</option>
+          </select>
+        </div>
+        <div class="vs-badge">VS</div>
+        <div class="compare-selector" id="right-selector">
+          <label>Run B（候选）</label>
+          <select id="right-run" onchange="onSelect()">
+            <option value="">-- 选择 Run --</option>
+          </select>
+        </div>
+        <button class="primary" id="btn-compare" onclick="doCompare()" disabled>开始对比</button>
+      </div>
+      <div id="same-case-hint" style="color:var(--cyan);font-size:12px;margin-top:10px;display:none"></div>
+    </div>
+
+    <div id="comparison-content" style="display:none">
+      <!-- Regression badge -->
+      <div id="regression-badge" style="display:none;margin-top:18px;padding:14px 18px;border:1px solid;font-size:13px"></div>
+
+      <!-- Summary cards -->
+      <div class="metric-grid" id="compare-metrics" style="margin-top:24px"></div>
+
+      <!-- Stage completion -->
+      <section class="section" style="margin-top:18px">
+        <header class="section-head">
+          <div><span class="section-index">STAGE COMPLETION</span><h2>阶段完成率对比</h2></div>
+        </header>
+        <div class="section-body">
+          <div id="stage-compare"></div>
+        </div>
+      </section>
+
+      <!-- Scorecard comparison -->
+      <section class="section" style="margin-top:18px">
+        <header class="section-head">
+          <div><span class="section-index">SCORECARD</span><h2>Scorecard 对比</h2></div>
+        </header>
+        <div class="section-body">
+          <div id="scorecard-compare"></div>
+        </div>
+      </section>
+
+      <!-- Hard gate failures -->
+      <section class="section" style="margin-top:18px">
+        <header class="section-head">
+          <div><span class="section-index">HARD GATES</span><h2>Hard Gate 失败对比</h2></div>
+        </header>
+        <div class="section-body">
+          <div id="gates-compare"></div>
+        </div>
+      </section>
+
+      <!-- Side-by-side stage detail -->
+      <section class="section" style="margin-top:18px">
+        <header class="section-head">
+          <div><span class="section-index">STAGE DETAIL</span><h2>阶段耗时并排对比</h2></div>
+        </header>
+        <div class="section-body">
+          <div id="stage-timeline"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="./assets/sample-runs.js"></script>
+  <script>
+    var leftRun = null, rightRun = null;
+
+    function init() {
+      var selectLeft = document.getElementById('left-run');
+      var selectRight = document.getElementById('right-run');
+      var runs = getAllRuns();
+      runs.forEach(function(r) {
+        var optText = r.run_id + ' - ' + r.case_name + ' (' + r.engine + '/' + r.model + ')';
+        var opt1 = document.createElement('option');
+        opt1.value = r.run_id;
+        opt1.textContent = optText;
+        selectLeft.appendChild(opt1);
+
+        var opt2 = document.createElement('option');
+        opt2.value = r.run_id;
+        opt2.textContent = optText;
+        selectRight.appendChild(opt2);
+      });
+    }
+
+    function onSelect() {
+      var leftId = document.getElementById('left-run').value;
+      var rightId = document.getElementById('right-run').value;
+      document.getElementById('btn-compare').disabled = !leftId || !rightId || leftId === rightId;
+
+      leftRun = getRunById(leftId);
+      rightRun = getRunById(rightId);
+
+      if (leftRun && rightRun && leftRun.case_id === rightRun.case_id) {
+        var hint = document.getElementById('same-case-hint');
+        hint.style.display = 'block';
+        hint.textContent = '&#9888; 两个 Run 是同一 Case（' + leftRun.case_name + '），可对比模型/引擎差异。';
+        hint.style.borderColor = 'rgba(108,229,232,.25)';
+        hint.style.background = 'rgba(108,229,232,.06)';
+        hint.style.color = 'var(--cyan)';
+      } else {
+        document.getElementById('same-case-hint').style.display = 'none';
+      }
+    }
+
+    function doCompare() {
+      if (!leftRun || !rightRun) return;
+      document.getElementById('comparison-content').style.display = 'block';
+
+      var sameCase = leftRun.case_id === rightRun.case_id;
+
+      // Regression/improvement badge for same case
+      renderRegressionBadge(sameCase);
+
+      // Metrics
+      renderMetrics();
+
+      // Stage completion
+      renderStageCompletion();
+
+      // Scorecard
+      renderScorecard();
+
+      // Hard gates
+      renderGates();
+
+      // Stage timeline
+      renderStageTimeline();
+    }
+
+    function renderRegressionBadge(sameCase) {
+      var badge = document.getElementById('regression-badge');
+      if (!sameCase) { badge.style.display = 'none'; return; }
+      badge.style.display = 'block';
+
+      var wrongLeft = leftRun.scenario.completed_stages.length;
+      var wrongRight = rightRun.scenario.completed_stages.length;
+      var samePct = wrongLeft === wrongRight;
+      var better = wrongRight >= wrongLeft;
+
+      if (samePct) {
+        badge.style.borderColor = 'rgba(108,229,232,.25)';
+        badge.style.background = 'rgba(108,229,232,.06)';
+        badge.style.color = 'var(--cyan)';
+        badge.innerHTML = '<b>持平</b> 两个 Run 阶段完成率一致（' + wrongLeft + '/' + leftRun.scenario.stage_ids.length + '）。';
+      } else if (better) {
+        badge.style.borderColor = 'rgba(200,255,67,.35)';
+        badge.style.background = 'rgba(200,255,67,.08)';
+        badge.style.color = 'var(--acid)';
+        badge.innerHTML = '<b>提升</b> Run B 阶段完成率高于 Run A（' + wrongRight + ' vs ' + wrongLeft + '）。';
+      } else {
+        badge.style.borderColor = 'rgba(255,107,94,.35)';
+        badge.style.background = 'rgba(255,107,94,.08)';
+        badge.style.color = 'var(--red)';
+        badge.innerHTML = '<b>回归</b> Run B 阶段完成率低于 Run A（' + wrongRight + ' vs ' + wrongLeft + '）。';
+      }
+    }
+
+    function deltaSpan(a, b, unit, inverse) {
+      if (a == null || b == null) return '<span style="color:var(--faint);font-size:11px">不可比较</span>';
+      var diff = b - a;
+      if (diff === 0) return '<span style="color:var(--faint);font-size:11px">持平</span>';
+      var isBetter = inverse ? diff < 0 : diff > 0;
+      var color = isBetter ? 'var(--acid)' : 'var(--red)';
+      var sign = diff > 0 ? '+' : '';
+      return '<span style="color:' + color + ';font-size:11px">' + sign + diff.toFixed(1) + (unit || '') + '</span>';
+    }
+
+    function pctDelta(a, b) {
+      if (a == null || b == null || a === 0) return '<span style="color:var(--faint);font-size:11px">N/A</span>';
+      var diff = ((b - a) / a * 100);
+      var color = diff > 0 ? 'var(--acid)' : 'var(--red)';
+      var sign = diff > 0 ? '+' : '';
+      return '<span style="color:' + color + ';font-size:11px">' + sign + diff.toFixed(1) + '%</span>';
+    }
+
+    function renderMetrics() {
+      var l = leftRun;
+      var r = rightRun;
+      var html = '';
+
+      html += metricCard('墙钟时间', (l.wall_time_minutes||0) + ' min', (r.wall_time_minutes||0) + ' min', deltaSpan(l.wall_time_minutes, r.wall_time_minutes, ' min', true));
+      html += metricCard('Token 使用', tokenLabel(l), tokenLabel(r), tokenDelta(l, r));
+      html += metricCard('费用', costLabel(l), costLabel(r), costDelta(l, r));
+      html += metricCard('阶段完成', l.scenario.completed_stages.length + '/' + l.scenario.stage_ids.length, r.scenario.completed_stages.length + '/' + r.scenario.stage_ids.length, deltaSpan(l.scenario.completed_stages.length, r.scenario.completed_stages.length, ''));
+
+      document.getElementById('compare-metrics').innerHTML = html;
+    }
+
+    function tokenLabel(run) {
+      var u = run.usage;
+      if (!u || (!u.input_tokens && !u.output_tokens)) return 'N/A';
+      return ((u.input_tokens + u.output_tokens) / 1000).toFixed(0) + 'k';
+    }
+
+    function tokenDelta(l, r) {
+      var lu = l.usage, ru = r.usage;
+      var lt = (lu && (lu.input_tokens + lu.output_tokens)) || 0;
+      var rt = (ru && (ru.input_tokens + ru.output_tokens)) || 0;
+      if (!lt && !rt) return '<span style="color:var(--faint);font-size:11px">N/A</span>';
+      if (!lt || !rt) return '<span style="color:var(--faint);font-size:11px">部分缺失</span>';
+      return pctDelta(lt, rt);
+    }
+
+    function costLabel(run) {
+      var u = run.usage;
+      if (!u || u.cost_usd == null) return 'N/A';
+      return '$' + u.cost_usd.toFixed(2);
+    }
+
+    function costDelta(l, r) {
+      var lu = l.usage, ru = r.usage;
+      if ((!lu || lu.cost_usd == null) && (!ru || ru.cost_usd == null)) return '<span style="color:var(--faint);font-size:11px">N/A</span>';
+      if (!lu || lu.cost_usd == null || !ru || ru.cost_usd == null) return '<span style="color:var(--faint);font-size:11px">部分缺失</span>';
+      return pctDelta(lu.cost_usd, ru.cost_usd);
+    }
+
+    function metricCard(label, leftVal, rightVal, delta) {
+      return '<div class="compare-metric">' +
+        '<div class="label">' + label + '</div>' +
+        '<div class="compare-values">' +
+          '<div><span class="cm-left">' + leftVal + '</span></div>' +
+          '<div class="cm-delta">' + delta + '</div>' +
+          '<div><span class="cm-right">' + rightVal + '</span></div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function renderStageCompletion() {
+      var allStages = [];
+      var seen = {};
+      leftRun.stages.forEach(function(s) { if (!seen[s.stage_id]) { seen[s.stage_id] = true; allStages.push(s.stage_id); } });
+      rightRun.stages.forEach(function(s) { if (!seen[s.stage_id]) { seen[s.stage_id] = true; allStages.push(s.stage_id); } });
+
+      var html = '<div style="display:grid;gap:14px">';
+      allStages.forEach(function(sid) {
+        var ls = leftRun.stages.find(function(s) { return s.stage_id === sid; });
+        var rs = rightRun.stages.find(function(s) { return s.stage_id === sid; });
+        var lstat = ls ? ls.status : 'N/A';
+        var rstat = rs ? rs.status : 'N/A';
+
+        html += '<div class="compare-bar-row">' +
+          '<span style="font-family:var(--mono);color:var(--acid);font-size:12px;width:40px">' + sid + '</span>' +
+          '<span style="flex:1;font-size:12px">' + (ls ? ls.label || sid : '') + '</span>' +
+          '<div style="display:flex;gap:24px;align-items:center">' +
+            '<span style="min-width:80px;text-align:right">' + stageBadge(lstat) + '</span>' +
+            '<span style="min-width:80px;text-align:right">' + stageBadge(rstat) + '</span>' +
+          '</div>' +
+        '</div>';
+      });
+      html += '</div>';
+      document.getElementById('stage-compare').innerHTML = html;
+    }
+
+    function stageBadge(status) {
+      var color = status === 'success' ? 'var(--acid)' : status === 'running' ? 'var(--cyan)' : status === 'failed' ? 'var(--red)' : 'var(--faint)';
+      var label = status === 'success' ? 'done' : status;
+      return '<span style="color:' + color + ';font-family:var(--mono);font-size:11px">' + label + '</span>';
+    }
+
+    function renderScorecard() {
+      var l = leftRun.scorecard;
+      var r = rightRun.scorecard;
+
+      if (!l && !r) {
+        document.getElementById('scorecard-compare').innerHTML = '<p style="color:var(--faint)">两个 Run 均无 Scorecard 数据。</p>';
+        return;
+      }
+
+      var html = '<div class="ev-table-wrap"><table class="matrix"><thead><tr><th>维度</th><th>Run A</th><th>Run B</th><th>差异</th></tr></thead><tbody>';
+
+      var rows = [
+        { label: '总分', a: l ? l.total_score : null, b: r ? r.total_score : null, max: 100 },
+        { label: 'P0 通过', a: l ? l.p0_passed + '/' + l.p0_total : null, b: r ? r.p0_passed + '/' + r.p0_total : null },
+        { label: 'P1 通过', a: l ? l.p1_passed + '/' + l.p1_total : null, b: r ? r.p1_passed + '/' + r.p1_total : null },
+        { label: 'P2 通过', a: l ? l.p2_passed + '/' + l.p2_total : null, b: r ? r.p2_passed + '/' + r.p2_total : null }
+      ];
+
+      rows.forEach(function(row) {
+        var delta = '&mdash;';
+        if (row.a != null && row.b != null && row.max) {
+          var diff = row.b - row.a;
+          var color = diff > 0 ? 'var(--acid)' : diff < 0 ? 'var(--red)' : 'var(--faint)';
+          var sign = diff > 0 ? '+' : '';
+          delta = '<span style="color:' + color + '">' + sign + diff + '</span>';
+        } else if (row.a != null && row.b != null && typeof row.a === 'string') {
+          delta = '<span style="color:var(--faint)">对比中</span>';
+        }
+        html += '<tr>' +
+          '<td style="font-weight:700">' + row.label + '</td>' +
+          '<td style="font-family:var(--mono)">' + (row.a != null ? row.a : '&mdash;') + '</td>' +
+          '<td style="font-family:var(--mono)">' + (row.b != null ? row.b : '&mdash;') + '</td>' +
+          '<td>' + delta + '</td>' +
+        '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+
+      // Score bars
+      if (l && l.total_score != null && r && r.total_score != null) {
+        html += '<div style="margin-top:18px"><h3 style="font-family:var(--display);font-size:16px;margin-bottom:12px">总分对比</h3>';
+        html += '<div class="score-bar-compare">' +
+          '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center">' +
+            '<span style="font-size:11px;color:var(--muted)">Run A</span>' +
+            '<div class="bar-track"><div class="bar-fill bar-left" style="width:' + l.total_score + '%"></div></div>' +
+            '<span style="font-size:11px;color:var(--muted)">Run B</span>' +
+            '<div class="bar-track"><div class="bar-fill bar-right" style="width:' + r.total_score + '%"></div></div>' +
+          '</div>' +
+        '</div></div>';
+      }
+
+      document.getElementById('scorecard-compare').innerHTML = html;
+    }
+
+    function renderGates() {
+      // Simulated hard gate failures from stage data
+      var lf = leftRun.stages.filter(function(s) { return s.status === 'failed'; });
+      var rf = rightRun.stages.filter(function(s) { return s.status === 'failed'; });
+
+      if (lf.length === 0 && rf.length === 0) {
+        document.getElementById('gates-compare').innerHTML = '<p style="color:var(--acid)">&#10004; 两个 Run 均无 Hard Gate 失败。</p>';
+        return;
+      }
+
+      var html = '<div class="ev-table-wrap"><table class="matrix"><thead><tr><th>失败项</th><th>Run A</th><th>Run B</th></tr></thead><tbody>';
+
+      var allFailures = {};
+      lf.forEach(function(s) { allFailures[s.stage_id] = { left: s, right: null }; });
+      rf.forEach(function(s) {
+        if (allFailures[s.stage_id]) allFailures[s.stage_id].right = s;
+        else allFailures[s.stage_id] = { left: null, right: s };
+      });
+
+      Object.keys(allFailures).forEach(function(sid) {
+        var f = allFailures[sid];
+        html += '<tr>' +
+          '<td style="font-family:var(--mono);color:var(--acid)">' + sid + '</td>' +
+          '<td>' + (f.left ? '<span style="color:var(--red)">&#10008; ' + f.left.label + ' (exit ' + f.left.exit_code + ')</span>' : '<span style="color:var(--acid)">&#10004;</span>') + '</td>' +
+          '<td>' + (f.right ? '<span style="color:var(--red)">&#10008; ' + f.right.label + ' (exit ' + f.right.exit_code + ')</span>' : '<span style="color:var(--acid)">&#10004;</span>') + '</td>' +
+        '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      document.getElementById('gates-compare').innerHTML = html;
+    }
+
+    function renderStageTimeline() {
+      var allStages = [];
+      var seen2 = {};
+      leftRun.stages.forEach(function(s) { if (!seen2[s.stage_id]) { seen2[s.stage_id] = true; allStages.push(s.stage_id); } });
+      rightRun.stages.forEach(function(s) { if (!seen2[s.stage_id]) { seen2[s.stage_id] = true; allStages.push(s.stage_id); } });
+
+      var maxMs = 0;
+      allStages.forEach(function(sid) {
+        var ls = leftRun.stages.find(function(s) { return s.stage_id === sid; });
+        var rs = rightRun.stages.find(function(s) { return s.stage_id === sid; });
+        if (ls && ls.duration_ms > maxMs) maxMs = ls.duration_ms;
+        if (rs && rs.duration_ms > maxMs) maxMs = rs.duration_ms;
+      });
+      if (maxMs === 0) maxMs = 1;
+
+      var html = '<div style="display:grid;gap:14px">';
+      allStages.forEach(function(sid) {
+        var ls = leftRun.stages.find(function(s) { return s.stage_id === sid; });
+        var rs = rightRun.stages.find(function(s) { return s.stage_id === sid; });
+        var lms = ls ? ls.duration_ms || 0 : 0;
+        var rms = rs ? rs.duration_ms || 0 : 0;
+        var lw = Math.max((lms / maxMs) * 100, 2);
+        var rw = Math.max((rms / maxMs) * 100, 2);
+
+        html += '<div class="compare-bar-row">' +
+          '<span style="font-family:var(--mono);color:var(--acid);font-size:12px;width:40px">' + sid + '</span>' +
+          '<div style="flex:1;display:grid;gap:6px">' +
+            '<div style="display:grid;grid-template-columns:80px 1fr 60px;gap:8px;align-items:center">' +
+              '<span style="font-size:10px;color:var(--muted);text-align:right">Run A</span>' +
+              '<div class="bar-track"><div class="bar-fill bar-left" style="width:' + lw + '%"></div></div>' +
+              '<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">' + (ls ? formatMsShort(ls.duration_ms) : '&mdash;') + '</span>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:80px 1fr 60px;gap:8px;align-items:center">' +
+              '<span style="font-size:10px;color:var(--muted);text-align:right">Run B</span>' +
+              '<div class="bar-track"><div class="bar-fill bar-right" style="width:' + rw + '%"></div></div>' +
+              '<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">' + (rs ? formatMsShort(rs.duration_ms) : '&mdash;') + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      });
+
+      html += '<p class="footnote">条长度相对于两个 Run 中最长阶段；仅做视觉对比，不是绝对测量。</p>';
+      html += '</div>';
+      document.getElementById('stage-timeline').innerHTML = html;
+    }
+
+    function formatMsShort(ms) {
+      if (ms == null) return '&mdash;';
+      var s = Math.round(ms / 1000);
+      if (s < 60) return s + 's';
+      return Math.floor(s / 60) + 'm' + (s % 60) + 's';
+    }
+
+    function showToast(msg) {
+      var t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(function() { t.classList.remove('show'); }, 2000);
+    }
+
+    init();
+  </script>
+  <style>
+    .compare-selectors {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto;
+      gap: 16px;
+      align-items: end;
+      margin-top: 18px;
+    }
+    .compare-selector { display: grid; gap: 8px; }
+    .compare-selector label {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .compare-selector select {
+      width: 100%;
+      height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 0;
+      outline: none;
+      color: var(--ink);
+      background: #0c100d;
+      font-size: 13px;
+    }
+    .compare-selector select:focus { border-color: var(--acid); }
+    .vs-badge {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      place-items: center;
+      border: 1px solid var(--line);
+      font-family: var(--display);
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--acid);
+      background: var(--panel-2);
+      margin-bottom: 1px;
+    }
+    .compare-metric {
+      padding: 18px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .compare-metric .label {
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .compare-values {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+    .cm-left { font-family: var(--display); font-size: 24px; font-weight: 800; color: var(--cyan); }
+    .cm-right { font-family: var(--display); font-size: 24px; font-weight: 800; color: var(--acid); }
+    .cm-delta { text-align: center; min-width: 60px; }
+    .compare-metric + .compare-metric { margin-top: 12px; }
+    .compare-bar-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .bar-left { background: var(--cyan); }
+    .bar-right { background: var(--acid); }
+    .score-bar-compare { margin-top: 8px; }
+    @media (max-width: 720px) {
+      .compare-selectors { grid-template-columns: 1fr; }
+      .vs-badge { width: 100%; height: 32px; }
+      .compare-values { grid-template-columns: 1fr; }
+    }
+  </style>
+</body>
+</html>

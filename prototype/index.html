@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vis Agent Bench · Prototype</title>
+  <link rel="stylesheet" href="./assets/prototype.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html"><span class="brand-mark">VAB</span>Vis Agent Bench</a>
+      <nav class="nav" aria-label="Prototype pages">
+        <a href="./setup.html">运行设置</a>
+        <a href="./runs.html">Run 状态</a>
+        <a href="./evidence.html">证据查看</a>
+        <a href="./compare.html">横向对比</a>
+        <a href="./review.html">人工评审</a>
+        <a href="./report.html">领导报告</a>
+      </nav>
+      <div class="top-meta">PROTOTYPE / NAVIGATION</div>
+    </header>
+
+    <div class="demo-ribbon"><b>PROTOTYPE</b> 所有页面均为交互原型，使用示例数据；不执行真实模型，不保存密钥。</div>
+
+    <section class="hero" style="padding:56px 0 42px">
+      <div>
+        <div class="eyebrow">Prototype navigation</div>
+        <h1>Vis Agent Bench<br>交互原型</h1>
+        <p>从运行设置、Run 执行状态、证据查看、横向对比到人工评审和领导报告的全流程原型。所有数据均为示例，非真实评测结果。</p>
+      </div>
+      <aside class="hero-note">
+        <strong>正式入口</strong>
+        命令行：<code style="color:var(--cyan)">npm run bench</code><br>
+        Run 状态：<code style="color:var(--cyan)">npm run bench:status</code>
+      </aside>
+    </section>
+
+    <div class="card-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:32px">
+      <a class="nav-card" href="./setup.html">
+        <span class="nav-card-icon">01</span>
+        <h2>运行设置</h2>
+        <p>选择 Case、CLI、模型，配置隔离、预算和证据采集，生成 RunSpec 预览并导出 JSON。</p>
+        <span class="nav-card-tag">M4 完成</span>
+      </a>
+
+      <a class="nav-card" href="./runs.html">
+        <span class="nav-card-icon">02</span>
+        <h2>Run 状态</h2>
+        <p>查看所有 Run 的执行状态、阶段完成度、墙钟时间、Token 使用，点击展开阶段细节。</p>
+        <span class="nav-card-tag new">New</span>
+      </a>
+
+      <a class="nav-card" href="./evidence.html">
+        <span class="nav-card-icon">03</span>
+        <h2>证据查看</h2>
+        <p>按 Run 查看构建/测试、浏览器截图、DOM 快照、Workspace Diff、Attestation 和人工评审状态。</p>
+        <span class="nav-card-tag new">New</span>
+      </a>
+
+      <a class="nav-card" href="./compare.html">
+        <span class="nav-card-icon">04</span>
+        <h2>横向对比</h2>
+        <p>并排对比两个 Run 的时间、Token、费用、Scorecard、Hard Gate 失败和阶段耗时。</p>
+        <span class="nav-card-tag new">New</span>
+      </a>
+
+      <a class="nav-card" href="./review.html">
+        <span class="nav-card-icon">05</span>
+        <h2>人工评审</h2>
+        <p>对机器证据补充视觉、交互、业务判断和人工修复时间，生成 human-review.json。</p>
+        <span class="nav-card-tag">M4 完成</span>
+      </a>
+
+      <a class="nav-card" href="./report.html">
+        <span class="nav-card-icon">06</span>
+        <h2>领导报告</h2>
+        <p>机器聚合报告：能力边界、事实分层、人类时间消耗、管理结论和推荐行动。</p>
+        <span class="nav-card-tag">M4 完成</span>
+      </a>
+    </div>
+
+    <section class="section">
+      <header class="section-head">
+        <div><span class="section-index">ARCHITECTURE NOTE</span><h2>原型架构</h2></div>
+      </header>
+      <div class="section-body" style="font-size:12px;color:var(--muted);line-height:1.8">
+        <p>所有 M4 原型页面只消费已有数据，不创建独立执行逻辑。设置页生成 RunSpec，CLI Runner 和网页都调用同一个 Runner Core。</p>
+        <p>数据流：<code style="color:var(--acid)">setup.html</code> 生成 RunSpec JSON &rarr; CLI Runner 执行 &rarr; <code style="color:var(--cyan)">.local/runs/</code> 存储结果 &rarr; 报告页面消费已有数据。</p>
+        <p style="margin-bottom:0">示例数据文件：<code style="color:var(--acid)">prototype/assets/sample-runs.js</code>（3 个假 Run，被 runs.html / evidence.html / compare.html 共享）。</p>
+      </div>
+    </section>
+  </main>
+
+  <style>
+    .nav-card {
+      display: grid;
+      gap: 8px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      color: inherit;
+      text-decoration: none;
+      background: var(--panel);
+      cursor: pointer;
+      transition: transform .2s ease, border-color .2s ease;
+      min-height: 180px;
+      align-content: start;
+    }
+    .nav-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(200,255,67,.35);
+    }
+    .nav-card-icon {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--acid);
+      margin-bottom: 6px;
+    }
+    .nav-card h2 {
+      margin: 0;
+      font-family: var(--display);
+      font-size: 20px;
+    }
+    .nav-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .nav-card-tag {
+      justify-self: start;
+      margin-top: 8px;
+      padding: 3px 9px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .06em;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+    .nav-card-tag.new {
+      color: var(--acid);
+      border-color: rgba(200,255,67,.35);
+    }
+  </style>
+</body>
+</html>

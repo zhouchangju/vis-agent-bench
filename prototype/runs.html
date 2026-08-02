@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vis Agent Bench · Run Status</title>
+  <link rel="stylesheet" href="./assets/prototype.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html"><span class="brand-mark">VAB</span>Vis Agent Bench</a>
+      <nav class="nav" aria-label="Prototype pages">
+        <a href="./setup.html">运行设置</a>
+        <a href="./runs.html" class="active">Run 状态</a>
+        <a href="./evidence.html">证据查看</a>
+        <a href="./compare.html">横向对比</a>
+        <a href="./review.html">人工评审</a>
+        <a href="./report.html">领导报告</a>
+      </nav>
+      <div class="top-meta">RUN STATUS / PROTOTYPE</div>
+    </header>
+
+    <div class="demo-ribbon"><b>SAMPLE DATA</b> 示例数据，非真实评测结果。刷新按钮重新渲染示例数据。</div>
+
+    <section class="hero" style="padding:40px 0 28px">
+      <div>
+        <div class="eyebrow">Run inventory</div>
+        <h1>所有评测运行一览</h1>
+        <p>每个 Run 记录一个模型在一个 Case 上的完整执行过程。点击展开查看阶段细节。</p>
+      </div>
+      <aside class="hero-note">
+        <strong>状态说明</strong>
+        <code style="color:var(--acid)">completed</code> 所有阶段完成 ·
+        <code style="color:var(--cyan)">running</code> 执行中 ·
+        <code style="color:var(--amber)">awaiting-evaluation</code> 等待评估 ·
+        <code style="color:var(--red)">failed</code> 异常终止
+      </aside>
+    </section>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <span class="status info" id="run-count">0 runs</span>
+      <div style="display:flex;gap:10px">
+        <button class="secondary" id="btn-refresh" onclick="refreshRuns()">刷新数据</button>
+        <button class="secondary" id="btn-collapse-all" onclick="collapseAll()">收起全部</button>
+      </div>
+    </div>
+
+    <div id="run-list"></div>
+  </main>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="./assets/sample-runs.js"></script>
+  <script>
+    var expandedRuns = {};
+
+    function statusClass(status) {
+      if (status === 'completed') return 'good';
+      if (status === 'running') return 'info';
+      if (status === 'awaiting-evaluation' || status === 'awaiting-human-review') return 'warn';
+      if (status === 'failed') return 'bad';
+      return '';
+    }
+
+    function statusLabel(status) {
+      if (status === 'completed') return '已完成';
+      if (status === 'running') return '执行中';
+      if (status === 'awaiting-evaluation') return '等待评估';
+      if (status === 'awaiting-human-review') return '等待人工评审';
+      if (status === 'failed') return '异常';
+      return status;
+    }
+
+    function stageStatusIcon(status) {
+      if (status === 'success') return '<span style="color:var(--acid)">&#10004;</span>';
+      if (status === 'running') return '<span style="color:var(--cyan);animation:pulse 1.5s infinite">&#9679;</span>';
+      if (status === 'failed') return '<span style="color:var(--red)">&#10008;</span>';
+      if (status === 'pending') return '<span style="color:var(--faint)">&#9679;</span>';
+      return status;
+    }
+
+    function formatMs(ms) {
+      if (ms == null) return '&mdash;';
+      var s = Math.round(ms / 1000);
+      if (s < 60) return s + 's';
+      return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+    }
+
+    function formatTokens(usage) {
+      if (!usage || (!usage.input_tokens && !usage.output_tokens)) return '<span style="color:var(--faint)">未上报</span>';
+      var parts = [];
+      if (usage.input_tokens) parts.push('in:' + (usage.input_tokens / 1000).toFixed(0) + 'k');
+      if (usage.output_tokens) parts.push('out:' + (usage.output_tokens / 1000).toFixed(0) + 'k');
+      return parts.join(' ');
+    }
+
+    function formatCost(usage) {
+      if (!usage || usage.cost_usd == null) return '<span style="color:var(--faint)">未上报</span>';
+      return '$' + usage.cost_usd.toFixed(2);
+    }
+
+    function renderRunCard(run, index) {
+      var completed = run.scenario.completed_stages.length;
+      var total = run.scenario.stage_ids.length;
+      var pct = total > 0 ? Math.round(completed / total * 100) : 0;
+      var isExpanded = expandedRuns[run.run_id] || false;
+
+      var card = document.createElement('div');
+      card.className = 'run-card ' + (isExpanded ? 'expanded' : '');
+      card.setAttribute('data-run-id', run.run_id);
+
+      card.innerHTML =
+        '<div class="run-card-header" onclick="toggleRun(\'' + run.run_id + '\')">' +
+          '<div class="run-card-summary">' +
+            '<span class="run-id">' + run.run_id + '</span>' +
+            '<h3>' + run.case_name + '</h3>' +
+            '<span class="run-model">' + run.engine + ' / ' + run.model + '</span>' +
+          '</div>' +
+          '<div class="run-card-meta">' +
+            '<span class="status ' + statusClass(run.status) + '">' + statusLabel(run.status) + '</span>' +
+            '<div class="run-progress">' +
+              '<div class="run-progress-bar"><div class="run-progress-fill" style="width:' + pct + '%"></div></div>' +
+              '<span class="run-progress-text">' + completed + '/' + total + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="run-card-body">' +
+          '<div class="run-stats-grid">' +
+            '<div class="run-stat"><label>墙钟时间</label><span>' + (run.wall_time_minutes != null ? run.wall_time_minutes + ' min' : '&mdash;') + '</span></div>' +
+            '<div class="run-stat"><label>Token 使用</label><span>' + formatTokens(run.usage) + '</span></div>' +
+            '<div class="run-stat"><label>费用</label><span>' + formatCost(run.usage) + '</span></div>' +
+            '<div class="run-stat"><label>引擎/模型</label><span>' + run.engine + ' / ' + run.model + '</span></div>' +
+          '</div>' +
+          '<div class="run-stage-table">' +
+            '<div class="stage-header"><span>阶段</span><span>标签</span><span>状态</span><span>尝试</span><span>Exit</span><span>耗时</span></div>' +
+            run.stages.map(function(stage) {
+              return '<div class="stage-row">' +
+                '<span class="stage-id">' + stage.stage_id + '</span>' +
+                '<span>' + (stage.label || '') + '</span>' +
+                '<span>' + stageStatusIcon(stage.status) + ' ' + stage.status + '</span>' +
+                '<span>' + stage.attempts + '</span>' +
+                '<span style="font-family:var(--mono)">' + (stage.exit_code != null ? stage.exit_code : '&mdash;') + '</span>' +
+                '<span style="font-family:var(--mono);font-size:11px">' + formatMs(stage.duration_ms) + '</span>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+          '<div class="run-card-actions">' +
+            '<a class="secondary" href="./evidence.html?run=' + encodeURIComponent(run.run_id) + '" style="display:inline-flex;align-items:center;text-decoration:none">查看证据 &#8594;</a>' +
+            '<a class="secondary" href="./review.html" style="display:inline-flex;align-items:center;text-decoration:none">人工评审 &#8594;</a>' +
+          '</div>' +
+        '</div>';
+
+      return card;
+    }
+
+    function refreshRuns() {
+      var runs = getAllRuns();
+      document.getElementById('run-count').textContent = runs.length + ' runs';
+      var list = document.getElementById('run-list');
+      list.innerHTML = '';
+      runs.forEach(function(run, i) {
+        list.appendChild(renderRunCard(run, i));
+      });
+    }
+
+    function toggleRun(runId) {
+      expandedRuns[runId] = !expandedRuns[runId];
+      refreshRuns();
+    }
+
+    function collapseAll() {
+      expandedRuns = {};
+      refreshRuns();
+      showToast('已收起全部');
+    }
+
+    function showToast(msg) {
+      var t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(function() { t.classList.remove('show'); }, 2000);
+    }
+
+    refreshRuns();
+  </script>
+  <style>
+    .run-card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      margin-bottom: 12px;
+    }
+    .run-card.expanded {
+      border-color: rgba(200,255,67,.35);
+    }
+    .run-card-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      align-items: center;
+      padding: 18px 22px;
+      cursor: pointer;
+      transition: background .15s ease;
+    }
+    .run-card-header:hover { background: rgba(108,229,232,.04); }
+    .run-card-summary { display: grid; gap: 4px; }
+    .run-id {
+      color: var(--acid);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .run-card-summary h3 {
+      margin: 0;
+      font-family: var(--display);
+      font-size: 18px;
+    }
+    .run-model {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .run-card-meta {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .run-progress {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .run-progress-bar {
+      width: 120px;
+      height: 6px;
+      overflow: hidden;
+      background: #080b09;
+    }
+    .run-progress-fill {
+      height: 100%;
+      background: var(--acid);
+      transition: width .35s ease;
+    }
+    .run-progress-text {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      min-width: 28px;
+    }
+    .run-card-body {
+      display: none;
+      padding: 0 22px 22px;
+      border-top: 1px solid var(--line);
+    }
+    .run-card.expanded .run-card-body { display: block; }
+    .run-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      padding: 18px 0;
+    }
+    .run-stat {
+      padding: 12px;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+    }
+    .run-stat label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .run-stat span {
+      font-family: var(--mono);
+      font-size: 14px;
+    }
+    .run-stage-table {
+      border: 1px solid var(--line);
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .stage-header, .stage-row {
+      display: grid;
+      grid-template-columns: 52px 1fr 120px 52px 52px 72px;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+    .stage-header {
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-2);
+    }
+    .stage-row {
+      border-bottom: 1px solid rgba(45,57,49,.5);
+    }
+    .stage-row:last-child { border-bottom: 0; }
+    .stage-row:nth-child(even) { background: rgba(18,23,20,.5); }
+    .stage-id {
+      font-family: var(--mono);
+      color: var(--acid);
+      font-size: 11px;
+    }
+    .run-card-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    @media (max-width: 720px) {
+      .run-card-header { grid-template-columns: 1fr; }
+      .run-stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .stage-header, .stage-row { grid-template-columns: 40px 1fr 80px; }
+    }
+  </style>
+</body>
+</html>
