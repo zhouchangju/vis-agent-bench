@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  renameSync,
   statSync,
   realpathSync,
   unlinkSync,
@@ -43,10 +44,25 @@ import {
   listFiles,
   scanForAnswerLeakage,
 } from '../src/core/file-isolation.mjs';
-import { detectExecutable, runCommand } from '../src/core/process-runner.mjs';
+import { detectExecutable, runCommand, validationEnvironment } from '../src/core/process-runner.mjs';
 import { buildMemoryPairedReport } from '../src/memory/index.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * Persist a JSON state file atomically (tmp file + rename) so a crash or kill
+ * mid-write cannot leave a truncated file that bricks run/resume.
+ */
+function writeJsonAtomic(targetPath, value) {
+  const tmp = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`);
+  } catch (error) {
+    try { unlinkSync(tmp); } catch { /* best-effort cleanup */ }
+    throw error;
+  }
+  renameSync(tmp, targetPath);
+}
 
 function parseArgs(args) {
   const parsed = { _: [] };
@@ -124,23 +140,6 @@ function childEnvironment(adapter, extra = {}) {
     if (process.env[key] != null) env[key] = process.env[key];
   }
   return { ...env, ...extra };
-}
-
-function validationEnvironment(runDir, extra = {}) {
-  const isolatedHome = join(runDir, '.validation-home');
-  const npmCache = join(runDir, '.validation-npm-cache');
-  mkdirSync(isolatedHome, { recursive: true });
-  mkdirSync(npmCache, { recursive: true });
-  const env = {};
-  for (const key of ['PATH', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'NO_COLOR', 'CI']) {
-    if (process.env[key] != null) env[key] = process.env[key];
-  }
-  return {
-    ...env,
-    HOME: isolatedHome,
-    npm_config_cache: npmCache,
-    ...extra,
-  };
 }
 
 function jsonDigest(value) {
@@ -620,8 +619,8 @@ function prepare(args, emit = true) {
       '--source-root', runtime.starter,
       '--export-root', join(runDir, 'workspace'),
       '--plan', runtime.plan,
-    ], { cwd: projectRoot, encoding: 'utf8', shell: false });
-    if (built.status !== 0) {
+    ], { cwd: projectRoot, encoding: 'utf8', shell: false, timeout: 15 * 60_000, maxBuffer: 10 * 1024 * 1024 });
+    if (built.status !== 0 || built.signal) {
       throw new Error(`Fixture build failed: ${(built.stderr || built.stdout || '').trim()}`);
     }
   }
@@ -708,7 +707,7 @@ function prepare(args, emit = true) {
     throw new Error('Unable to record immutable benchmark baseline commit.');
   }
   state.baseline_commit = baselineRevision.stdout.trim();
-  writeFileSync(join(runDir, 'run-state.json'), JSON.stringify(state, null, 2));
+  writeJsonAtomic(join(runDir, 'run-state.json'), state);
   writeFileSync(
     join(runDir, 'logs', 'files-before.json'),
     JSON.stringify(listFiles(join(runDir, 'workspace')), null, 2),
@@ -949,7 +948,7 @@ function createRevision(args) {
   const baseline = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: join(runDir, 'workspace'), encoding: 'utf8', shell: false });
   if (baseline.status !== 0) throw new Error('无法记录 Revision baseline commit。');
   state.baseline_commit = baseline.stdout.trim();
-  writeFileSync(join(runDir, 'run-state.json'), `${JSON.stringify(state, null, 2)}\n`);
+  writeJsonAtomic(join(runDir, 'run-state.json'), state);
   writeFileSync(join(runDir, 'logs', 'files-before.json'), `${JSON.stringify(listFiles(join(runDir, 'workspace')), null, 2)}\n`);
   writeFileSync(join(runDir, 'logs', 'revision-parent-snapshot.json'), `${JSON.stringify(lineage, null, 2)}\n`);
   output('success', `已从父 Run 创建视觉反馈 Revision：${runId}。`, [
@@ -1046,7 +1045,7 @@ function migrateLegacyRun(runDir, legacySpec) {
     writeFileSync(join(runDir, 'result.pre-resume.json'), JSON.stringify(legacyResult, null, 2));
   }
   writeFileSync(join(runDir, 'run-spec.json'), JSON.stringify(spec, null, 2));
-  writeFileSync(join(runDir, 'run-state.json'), JSON.stringify(state, null, 2));
+  writeJsonAtomic(join(runDir, 'run-state.json'), state);
   return { spec, state };
 }
 
@@ -1089,7 +1088,7 @@ async function run(args) {
   state.started_at = state.started_at || new Date().toISOString();
   state.active_window_started_at = new Date(activeWindowStartedAt).toISOString();
   state.process_pid = process.pid;
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
+  writeJsonAtomic(statePath, state);
   const caseDir = join(projectRoot, 'cases', spec.case_id);
   const scenario = loadRunScenario(runDir, caseDir);
   const stageResults = [];
@@ -1148,7 +1147,7 @@ async function run(args) {
     );
     mkdirSync(stageLogs, { recursive: true });
     state.scenario.current_stage = stage.id;
-    writeFileSync(statePath, JSON.stringify(state, null, 2));
+    writeJsonAtomic(statePath, state);
 
     const executionSpec = {
       ...spec,
@@ -1263,7 +1262,7 @@ async function run(args) {
     }
     if (effectiveResult.status !== 'success') break;
     state.scenario.completed_stages.push(stage.id);
-    writeFileSync(statePath, JSON.stringify(state, null, 2));
+    writeJsonAtomic(statePath, state);
   }
   writeFileSync(commandLogPath, JSON.stringify(commandLogs, null, 2));
   const result = {
@@ -1310,7 +1309,7 @@ async function run(args) {
     human_review_status: 'pending',
     completed_at: new Date().toISOString(),
   };
-  writeFileSync(join(runDir, 'result.json'), JSON.stringify(finalResult, null, 2));
+  writeJsonAtomic(join(runDir, 'result.json'), finalResult);
 
   // Collect the trusted observation + attestation so evaluators can consume
   // this real CLI run without falling back to the golden demo pipeline. The
@@ -1340,7 +1339,7 @@ async function run(args) {
       stop_condition: err.stop_condition || 'Stop after two identical failures.',
     };
     // Persist the attestation_error into result.json so it survives process exit.
-    writeFileSync(join(runDir, 'result.json'), JSON.stringify(finalResult, null, 2));
+    writeJsonAtomic(join(runDir, 'result.json'), finalResult);
     console.error(`[attestation] failed: ${err.message}`);
   }
   const review = buildHumanReviewPackage({
@@ -1353,7 +1352,7 @@ async function run(args) {
   state.status = result.status === 'success' ? 'awaiting-evaluation' : 'run-failed';
   state.process_pid = null;
   state.completed_at = finalResult.completed_at;
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
+  writeJsonAtomic(statePath, state);
 
   output(
     result.status,
@@ -1467,6 +1466,8 @@ function proxyJsonScript(script, argv) {
     cwd: projectRoot,
     encoding: 'utf8',
     shell: false,
+    timeout: 30 * 60_000,
+    maxBuffer: 10 * 1024 * 1024,
   });
   let payload;
   try {
@@ -1840,7 +1841,7 @@ async function main() {
       'node scripts/bench.mjs validate --spec <run-spec.yaml>',
       'node scripts/bench.mjs build-fixture --case <id> --run-dir <path>',
       'node scripts/bench.mjs prepare --spec <run-spec.json>',
-      'node scripts/bench.mjs prepare --case <id> --engine <codex|kimi|claude> --model <id> [--workspace-source <path>]',
+      'node scripts/bench.mjs prepare --case <id> --engine <codex|kimi|claude|pi> --model <id> [--workspace-source <path>]',
       'node scripts/bench.mjs prepare-bundle --bundle <setup-export.json>',
       'node scripts/bench.mjs revise --parent-run <run-id> --feedback <feedback.md> --reference <image.png> [--reference <image2.png>]',
       'node scripts/bench.mjs run --run-dir <path>',
@@ -1876,7 +1877,7 @@ function markRunFailedAfterUnhandledError(error) {
       message: error.message,
       source: 'runner-unhandled-error',
     };
-    writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
+    writeJsonAtomic(statePath, state);
   } catch {
     // Do not mask the original Runner failure when best-effort state cleanup fails.
   }

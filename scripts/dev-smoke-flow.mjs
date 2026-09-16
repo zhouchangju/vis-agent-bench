@@ -317,11 +317,13 @@ function main() {
   const fixtureTest = spawnSync(
     process.execPath,
     ['tests/smoke.mjs'],
-    { cwd: workspace, encoding: 'utf8', shell: false },
+    { cwd: workspace, encoding: 'utf8', shell: false, timeout: 30_000 },
   );
   writeText(join(runDir, 'logs', 'fixture-test.stdout'), fixtureTest.stdout);
   writeText(join(runDir, 'logs', 'fixture-test.stderr'), fixtureTest.stderr);
-  if (fixtureTest.status !== 0) throw new Error(`Smoke fixture test failed: ${fixtureTest.stderr}`);
+  if (fixtureTest.status !== 0 || fixtureTest.signal) {
+    throw new Error(`Smoke fixture test failed: ${fixtureTest.stderr || fixtureTest.signal}`);
+  }
 
   const result = {
     status: 'success',
