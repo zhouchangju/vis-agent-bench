@@ -7,9 +7,13 @@ node_modules/
 # Local run state (scratch workspaces, candidate assets, caches); not part of the benchmark.
 .local/
 
-# Generated benchmark state.
-runs/
-artifacts/
+# Generated benchmark state. runs/ holds tracked pilot evidence (runs/pilots/**),
+# so only its direct children are ignored and the pilots tree is re-included.
+runs/*
+!runs/pilots/
+# Generated artifacts live under run directories (.local/runs/**/artifacts);
+# only a root-level artifacts/ directory is build output.
+/artifacts/
 reports/generated/
 coverage/
 dist/
