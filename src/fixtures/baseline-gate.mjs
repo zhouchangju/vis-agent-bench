@@ -155,7 +155,10 @@ export function runBaselineGate({ workspaceRoot, steps, logsRoot, env, signal })
     });
     const durationMs = Date.now() - started;
     const exitCode = proc.status ?? null;
-    const failed = proc.error != null || (proc.signal != null && proc.signal !== 'SIGTERM') || exitCode !== 0;
+    // Any non-null signal (including an external SIGTERM) means the step did
+    // not run to completion; the timeout path additionally sets error=ETIMEDOUT.
+    // Fail closed: never record a killed step as passed.
+    const failed = proc.error != null || proc.signal != null || exitCode !== 0;
     const status = failed ? 'failed' : 'passed';
 
     const logPath = writeStepLog(logsRoot, step, {
