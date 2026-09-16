@@ -10,6 +10,10 @@ import {
   validateRunSpec,
   validateScenario,
 } from '../../src/contracts/index.mjs';
+import {
+  HUMAN_REVIEW_REQUIRED_TOP,
+  HUMAN_REVIEW_REVIEW_REQUIRED,
+} from '../../src/review/human-review-package.mjs';
 
 const root = resolve(import.meta.dirname, '..', '..');
 const schemaFiles = [
@@ -22,6 +26,7 @@ const schemaFiles = [
   'memory-intervention.schema.json',
   'memory-feedback.schema.json',
   'memory-paired-report.schema.json',
+  'human-review.schema.json',
 ];
 
 function readYaml(path) {
@@ -45,6 +50,17 @@ const checks = [
       const schema = JSON.parse(readFileSync(resolve(root, 'schemas', file), 'utf8'));
       assert.ok(schema.$id?.includes(file));
     }
+  }],
+  ['human-review schema required fields match the runtime validator mirror', () => {
+    const schema = JSON.parse(readFileSync(resolve(root, 'schemas', 'human-review.schema.json'), 'utf8'));
+    assert.deepEqual([...schema.required].sort(), [...HUMAN_REVIEW_REQUIRED_TOP].sort());
+    const reviewItem = schema.properties.reviews.items;
+    assert.deepEqual([...reviewItem.required].sort(), [...HUMAN_REVIEW_REVIEW_REQUIRED].sort());
+    // The schema allows exactly the fields the runtime validator accepts.
+    assert.deepEqual(
+      Object.keys(reviewItem.properties).sort(),
+      [...HUMAN_REVIEW_REVIEW_REQUIRED, 'machine_evidence'].sort(),
+    );
   }],
   ['all current cases and the example RunSpec are valid', () => {
     const result = validateRepositoryContracts(root);

@@ -11,7 +11,11 @@ import { fileURLToPath } from 'node:url';
  * can branch on.
  */
 
-const REQUIRED_TOP = ['schema_version', 'run_id', 'reviewer', 'isolation', 'reviews', 'reviewed_at'];
+// Mirrored by schemas/human-review.schema.json (required fields); tests/contracts
+// asserts the two stay in sync.
+export const HUMAN_REVIEW_REQUIRED_TOP = ['schema_version', 'run_id', 'reviewer', 'isolation', 'reviews', 'reviewed_at'];
+export const HUMAN_REVIEW_REVIEW_REQUIRED = ['case_id', 'complete', 'decision', 'scores', 'human_time', 'convergence', 'observations'];
+const REQUIRED_TOP = HUMAN_REVIEW_REQUIRED_TOP;
 const DECISIONS = new Set(['accepted', 'accepted-with-fixes', 'partial', 'rejected', 'invalid-run', null]);
 const SCORE_KEYS = ['business', 'visual', 'interaction', 'usability'];
 const HUMAN_TIME_KEYS = [
@@ -137,9 +141,9 @@ function validateReview(review, index, errors) {
     errors.push(diagnostic(path, 'OBJECT', 'Review entry must be an object.'));
     return;
   }
-  const allowed = new Set(['case_id', 'complete', 'decision', 'scores', 'human_time', 'convergence', 'observations', 'machine_evidence']);
+  const allowed = new Set([...HUMAN_REVIEW_REVIEW_REQUIRED, 'machine_evidence']);
   assertNoExtra(review, allowed, path, errors);
-  for (const field of ['case_id', 'complete', 'decision', 'scores', 'human_time', 'convergence', 'observations']) {
+  for (const field of HUMAN_REVIEW_REVIEW_REQUIRED) {
     if (!(field in review)) errors.push(diagnostic(`${path}.${field}`, 'REQUIRED', `${field} is required.`));
   }
   if (!isNonEmptyString(review.case_id)) errors.push(diagnostic(`${path}.case_id`, 'STRING', 'case_id must be non-empty.'));
