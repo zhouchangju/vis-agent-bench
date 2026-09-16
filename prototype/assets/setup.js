@@ -4,6 +4,10 @@ const engineDefaults = {
     status: "info",
     provider: "openai",
     model: "gpt-5.6",
+    modelProfiles: [
+      { id: "gpt-5.6", label: "gpt-5.6 · medium", reasoningEffort: "medium" },
+      { id: "gpt-5.6-luna", label: "gpt-5.6-luna · xhigh（最大）", reasoningEffort: "xhigh" }
+    ],
     executable: "codex",
     credential: "secret://codex/default"
   },
@@ -12,6 +16,9 @@ const engineDefaults = {
     status: "info",
     provider: "moonshot",
     model: "kimi-code/k3",
+    modelProfiles: [
+      { id: "kimi-code/k3", label: "kimi-code/k3" }
+    ],
     executable: "/Users/leozhou/.kimi-code/bin/kimi",
     credential: "secret://kimi/default"
   },
@@ -20,6 +27,9 @@ const engineDefaults = {
     status: "info",
     provider: "zhipu",
     model: "glm-example",
+    modelProfiles: [
+      { id: "glm-example", label: "glm-example" }
+    ],
     executable: "claude",
     credential: "secret://claude-code/zhipu"
   },
@@ -29,10 +39,15 @@ const engineDefaults = {
     provider: "pi-direct-api",
     modelProvider: "deepseek",
     model: "deepseek-chat",
+    modelProfiles: [
+      { id: "deepseek-chat", label: "deepseek-chat" }
+    ],
     executable: "pi",
     credential: "secret://pi/deepseek"
   }
 };
+
+const CUSTOM_MODEL_PROFILE = "__custom__";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -64,12 +79,54 @@ function refreshCards() {
     `<b>${cases.length} Case${cases.length === 1 ? "" : "s"}</b> · ${engine} / ${$("#model").value || "model unset"} · file-isolated development · public network ${$("#network").checked ? "enabled" : "disabled"}`;
 }
 
+function profileForModel(model) {
+  const meta = engineDefaults[selectedEngine()];
+  return meta.modelProfiles.find((profile) => profile.id === model) || null;
+}
+
+function populateModelProfiles(meta) {
+  const select = $("#model-profile");
+  select.replaceChildren();
+  meta.modelProfiles.forEach((profile) => {
+    const option = document.createElement("option");
+    option.value = profile.id;
+    option.textContent = profile.label;
+    select.append(option);
+  });
+  const customOption = document.createElement("option");
+  customOption.value = CUSTOM_MODEL_PROFILE;
+  customOption.textContent = "Custom model ID";
+  select.append(customOption);
+  select.value = profileForModel(meta.model)?.id || CUSTOM_MODEL_PROFILE;
+}
+
+function syncModelProfile() {
+  const profile = profileForModel($("#model").value);
+  $("#model-profile").value = profile?.id || CUSTOM_MODEL_PROFILE;
+  if (profile?.reasoningEffort && selectedEngine() === "codex-cli") {
+    $("#reasoning-effort").value = profile.reasoningEffort;
+  }
+}
+
+function applyModelProfile() {
+  const profile = profileForModel($("#model-profile").value);
+  if (!profile) return;
+  $("#model").value = profile.id;
+  if (profile.reasoningEffort && selectedEngine() === "codex-cli") {
+    $("#reasoning-effort").value = profile.reasoningEffort;
+  }
+  refreshCards();
+}
+
 function applyEngineDefaults() {
   const meta = engineDefaults[selectedEngine()];
+  populateModelProfiles(meta);
   $("#provider").value = meta.provider;
   $("#model").value = meta.model;
   $("#executable").value = meta.executable;
   $("#credential").value = meta.credential;
+  const defaultProfile = meta.modelProfiles.find((profile) => profile.id === meta.model);
+  $("#reasoning-effort").value = defaultProfile?.reasoningEffort || "medium";
   $("#reasoning-effort").disabled = selectedEngine() !== "codex-cli";
   $("#model-provider").disabled = selectedEngine() !== "pi-cli";
   $("#model-provider").value = meta.modelProvider || "";
@@ -86,9 +143,17 @@ function showToast(message) {
 $$("input, select").forEach((element) => {
   element.addEventListener("change", () => {
     if (element.name === "engine") applyEngineDefaults();
+    else if (element.id === "model-profile") applyModelProfile();
+    else if (element.id === "model") {
+      syncModelProfile();
+      refreshCards();
+    }
     else refreshCards();
   });
-  element.addEventListener("input", refreshCards);
+  element.addEventListener("input", () => {
+    if (element.id === "model") syncModelProfile();
+    refreshCards();
+  });
 });
 
 $("#generate-run").addEventListener("click", () => {
@@ -189,6 +254,6 @@ function buildRunSpecBundle() {
   };
 }
 
-refreshCards();
+applyEngineDefaults();
 
 globalThis.__VAB_SETUP__ = { buildRunSpec, buildRunSpecBundle };

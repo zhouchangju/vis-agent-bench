@@ -138,6 +138,18 @@ npm run bench:case -- \
 Codex CLI 当前同样没有原生费用硬上限，因此真实运行也必须加入
 `--acknowledge-no-cost-cap`；Harness 会强制墙钟时间，Token/费用仅在 JSONL 事件明确上报时记录。
 
+如需使用 Codex `gpt-5.6-luna` 预设，最大思考强度对应 `xhigh`：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine codex \
+  --model gpt-5.6-luna \
+  --reasoning-effort xhigh \
+  --wall-time-minutes 180 \
+  --dry-run
+```
+
 ## 使用 Kimi K3
 
 本机已确认：
