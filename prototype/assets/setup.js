@@ -75,8 +75,17 @@ function refreshCards() {
   engineStatus.textContent = meta.label;
   engineStatus.className = `status ${meta.status}`;
 
-  $("#run-summary").innerHTML =
-    `<b>${cases.length} Case${cases.length === 1 ? "" : "s"}</b> · ${engine} / ${$("#model").value || "model unset"} · file-isolated development · public network ${$("#network").checked ? "enabled" : "disabled"}`;
+  // Model ID is free-typed user input; render it via textContent so it can
+  // never be interpreted as markup.
+  const summary = $("#run-summary");
+  const bold = document.createElement("b");
+  bold.textContent = `${cases.length} Case${cases.length === 1 ? "" : "s"}`;
+  summary.replaceChildren(
+    bold,
+    document.createTextNode(
+      ` · ${engine} / ${$("#model").value || "model unset"} · file-isolated development · public network ${$("#network").checked ? "enabled" : "disabled"}`,
+    ),
+  );
 }
 
 function profileForModel(model) {
