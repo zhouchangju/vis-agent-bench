@@ -1,0 +1,11 @@
+{
+  "usernames": ["leozhou"],
+  "personalProjects": [],
+  "colleagueNames": [],
+  "corporateEmailDomains": [],
+  "personalEmailDomains": ["gmail.com", "qq.com"],
+  "muteRules": [
+    "personal-record:interview-material",
+    "personal-context:personal-finance"
+  ]
+}

@@ -4,7 +4,7 @@ node_modules/
 !.env.example
 .DS_Store
 
-# Local-only inputs may contain internal screenshots or source snapshots.
+# Local run state (scratch workspaces, candidate assets, caches); not part of the benchmark.
 .local/
 
 # Generated benchmark state.
@@ -16,4 +16,3 @@ dist/
 
 # Local agent session artifacts (plans, transcripts, etc.).
 .zcode/
-

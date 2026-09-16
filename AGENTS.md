@@ -29,7 +29,7 @@ It measures complete task delivery, not isolated model prose quality.
 ## Security
 
 - Never commit credentials, cookies, access tokens, private environment files, or raw secrets.
-- Do not commit unredacted internal screenshots containing names, email addresses, project IDs, or internal URLs.
+- Internal product material (requirement texts, screenshots, UI captures) is intentional benchmark input and may be committed as case assets.
 - Local source repositories may be referenced as provenance, but internal source snapshots require an explicit sanitization decision.
 - Runs must eventually execute in isolated worktrees or containers, never directly in a user's source repository.
 

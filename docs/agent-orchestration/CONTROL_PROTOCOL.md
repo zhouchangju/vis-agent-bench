@@ -98,7 +98,7 @@ Agent 最终回复同时使用：
 
 ## 8. 安全边界
 
-- 不提交凭据、Cookie、内部 URL、真实业务方敏感数据或未脱敏素材。
+- 不提交凭据、Cookie、内部 URL 或真实业务方敏感数据；内部产品截图与需求素材是基准案例既定输入，允许提交（ADR-0004）。
 - Fixture Builder 可以在明确授权的任务中只读来源仓库，但不得复制答案实现。
 - 模型可见 fixture、Prompt 和 workspace 不得包含 `provenance.md`、隐藏 evaluator 或来源仓库历史。
 - 文件级隔离仍是开发模式，不可声称提供 OS 级防读取能力。
