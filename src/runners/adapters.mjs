@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { semiAutomaticAdapter } from './semi-automatic-adapter.mjs';
 
@@ -21,7 +22,8 @@ import { semiAutomaticAdapter } from './semi-automatic-adapter.mjs';
 
 const defaultExecutables = {
   codex: 'codex',
-  kimi: '/Users/leozhou/.kimi-code/bin/kimi',
+  // Resolved per machine: the Kimi CLI installs to ~/.kimi-code/bin/kimi.
+  kimi: join(homedir(), '.kimi-code', 'bin', 'kimi'),
   claude: 'claude',
   pi: 'pi',
 };
