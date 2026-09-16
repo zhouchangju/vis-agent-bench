@@ -84,12 +84,12 @@ vis-agent-bench/
 所有 job 都在 Node 20 / `ubuntu-latest` 上运行，并使用 `npm ci` 安装依赖。每个 job 的 npm 缓存通过
 `setup-node` 的 `cache: 'npm'` 复用。
 
-CI 运行的 job：
+CI 运行的 job（test-core 在 Node 20 与 22 两个版本上各跑一遍）：
 
-- **lint-and-structure** — `npm run validate:structure` + `npm run test:syntax`
-- **test-core** — `test:contracts` / `test:runners` / `test:fixtures` / `test:cases` / `test:reporting` /
+- **lint-and-structure** — `npm run test:syntax`（该命令先跑 `validate:structure` 再做语法检查）
+- **test-core** — `test:contracts` / `test:memory` / `test:runners` / `test:semi-auto` / `test:evaluators` /
+  `test:judge` / `test:attestation` / `test:fixtures` / `test:cases` / `test:prototype` / `test:reporting` /
   `test:revision`
-- **test-evaluators** — `test:evaluators`（不调用真实模型）
 - **test-e2e** — `test:e2e`（端到端 harness 检查，仍为确定性）
 - **test-smoke-flow** — `test:smoke-flow`（开发 smoke，不调真实 CLI）
 - **test-browser** — `test:browser`；CI 会先 `npx playwright install --with-deps chromium`

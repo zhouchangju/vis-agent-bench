@@ -32,16 +32,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate repository structure
-        run: npm run validate:structure
-
-      - name: Syntax check
+      - name: Structure + syntax check
+        # test:syntax runs validate-structure.mjs first, so one step covers both.
         run: npm run test:syntax
 
   test-core:
-    name: Core (contracts / runners / fixtures / cases / reporting / revision)
+    name: Core (${{ matrix.node }}) (contracts / memory / runners / semi-auto / judge / attestation / fixtures / cases / prototype / reporting / revision)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the engines floor (import.meta.dirname needs >=20.11); 22 guards
+        # the current LTS line.
+        node: ['20', '22']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,7 +53,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node }}
           cache: 'npm'
 
       - name: Install dependencies
@@ -58,8 +62,23 @@ jobs:
       - name: test:contracts
         run: npm run test:contracts
 
+      - name: test:memory
+        run: npm run test:memory
+
       - name: test:runners
         run: npm run test:runners
+
+      - name: test:semi-auto
+        run: npm run test:semi-auto
+
+      - name: test:evaluators
+        run: npm run test:evaluators
+
+      - name: test:judge
+        run: npm run test:judge
+
+      - name: test:attestation
+        run: npm run test:attestation
 
       - name: test:fixtures
         run: npm run test:fixtures
@@ -67,31 +86,14 @@ jobs:
       - name: test:cases
         run: npm run test:cases
 
+      - name: test:prototype
+        run: npm run test:prototype
+
       - name: test:reporting
         run: npm run test:reporting
 
       - name: test:revision
         run: npm run test:revision
-
-  test-evaluators:
-    name: Evaluators
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: test:evaluators
-        run: npm run test:evaluators
 
   test-e2e:
     name: End-to-end harness
