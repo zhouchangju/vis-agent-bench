@@ -93,8 +93,11 @@ const ASSERTIONS = {
   },
   no_critical_layout_overlap: observation => {
     const overview = observation.overview || {};
+    if (!Array.isArray(overview.nodes) || !Array.isArray(overview.edges)) {
+      return result(false, { reason: 'overview geometry unavailable; overlap facts are not proven' });
+    }
     const node = severeNodeOverlaps(overview.nodes);
-    const edge = edgeNodeIntersections(overview.edges, overview.nodes || []);
+    const edge = edgeNodeIntersections(overview.edges, overview.nodes);
     return result(node.length === 0 && edge.length === 0, { nodeOverlaps: node, edgeNodeIntersections: edge });
   },
   fit_and_title_offset: observation => {
@@ -108,17 +111,27 @@ const ASSERTIONS = {
   },
   label_aware_node_spacing: observation => booleanFact(observation, 'label_aware_node_spacing'),
   node_node_overlap: observation => {
-    const failures = severeNodeOverlaps(observation.overview?.nodes);
+    const nodes = observation.overview?.nodes;
+    if (!Array.isArray(nodes)) {
+      return result(false, { reason: 'overview.nodes unavailable; overlap facts are not proven' });
+    }
+    const failures = severeNodeOverlaps(nodes);
     return result(failures.length === 0, { failures, threshold: GEOMETRY_TOLERANCE.severeOverlapRatio });
   },
   edge_node_overlap: observation => {
     const overview = observation.overview || {};
-    const failures = edgeNodeIntersections(overview.edges, overview.nodes || []);
+    if (!Array.isArray(overview.edges) || !Array.isArray(overview.nodes)) {
+      return result(false, { reason: 'overview geometry unavailable; overlap facts are not proven' });
+    }
+    const failures = edgeNodeIntersections(overview.edges, overview.nodes);
     return result(failures.length === 0, { failures, insetPx: GEOMETRY_TOLERANCE.edgeNodeInsetPx });
   },
   edge_endpoint_boundary: observation => {
     const overview = observation.overview || {};
-    const failures = endpointBoundaryFailures(overview.edges, overview.nodes || []);
+    if (!Array.isArray(overview.edges) || !Array.isArray(overview.nodes)) {
+      return result(false, { reason: 'overview geometry unavailable; boundary facts are not proven' });
+    }
+    const failures = endpointBoundaryFailures(overview.edges, overview.nodes);
     return result(failures.length === 0, { failures, tolerancePx: GEOMETRY_TOLERANCE.endpointBoundaryPx });
   },
   edge_label_wrapping_and_collision: observation => {

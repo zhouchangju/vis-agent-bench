@@ -17,6 +17,7 @@ import {
   collectRunObservation,
   computeFileDigest,
 } from '../../src/control-plane/run-observation-collector.mjs';
+import { evaluateNarrativeEquity } from '../../src/evaluators/cases/narrative-equity/index.mjs';
 import {
   resolveObservationInput,
   validateBooleanProvenance,
@@ -39,15 +40,22 @@ function buildRunFixture({
   runId = 'test-run-001',
   caseId = 'narrative-equity-relationship',
   stageStatus = 'success',
-  checkpointChecks = [
-    { id: 'build', status: 'pass', exit_code: 0 },
-    { id: 'typecheck', status: 'pass', exit_code: 0 },
-    { id: 'test', status: 'pass', exit_code: 0 },
+  // Default mirrors the real bench.mjs verifyStageDeliverables gate shape:
+  // { commands: [{ name, exit_code, signal, error, stdout, stderr }] }.
+  checkpointGateCommands = [
+    { name: 'build', exit_code: 0, signal: null, error: null, stdout: '', stderr: '' },
+    { name: 'typecheck', exit_code: 0, signal: null, error: null, stdout: '', stderr: '' },
+    { name: 'test', exit_code: 0, signal: null, error: null, stdout: '', stderr: '' },
   ],
+  // Legacy { checks: [{ id, status, exit_code }] } shape for compat coverage.
+  legacyGateChecks = null,
   includeBrowserEvidence = true,
   includeUsage = false,
   includeWorkspaceDiff = true,
 }) {
+  const checkpointGate = legacyGateChecks
+    ? { checks: legacyGateChecks }
+    : { status: 'success', stage_id: 'S0', commands: checkpointGateCommands };
   mkdirSync(join(root, 'logs', 'stages'), { recursive: true });
   mkdirSync(join(root, 'artifacts'), { recursive: true });
   mkdirSync(join(root, 'workspace', '.fixture'), { recursive: true });
@@ -62,7 +70,7 @@ function buildRunFixture({
         stage_id: 'S0',
         status: stageStatus,
         exit_code: stageStatus === 'success' ? 0 : 1,
-        checkpoint_gate: { checks: checkpointChecks },
+        checkpoint_gate: checkpointGate,
       },
     ],
     usage: includeUsage
@@ -337,7 +345,7 @@ test('failed build stage yields commands.build.ran=false (no fabrication)', asyn
     buildRunFixture({
       root,
       stageStatus: 'error',
-      checkpointChecks: [], // no build/typecheck/test evidence
+      checkpointGateCommands: [], // no build/typecheck/test evidence
     });
     const caseRuntime = buildFakeCaseRuntime(root);
     const { observation } = await collectRunObservation({
@@ -353,7 +361,7 @@ test('failed build stage yields commands.build.ran=false (no fabrication)', asyn
       const cmd = observation.commands?.[name];
       assert.ok(cmd, `commands.${name} must be present`);
       assert.equal(cmd.ran, false, `commands.${name}.ran must not be fabricated`);
-      assert.equal(cmd.exit_code, null, `commands.${name}.exit_code must not be fabricated`);
+      assert.equal(cmd.exitCode, null, `commands.${name}.exitCode must not be fabricated`);
     }
 
     // The dsl block must reflect that no control inputs were executed.
@@ -376,8 +384,8 @@ test('successful build checkpoint yields commands.build.ran=true with exit_code 
     buildRunFixture({
       root,
       stageStatus: 'success',
-      checkpointChecks: [
-        { id: 'build', status: 'pass', exit_code: 0 },
+      checkpointGateCommands: [
+        { name: 'build', exit_code: 0, signal: null, error: null, stdout: '', stderr: '' },
         // typecheck and test intentionally missing to prove no fabrication
       ],
     });
@@ -390,10 +398,82 @@ test('successful build checkpoint yields commands.build.ran=true with exit_code 
       caseRuntime,
     });
     assert.equal(observation.commands.build.ran, true);
-    assert.equal(observation.commands.build.exit_code, 0);
+    assert.equal(observation.commands.build.exitCode, 0);
     assert.equal(observation.commands.typecheck.ran, false);
-    assert.equal(observation.commands.typecheck.exit_code, null);
+    assert.equal(observation.commands.typecheck.exitCode, null);
     assert.equal(observation.commands.test.ran, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 6: legacy gate shape ({ checks: [...] }) is still detected
+// ---------------------------------------------------------------------------
+
+test('legacy checkpoint_gate.checks shape still maps into command outcomes', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vab-attest-legacy-'));
+  try {
+    buildRunFixture({
+      root,
+      stageStatus: 'success',
+      legacyGateChecks: [
+        { id: 'build', status: 'pass', exit_code: 0 },
+        { id: 'typecheck', status: 'pass', exit_code: 0 },
+      ],
+    });
+    const caseRuntime = buildFakeCaseRuntime(root);
+    const { observation } = await collectRunObservation({
+      projectRoot: PROJECT_ROOT,
+      runRoot: root,
+      caseId: 'narrative-equity-relationship',
+      runId: 'test-run-legacy',
+      caseRuntime,
+    });
+    assert.equal(observation.commands.build.ran, true);
+    assert.equal(observation.commands.build.exitCode, 0);
+    assert.equal(observation.commands.typecheck.ran, true);
+    assert.equal(observation.commands.test.ran, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 7: full chain — collector observation feeds the case evaluator
+// ---------------------------------------------------------------------------
+
+test('collector observation validates through the narrative-equity evaluator', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vab-attest-evalchain-'));
+  try {
+    buildRunFixture({ root });
+    const caseRuntime = buildFakeCaseRuntime(root);
+    const { attestation } = await collectRunObservation({
+      projectRoot: PROJECT_ROOT,
+      runRoot: root,
+      caseId: 'narrative-equity-relationship',
+      runId: 'test-run-evalchain',
+      caseRuntime,
+    });
+    writeFileSync(join(root, 'observation-attestation.json'), JSON.stringify(attestation, null, 2));
+
+    // Production evaluator path: attestation only, no bare observation.
+    // Before the contract fix this threw "Narrative equity observation is
+    // missing \"overview\"" instead of evaluating at all.
+    const evaluation = await evaluateNarrativeEquity({
+      runId: 'test-run-evalchain',
+      runRoot: root,
+      attestationPath: 'observation-attestation.json',
+    });
+
+    // The baseline gate evidence must flow through: a run whose gate recorded
+    // build/typecheck/test exit 0 passes build-and-typecheck even though the
+    // conservative real-run observation carries no golden-only sections.
+    // Overall status stays 'error' by design: the hidden-control hard gates
+    // cannot pass without golden evidence, and the collector never fabricates.
+    const baseline = evaluation.bundle.results.find(item => item.check_id === 'build-and-typecheck');
+    assert.ok(baseline, 'build-and-typecheck result missing');
+    assert.equal(baseline.status, 'pass', JSON.stringify(baseline.evidence, null, 2));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

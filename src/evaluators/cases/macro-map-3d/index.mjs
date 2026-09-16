@@ -78,15 +78,12 @@ function validateObservation(observation) {
   if (!observation || typeof observation !== 'object') {
     throw new TypeError('Macro Map 3D observation must be an object.');
   }
-  for (const key of [
-    'commands', 'inputs', 'datasets', 'layout', 'render', 'browser', 'camera',
-    'interactions', 'selection', 'runtime', 'resize', 'fallback', 'performance',
-    'lifecycle', 'engineering', 'proof_boundary',
-  ]) {
-    const value = observation[key];
-    if (value == null || typeof value !== 'object') {
-      throw new TypeError(`Macro Map 3D observation is missing "${key}".`);
-    }
+  // `commands` is the only section both producer shapes guarantee: golden
+  // observations (hidden control re-executed) additionally carry the
+  // case-specific sections, while real-run collector observations are
+  // conservative. Section-level assertions treat missing sections as not proven.
+  if (!observation.commands || typeof observation.commands !== 'object') {
+    throw new TypeError('Macro Map 3D observation is missing "commands".');
   }
 }
 

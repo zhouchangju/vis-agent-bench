@@ -101,14 +101,26 @@ test('intentionally wrong sample fails each targeted deterministic contract', as
   assert.ok(color.evidence.details.failures.length >= 5);
 });
 
-test('missing observation sections are rejected instead of guessed as passing', async () => {
+test('missing commands section is rejected instead of guessed as passing', async () => {
   await assert.rejects(
     () => evaluateAinvestHeatmap({
-      observation: asTestDouble({ commands: {} }),
+      observation: asTestDouble({}),
       allowTestDouble: true,
     }),
-    /observation is missing "input"/,
+    /observation is missing "commands"/,
   );
+});
+
+test('conservative real-run observation (commands only) runs with every case check unproven', async () => {
+  // Real CLI runs carry only the collector's conservative observation; the
+  // evaluator must accept it but prove nothing about case-specific sections.
+  const evaluation = await evaluateAinvestHeatmap({
+    observation: asTestDouble({ commands: {} }),
+    allowTestDouble: true,
+  });
+  assert.equal(evaluation.status, 'error');
+  const passed = evaluation.bundle.results.filter(item => item.status === 'pass');
+  assert.deepEqual(passed, [], `no check may pass on absent evidence: ${JSON.stringify(passed)}`);
 });
 
 test('production mode rejects bare observation and arbitrary observationPath', async () => {

@@ -89,22 +89,12 @@ function validateObservation(observation) {
   if (!observation || typeof observation !== 'object' || Array.isArray(observation)) {
     throw new TypeError('StandardChart two-way-tree observation must be an object.');
   }
-  for (const key of [
-    'commands',
-    'input',
-    'tree_structure',
-    'bidirectional_traversal',
-    'node_selection',
-    'layout',
-    'performance',
-    'browserEvidence',
-    'responsive',
-    'accessibility',
-    'engineering',
-  ]) {
-    if (!observation[key] || typeof observation[key] !== 'object') {
-      throw new TypeError(`StandardChart two-way-tree observation is missing "${key}".`);
-    }
+  // `commands` is the only section both producer shapes guarantee: golden
+  // observations (hidden control re-executed) additionally carry the
+  // case-specific sections, while real-run collector observations are
+  // conservative. Section-level assertions treat missing sections as not proven.
+  if (!observation.commands || typeof observation.commands !== 'object') {
+    throw new TypeError('StandardChart two-way-tree observation is missing "commands".');
   }
 }
 

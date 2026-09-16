@@ -33,6 +33,25 @@ function test(name, fn) {
   tests.push({ name, fn });
 }
 
+test('conservative real-run observation (commands only) proves nothing beyond the baseline gate', async () => {
+  // Real CLI runs carry the collector's conservative observation. Every check
+  // that depends on golden-only sections must fail (not pass vacuously), and
+  // the only passing check may be the baseline build/typecheck/test gate.
+  const evaluation = await evaluateNarrativeEquity({
+    observation: asTestDouble({ commands: {} }),
+    allowTestDouble: true,
+  });
+  assert.equal(evaluation.status, 'error');
+  // With an empty commands map even the baseline gate has no evidence, so
+  // nothing may pass at all. (A real gate with exit 0 additionally proves
+  // build-and-typecheck — see tests/attestation run.mjs eval-chain test.)
+  const passed = evaluation.bundle.results.filter(item => item.status === 'pass');
+  assert.deepEqual(passed, [], `no check may pass on absent evidence: ${JSON.stringify(passed)}`);
+  // The P0 overlap hard gate must not pass without geometry evidence.
+  const overlap = evaluation.bundle.results.find(item => item.check_id === 'no-critical-layout-overlap');
+  assert.equal(overlap.status, 'fail');
+});
+
 test('rubric check IDs, hard gates, and actual assertions are one-to-one', () => {
   const mapping = validateCheckMapping(loadNarrativeEquityRubric());
   assert.equal(mapping.declared.length, 39);

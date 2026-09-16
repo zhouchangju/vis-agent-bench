@@ -81,10 +81,12 @@ function validateObservation(observation) {
   if (!observation || typeof observation !== 'object') {
     throw new TypeError('Narrative equity observation must be an object.');
   }
-  for (const key of ['commands', 'dsl', 'overview', 'events', 'states', 'behavior', 'lifecycle']) {
-    if (!observation[key] || typeof observation[key] !== 'object') {
-      throw new TypeError(`Narrative equity observation is missing "${key}".`);
-    }
+  // `commands` is the only section both producer shapes guarantee:
+  // golden observations (hidden control re-executed) additionally carry
+  // overview/events/states/behavior, while real-run collector observations are
+  // conservative. Section-level assertions treat missing sections as not proven.
+  if (!observation.commands || typeof observation.commands !== 'object') {
+    throw new TypeError('Narrative equity observation is missing "commands".');
   }
 }
 

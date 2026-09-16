@@ -375,6 +375,8 @@ function buildHiddenControlExecution({
   const stages = Array.isArray(resultJson.stages) ? resultJson.stages : [];
 
   // Map checkpoint gate statuses into command exit codes when available.
+  // Field style follows the observation contract consumed by case evaluators
+  // (camelCase `exitCode`, matching the golden observation samples).
   const commands = {};
   for (const name of ['build', 'typecheck', 'test']) {
     const entry = baseline[name];
@@ -384,7 +386,7 @@ function buildHiddenControlExecution({
       required,
       command: Array.isArray(entry?.command) ? entry.command : null,
       ran: observed.ran,
-      exit_code: observed.exitCode,
+      exitCode: observed.exitCode,
       source: observed.source,
     };
   }
@@ -428,10 +430,22 @@ function buildHiddenControlExecution({
 
 function findCommandOutcome(stages, name) {
   // Look through checkpoint_gate data in stage results for a build/typecheck/test
-  // gate. checkpoint_gate is recorded in scripts/bench.mjs via verifyStageDeliverables.
+  // gate. checkpoint_gate is recorded in scripts/bench.mjs via verifyStageDeliverables
+  // as { commands: [{ name, exit_code, ... }] }; the legacy { checks: [{ id, ... }] }
+  // shape is still accepted for older run directories.
   for (const stage of stages) {
     const gate = stage && typeof stage === 'object' ? stage.checkpoint_gate : null;
     if (!gate || typeof gate !== 'object') continue;
+    const commands = Array.isArray(gate.commands) ? gate.commands : [];
+    for (const command of commands) {
+      if (command && command.name === name) {
+        return {
+          ran: true,
+          exitCode: typeof command.exit_code === 'number' ? command.exit_code : null,
+          source: 'checkpoint_gate',
+        };
+      }
+    }
     const checks = Array.isArray(gate.checks) ? gate.checks : [];
     for (const check of checks) {
       if (check && check.id === name) {
