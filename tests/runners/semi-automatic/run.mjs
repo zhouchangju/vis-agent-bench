@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -12,6 +12,7 @@ import {
   verifyCheckpointGate,
   baselinePackageGate,
   getSemiAutoStatus,
+  resumeSemiAutomaticSession,
 } from '../../../src/runners/semi-automatic-session.mjs';
 import { getAdapter, listAdapters } from '../../../src/runners/adapters.mjs';
 
@@ -385,6 +386,216 @@ check('verifyCheckpointGate fails with missing checkpoint evidence', () => {
 
   assert.equal(gate.status, 'error');
   assert.ok(gate.missing.some(m => m.includes('my-artifact') && m.includes('nonexistent')));
+
+  cleanup(dir);
+});
+
+// ---------------------------------------------------------------------------
+// Final-stage baseline command gate tests
+// ---------------------------------------------------------------------------
+
+check('verifyCheckpointGate runs declared baseline commands on the final stage', () => {
+  const dir = tmpDir('vab-gate-commands');
+  const workspaceDir = join(dir, 'workspace');
+  mkdirSync(join(workspaceDir, '.vab', 'checkpoints'), { recursive: true });
+
+  writeFileSync(join(workspaceDir, 'requirement-ledger.yaml'), 'confirmed: []\ndecisions: []');
+  writeFileSync(join(workspaceDir, 'package.json'), JSON.stringify({
+    scripts: {
+      build: `node -e "process.stdout.write('built')"`,
+      test: `node -e "process.exit(0)"`,
+    },
+  }));
+  const baselineGate = baselinePackageGate(workspaceDir);
+
+  const stage = { id: 'S1', checkpoint: ['final-requirement-ledger'] };
+  const gate = verifyCheckpointGate(workspaceDir, stage, { baselineGate });
+
+  assert.equal(gate.status, 'success', JSON.stringify(gate.missing));
+  const byName = Object.fromEntries(gate.commands.map(c => [c.name, c]));
+  assert.equal(byName.build.exit_code, 0);
+  assert.equal(byName.test.exit_code, 0);
+
+  cleanup(dir);
+});
+
+check('verifyCheckpointGate fails when a declared baseline command fails', () => {
+  const dir = tmpDir('vab-gate-cmdfail');
+  const workspaceDir = join(dir, 'workspace');
+  mkdirSync(join(workspaceDir, '.vab', 'checkpoints'), { recursive: true });
+
+  writeFileSync(join(workspaceDir, 'requirement-ledger.yaml'), 'confirmed: []\ndecisions: []');
+  writeFileSync(join(workspaceDir, 'package.json'), JSON.stringify({
+    scripts: { test: `node -e "process.exit(3)"` },
+  }));
+  const baselineGate = baselinePackageGate(workspaceDir);
+
+  const stage = { id: 'S1', checkpoint: ['final-requirement-ledger'] };
+  const gate = verifyCheckpointGate(workspaceDir, stage, { baselineGate });
+
+  assert.equal(gate.status, 'error');
+  assert.ok(gate.missing.includes('npm run test'), JSON.stringify(gate.missing));
+  assert.equal(gate.commands.at(-1).exit_code, 3);
+
+  cleanup(dir);
+});
+
+check('verifyCheckpointGate rejects tampered protected harness scripts', () => {
+  const dir = tmpDir('vab-gate-tamper');
+  const workspaceDir = join(dir, 'workspace');
+  mkdirSync(join(workspaceDir, '.vab', 'checkpoints'), { recursive: true });
+  mkdirSync(join(workspaceDir, 'scripts'), { recursive: true });
+
+  writeFileSync(join(workspaceDir, 'requirement-ledger.yaml'), 'confirmed: []\ndecisions: []');
+  writeFileSync(join(workspaceDir, 'scripts', 'helper.mjs'), 'export const x = 1;\n');
+  const baselineGate = baselinePackageGate(workspaceDir);
+  assert.equal(baselineGate.protected_files.length, 1);
+
+  // Tamper with the protected script after prepare.
+  writeFileSync(join(workspaceDir, 'scripts', 'helper.mjs'), 'export const x = 2;\n');
+
+  const stage = { id: 'S1', checkpoint: ['final-requirement-ledger'] };
+  const gate = verifyCheckpointGate(workspaceDir, stage, { baselineGate });
+
+  assert.equal(gate.status, 'error');
+  assert.ok(gate.missing.some(m => m.includes('scripts/helper.mjs') && m.includes('modified')));
+
+  cleanup(dir);
+});
+
+check('verifyCheckpointGate rejects symlinked checkpoint evidence escaping the workspace', () => {
+  const dir = tmpDir('vab-gate-symlink');
+  const workspaceDir = join(dir, 'workspace');
+  const outsideDir = join(dir, 'outside');
+  mkdirSync(join(workspaceDir, '.vab', 'checkpoints'), { recursive: true });
+  mkdirSync(outsideDir, { recursive: true });
+
+  writeFileSync(join(workspaceDir, 'requirement-ledger.yaml'), 'confirmed: []\ndecisions: []');
+  writeFileSync(join(outsideDir, 'secret.txt'), 'host file');
+  symlinkSync(join(outsideDir, 'secret.txt'), join(workspaceDir, 'evidence.txt'));
+
+  writeFileSync(join(workspaceDir, '.vab', 'checkpoints', 'S0.json'), JSON.stringify({
+    schema_version: 1,
+    stage_id: 'S0',
+    artifacts: { 'my-artifact': ['evidence.txt'] },
+  }));
+
+  const stage = { id: 'S0', checkpoint: ['my-artifact'] };
+  assert.throws(
+    () => verifyCheckpointGate(workspaceDir, stage),
+    /symlink escapes workspace/,
+  );
+
+  cleanup(dir);
+});
+
+// ---------------------------------------------------------------------------
+// run-failed resume tests
+// ---------------------------------------------------------------------------
+
+check('resume accepts a run-failed semi-auto run and retries the gate', async () => {
+  const dir = tmpDir('vab-resume-failed');
+  const projectRoot = resolve(import.meta.dirname, '..', '..', '..');
+  const caseId = 'dev-workflow-smoke';
+
+  writeFileSync(join(dir, 'run-spec.json'), JSON.stringify({
+    schema_version: 1,
+    run_id: 'test-run-failed',
+    case_id: caseId,
+    engine: { adapter: 'semi-auto', executable: 'manual', configured_model: 'manual', provider: 'manual-operator', credential_ref: 'none://manual' },
+    isolation: { mode: 'file-isolated-development', leaderboard_eligible: false, network: false, block_internal_network: false, inherited_home_for_auth: false, answer_leakage_scan: true, workspace_root: 'workspace' },
+  }));
+  writeFileSync(join(dir, 'run-state.json'), JSON.stringify({
+    schema_version: 1,
+    run_id: 'test-run-failed',
+    status: 'run-failed',
+    scenario: {
+      mode: 'progressive-disclosure',
+      stage_ids: ['S0'],
+      current_stage: 'S0',
+      completed_stages: [],
+      attempts: {},
+    },
+    session: { id: null, continuity: 'manual-checkpoint', started: true, semi_auto: true },
+    package_gate: { scripts: {}, protected_files: [] },
+  }));
+  // Workspace without the required ledger → gate would fail, but the checkpoint
+  // file itself is missing, so resume reports the stage as still awaiting.
+  mkdirSync(join(dir, 'workspace', '.vab', 'checkpoints'), { recursive: true });
+
+  const result = await resumeSemiAutomaticSession({ runRoot: dir, projectRoot });
+  assert.equal(result.status, 'awaiting_user');
+  assert.equal(result.waitingOnStage, 'S0');
+
+  cleanup(dir);
+});
+
+check('resume from run-failed re-verifies the gate and advances when deliverables exist', async () => {
+  const dir = tmpDir('vab-resume-retry');
+  const projectRoot = resolve(import.meta.dirname, '..', '..', '..');
+  const caseId = 'dev-workflow-smoke';
+
+  writeFileSync(join(dir, 'run-spec.json'), JSON.stringify({
+    schema_version: 1,
+    run_id: 'test-run-retry',
+    case_id: caseId,
+    engine: { adapter: 'semi-auto', executable: 'manual', configured_model: 'manual', provider: 'manual-operator', credential_ref: 'none://manual' },
+    isolation: { mode: 'file-isolated-development', leaderboard_eligible: false, network: false, block_internal_network: false, inherited_home_for_auth: false, answer_leakage_scan: true, workspace_root: 'workspace' },
+  }));
+  writeFileSync(join(dir, 'run-state.json'), JSON.stringify({
+    schema_version: 1,
+    run_id: 'test-run-retry',
+    status: 'run-failed',
+    scenario: {
+      mode: 'progressive-disclosure',
+      stage_ids: ['S0', 'S1'],
+      current_stage: 'S0',
+      completed_stages: [],
+      attempts: {},
+    },
+    session: { id: null, continuity: 'manual-checkpoint', started: true, semi_auto: true },
+    package_gate: { scripts: {}, protected_files: [] },
+  }));
+
+  // Deliverables for dev-workflow-smoke S0: requirement-ledger.yaml +
+  // docs/poc-plan.md (path checkpoints) plus the symbolic checkpoint manifest.
+  mkdirSync(join(dir, 'input'), { recursive: true });
+  mkdirSync(join(dir, 'workspace', 'docs'), { recursive: true });
+  mkdirSync(join(dir, 'workspace', '.vab', 'checkpoints'), { recursive: true });
+  writeFileSync(join(dir, 'workspace', 'requirement-ledger.yaml'), 'confirmed: []\ndecisions: []');
+  writeFileSync(join(dir, 'workspace', 'docs', 'poc-plan.md'), '# POC plan\n');
+  writeFileSync(join(dir, 'workspace', '.vab', 'checkpoints', 'S0.json'), JSON.stringify({
+    schema_version: 1,
+    stage_id: 'S0',
+    artifacts: {},
+  }));
+
+  const result = await resumeSemiAutomaticSession({ runRoot: dir, projectRoot });
+  assert.equal(result.status, 'awaiting_user');
+  assert.equal(result.waitingOnStage, 'S1');
+  assert.deepEqual(result.completedStages, ['S0']);
+
+  const state = JSON.parse(readFileSync(join(dir, 'run-state.json'), 'utf8'));
+  assert.equal(state.status, 'semi-auto-waiting');
+  assert.deepEqual(state.scenario.completed_stages, ['S0']);
+
+  cleanup(dir);
+});
+
+check('resume still rejects terminal statuses that are not retryable', async () => {
+  const dir = tmpDir('vab-resume-terminal');
+  writeFileSync(join(dir, 'run-spec.json'), '{}');
+  writeFileSync(join(dir, 'run-state.json'), JSON.stringify({
+    schema_version: 1,
+    run_id: 'test-terminal',
+    status: 'awaiting-evaluation',
+    scenario: {},
+  }));
+
+  await assert.rejects(
+    () => resumeSemiAutomaticSession({ runRoot: dir, projectRoot: dir }),
+    /not in a semi-auto state/,
+  );
 
   cleanup(dir);
 });

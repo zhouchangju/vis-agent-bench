@@ -71,7 +71,7 @@ export const semiAutomaticAdapter = {
       '   }',
       '   ```',
       '',
-      '4. Run `node scripts/bench.mjs resume-semi-auto <runDir>` to advance',
+      '4. Run `node scripts/bench.mjs resume-semi-auto --run-dir <runDir>` to advance',
       '   to the next stage (or use watch mode).',
       '',
       '## Stages',

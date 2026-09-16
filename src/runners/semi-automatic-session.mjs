@@ -1,9 +1,12 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
+  renameSync,
+  unlinkSync,
   writeFileSync,
   watch as fsWatch,
 } from 'node:fs';
@@ -11,23 +14,32 @@ import { basename, join, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
 import { semiAutomaticAdapter } from './semi-automatic-adapter.mjs';
-import { getAdapter } from './adapters.mjs';
 import { validateRunSpec } from '../contracts/index.mjs';
 import { getCaseRuntime } from '../control-plane/case-registry.mjs';
-import { buildRunSpec, adapterId } from '../control-plane/run-spec.mjs';
 import {
   copyWorkspaceSource,
-  createRunLayout,
   listFiles,
   scanForAnswerLeakage,
 } from '../core/file-isolation.mjs';
+import { validationEnvironment } from '../core/process-runner.mjs';
 import {
   collectRunObservation,
   writeAttestation,
 } from '../control-plane/run-observation-collector.mjs';
 import { buildHumanReviewPackage } from '../review/human-review-package.mjs';
-import { aggregateUsage, normalizeStdout } from '../telemetry/index.mjs';
-import { containedRunDirectory } from '../core/run-id.mjs';
+
+const GATE_COMMAND_TIMEOUT_MS = 600_000;
+
+function writeJsonAtomic(targetPath, value) {
+  const tmp = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`);
+  } catch (error) {
+    try { unlinkSync(tmp); } catch { /* best-effort cleanup */ }
+    throw error;
+  }
+  renameSync(tmp, targetPath);
+}
 
 // ---------------------------------------------------------------------------
 // Prompt + delivery protocol helpers (replicated from bench.mjs for reuse)
@@ -133,17 +145,40 @@ function containedWorkspacePath(workspace, ref) {
   if (target === root || !target.startsWith(`${root}/`) || rel.startsWith('..')) {
     throw new TypeError(`Checkpoint artifact escapes workspace: ${ref}`);
   }
+  if (existsSync(target)) {
+    const realRoot = realpathSync(root);
+    const realTarget = realpathSync(target);
+    if (realTarget === realRoot || !realTarget.startsWith(`${realRoot}/`)) {
+      throw new TypeError(`Checkpoint artifact symlink escapes workspace: ${ref}`);
+    }
+  }
   return target;
 }
 
 // ---------------------------------------------------------------------------
-// Checkpoint verification (simplified, no build/test gate)
+// Checkpoint verification
 // ---------------------------------------------------------------------------
 
-export function verifyCheckpointGate(workspace, stage) {
+/**
+ * Verify checkpoint deliverables for a stage.
+ *
+ * @param {string} workspace absolute workspace path
+ * @param {object} stage scenario stage
+ * @param {object} [options]
+ * @param {object|null} [options.baselineGate] the package gate recorded at
+ *   prepare time (run-state.package_gate). When provided, harness scripts under
+ *   `scripts/` are compared byte-for-byte against the baseline, and the final
+ *   stage runs the declared build/typecheck/test scripts — matching the
+ *   delivery-protocol promises in the stage prompts.
+ */
+export function verifyCheckpointGate(workspace, stage, options = {}) {
   const required = Array.isArray(stage.checkpoint) ? stage.checkpoint : [];
   const missing = [];
   const artifacts = [];
+  const commands = [];
+  const baselineGate = options.baselineGate && typeof options.baselineGate === 'object'
+    ? options.baselineGate
+    : null;
   const ledger = containedWorkspacePath(workspace, 'requirement-ledger.yaml');
   if (!existsSync(ledger)) missing.push('requirement-ledger.yaml');
   else {
@@ -174,8 +209,13 @@ export function verifyCheckpointGate(workspace, stage) {
     if (!existsSync(manifestPath)) {
       missing.push(`.vab/checkpoints/${stage.id}.json`);
     } else {
+      let manifest = null;
       try {
-        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      } catch {
+        missing.push(`.vab/checkpoints/${stage.id}.json (parse error)`);
+      }
+      if (manifest) {
         if (manifest.schema_version !== 1 || manifest.stage_id !== stage.id) {
           missing.push(`.vab/checkpoints/${stage.id}.json (invalid identity)`);
         }
@@ -186,16 +226,21 @@ export function verifyCheckpointGate(workspace, stage) {
             continue;
           }
           for (const ref of refs) {
+            // Containment violations (e.g. symlink escape) propagate as
+            // errors — they must not be swallowed as evidence gaps.
             const target = containedWorkspacePath(workspace, ref);
             if (!existsSync(target)) missing.push(`${item} -> ${ref}`);
             else artifacts.push(target);
           }
         }
         artifacts.push(manifestPath);
-      } catch {
-        missing.push(`.vab/checkpoints/${stage.id}.json (parse error)`);
       }
     }
+  }
+
+  if (isFinalStage(stage)) {
+    verifyProtectedScripts(workspace, baselineGate, missing);
+    runBaselineCommands(workspace, baselineGate, missing, commands);
   }
 
   return {
@@ -204,12 +249,79 @@ export function verifyCheckpointGate(workspace, stage) {
     required,
     artifacts: [...new Set(artifacts)],
     missing,
+    commands,
   };
 }
 
-export function baselinePackageGate(workspace) {
+/**
+ * Fail the gate when a harness baseline script under scripts/ was modified or
+ * removed after prepare. New files added by the agent are not protected.
+ */
+function verifyProtectedScripts(workspace, baselineGate, missing) {
+  if (!baselineGate || !Array.isArray(baselineGate.protected_files)) return;
+  const current = new Map(
+    listFiles(join(workspace, 'scripts')).map(file => [`scripts/${file.path}`, file.sha256]),
+  );
+  for (const entry of baselineGate.protected_files) {
+    const digest = current.get(entry.path);
+    if (digest == null) missing.push(`${entry.path} (protected harness script removed)`);
+    else if (digest !== entry.sha256) missing.push(`${entry.path} (protected harness script modified)`);
+  }
+}
+
+/**
+ * Run the workspace's declared build/typecheck/test scripts on the final stage
+ * — the gate the stage prompts promise. A script whose definition differs from
+ * the prepare-time baseline is not executed; it is reported as tampered
+ * instead (fail closed), mirroring bench.mjs's trusted-package-gate behaviour.
+ */
+function runBaselineCommands(workspace, baselineGate, missing, commands) {
   const packagePath = join(workspace, 'package.json');
-  if (!existsSync(packagePath)) return { scripts: {}, protected_files: [] };
+  if (!existsSync(packagePath)) return;
+  let pkg;
+  try {
+    pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
+  } catch {
+    missing.push('package.json (parse error)');
+    return;
+  }
+  const baselineScripts = baselineGate?.scripts || {};
+  for (const name of ['build', 'typecheck', 'test']) {
+    if (typeof pkg.scripts?.[name] !== 'string') continue;
+    if (baselineScripts[name] != null && pkg.scripts[name] !== baselineScripts[name]) {
+      missing.push(`npm run ${name} (script changed since baseline)`);
+      continue;
+    }
+    const command = spawnSync('npm', ['run', name], {
+      cwd: workspace,
+      encoding: 'utf8',
+      shell: false,
+      timeout: GATE_COMMAND_TIMEOUT_MS,
+      maxBuffer: 10 * 1024 * 1024,
+      // Same isolation as bench.mjs's trusted gate: the integrity measurement
+      // must not depend on the operator's HOME or npm cache state.
+      env: validationEnvironment(join(workspace, '..')),
+    });
+    commands.push({
+      name,
+      exit_code: command.status,
+      signal: command.signal,
+      error: command.error?.message || null,
+      stdout: command.stdout || '',
+      stderr: command.stderr || '',
+    });
+    if (command.status !== 0 || command.error) missing.push(`npm run ${name}`);
+  }
+}
+
+export function baselinePackageGate(workspace) {
+  // Harness scripts are protected even when the workspace has no package.json.
+  const protected_files = existsSync(join(workspace, 'scripts'))
+    ? listFiles(join(workspace, 'scripts'))
+      .map(file => ({ path: `scripts/${file.path}`, sha256: file.sha256 }))
+    : [];
+  const packagePath = join(workspace, 'package.json');
+  if (!existsSync(packagePath)) return { scripts: {}, protected_files };
   const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
   return {
     scripts: Object.fromEntries(
@@ -217,7 +329,7 @@ export function baselinePackageGate(workspace) {
         .filter(name => typeof pkg.scripts?.[name] === 'string')
         .map(name => [name, pkg.scripts[name]]),
     ),
-    protected_files: [],
+    protected_files,
   };
 }
 
@@ -234,19 +346,11 @@ export function baselinePackageGate(workspace) {
 export async function runSemiAutomaticSession({
   projectRoot, runRoot, runSpec, scenario, caseRuntime, runId,
 }) {
+  if (!runSpec || typeof runSpec !== 'object') {
+    throw new TypeError('runSemiAutomaticSession requires a validated runSpec.');
+  }
   const runDir = resolve(runRoot);
   const caseDir = join(projectRoot, 'cases', runSpec.case_id);
-
-  // Generate the run directory layout.
-  if (!existsSync(runDir)) {
-    createRunLayout(projectRoot, runId);
-    // The real runDir from createRunLayout
-    const realRunDir = containedRunDirectory(resolve(projectRoot, '.local', 'runs'), runId);
-    // If the caller gave us a different path, use it; otherwise use the one just created.
-    if (!existsSync(realRunDir)) {
-      mkdirSync(realRunDir, { recursive: true });
-    }
-  }
 
   mkdirSync(join(runDir, '.empty-skills'), { recursive: true });
 
@@ -270,19 +374,9 @@ export async function runSemiAutomaticSession({
     };
   }
 
-  // Validate or create run spec.
-  const spec = runSpec || buildRunSpec({
-    name: `${runSpec?.case_id || 'unknown'}-semi-auto`,
-    case_id: runSpec?.case_id,
-    engine: {
-      adapter: 'semi-auto',
-      executable: null,
-      configured_model: runSpec?.engine?.configured_model || 'manual',
-      provider: runSpec?.engine?.provider || 'manual-operator',
-      credential_ref: 'none',
-    },
-    workspace_root: join(runDir, 'workspace'),
-  });
+  // The caller must pass a prepared RunSpec (bench.mjs validates it before
+  // creating the run layout); re-validate here so direct API use cannot skip it.
+  const spec = runSpec;
   const validation = validateRunSpec(spec);
   if (!validation.valid) throw new Error(`RunSpec is invalid: ${JSON.stringify(validation.errors)}`);
 
@@ -327,11 +421,11 @@ export async function runSemiAutomaticSession({
     process_pid: null,
   };
 
-  writeFileSync(join(runDir, 'run-spec.json'), JSON.stringify(spec, null, 2));
-  writeFileSync(join(runDir, 'run-state.json'), JSON.stringify(state, null, 2));
-  writeFileSync(
+  writeJsonAtomic(join(runDir, 'run-spec.json'), spec);
+  writeJsonAtomic(join(runDir, 'run-state.json'), state);
+  writeJsonAtomic(
     join(runDir, 'logs', 'files-before.json'),
-    JSON.stringify(listFiles(join(runDir, 'workspace')), null, 2),
+    listFiles(join(runDir, 'workspace')),
   );
 
   // Use the adapter's prepare to write README and first stage prompt.
@@ -354,7 +448,7 @@ export async function runSemiAutomaticSession({
 
   const firstStageId = prepResult.stageId;
   state.scenario.current_stage = firstStageId;
-  writeFileSync(join(runDir, 'run-state.json'), JSON.stringify(state, null, 2));
+  writeJsonAtomic(join(runDir, 'run-state.json'), state);
 
   return {
     run_id: runId,
@@ -365,8 +459,8 @@ export async function runSemiAutomaticSession({
       `1. Open your AI coding agent in the workspace: ${workspaceDir}`,
       `2. Feed it the prompt from: ${join(inputDir, `stage-${firstStageId}.md`)}`,
       `3. When stage ${firstStageId} completes, write checkpoint to .vab/checkpoints/${firstStageId}.json`,
-      `4. Run: node scripts/bench.mjs resume-semi-auto "${runDir}"`,
-      `Or use watch mode: node scripts/bench.mjs watch-semi-auto "${runDir}"`,
+      `4. Run: node scripts/bench.mjs resume-semi-auto --run-dir "${runDir}"`,
+      `Or use watch mode: node scripts/bench.mjs watch-semi-auto --run-dir "${runDir}"`,
     ],
   };
 }
@@ -390,7 +484,9 @@ export async function resumeSemiAutomaticSession({
   let spec = runSpec || JSON.parse(readFileSync(specPath, 'utf8'));
   const state = JSON.parse(readFileSync(statePath, 'utf8'));
 
-  if (state.status !== 'semi-auto-waiting' && state.status !== 'semi-auto-running') {
+  // 'run-failed' is resumable: the operator fixes the workspace and retries the
+  // gate for the current stage (mirrors the CLI runner's retry budget).
+  if (!['semi-auto-waiting', 'semi-auto-running', 'run-failed'].includes(state.status)) {
     throw new Error(`Run is not in a semi-auto state; got ${state.status}`);
   }
 
@@ -425,12 +521,10 @@ export async function resumeSemiAutomaticSession({
   const stage = scenario.stages.find(s => s.id === currentStageId);
   if (!stage) throw new Error(`Unknown stage: ${currentStageId}`);
 
-  const gate = verifyCheckpointGate(workspaceDir, stage);
+  const gate = verifyCheckpointGate(workspaceDir, stage, { baselineGate: state.package_gate || null });
   const gatePath = join(logsDir, 'stages', currentStageId, 'checkpoint-gate.json');
   mkdirSync(join(logsDir, 'stages', currentStageId), { recursive: true });
-  writeFileSync(gatePath, JSON.stringify(gate, null, 2));
-
-  const gateLabel = currentStageId === 'S0' ? 'stage-0' : currentStageId;
+  writeJsonAtomic(gatePath, gate);
 
   const commandLogPath = join(logsDir, 'commands.json');
   const commandLogs = existsSync(commandLogPath)
@@ -445,13 +539,13 @@ export async function resumeSemiAutomaticSession({
     isolation: spec.isolation,
   });
   mkdirSync(join(logsDir, 'stages', currentStageId), { recursive: true });
-  writeFileSync(commandLogPath, JSON.stringify(commandLogs, null, 2));
+  writeJsonAtomic(commandLogPath, commandLogs);
 
   if (gate.status === 'error') {
     state.status = 'run-failed';
     state.process_pid = null;
     state.scenario.current_stage = currentStageId;
-    writeFileSync(statePath, JSON.stringify(state, null, 2));
+    writeJsonAtomic(statePath, state);
     return {
       run_id: state.run_id,
       run_dir: runDir,
@@ -459,6 +553,7 @@ export async function resumeSemiAutomaticSession({
       waitingOnStage: currentStageId,
       completedStages: [...completedStages],
       message: `Stage ${currentStageId} checkpoint gate failed: ${gate.missing.join(', ')}`,
+      retry_hint: 'Fix the reported issues in the workspace, then run resume-semi-auto again to retry the gate.',
       gate,
     };
   }
@@ -493,7 +588,7 @@ export async function resumeSemiAutomaticSession({
 
   state.scenario.current_stage = nextStage.id;
   state.status = 'semi-auto-waiting';
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
+  writeJsonAtomic(statePath, state);
 
   return {
     run_id: state.run_id,
@@ -568,7 +663,7 @@ async function collectSemiAutoRun({
     human_review_status: 'pending',
     completed_at: new Date().toISOString(),
   };
-  writeFileSync(join(runDir, 'result.json'), JSON.stringify(result, null, 2));
+  writeJsonAtomic(join(runDir, 'result.json'), result);
 
   // Collect attestation.
   let attestationError = null;
@@ -592,7 +687,7 @@ async function collectSemiAutoRun({
       root_cause_hint: err.root_cause_hint || err.message,
     };
     result.attestation_error = attestationError;
-    writeFileSync(join(runDir, 'result.json'), JSON.stringify(result, null, 2));
+    writeJsonAtomic(join(runDir, 'result.json'), result);
     console.error(`[attestation] failed: ${err.message}`);
   }
 
@@ -603,12 +698,12 @@ async function collectSemiAutoRun({
     isolation: spec.isolation?.mode || 'file-isolated-development',
     reviews: [{ case_id: spec.case_id }],
   });
-  writeFileSync(join(runDir, 'human-review.json'), JSON.stringify(review, null, 2));
+  writeJsonAtomic(join(runDir, 'human-review.json'), review);
 
   state.status = allPassed ? 'awaiting-evaluation' : 'run-failed';
   state.process_pid = null;
   state.completed_at = result.completed_at;
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
+  writeJsonAtomic(statePath, state);
 
   const artifacts = [
     join(runDir, 'result.json'),
@@ -663,12 +758,18 @@ export async function getSemiAutoStatus(runRoot) {
   const state = JSON.parse(readFileSync(statePath, 'utf8'));
 
   if (state.status !== 'semi-auto-waiting' && state.status !== 'semi-auto-running') {
+    const reminders = [`Run is in status "${state.status}", not semi-auto-waiting.`];
+    if (state.status === 'run-failed') {
+      reminders.push(
+        'The last checkpoint gate failed. Fix the issues listed in logs/stages/*/checkpoint-gate.json, then run resume-semi-auto to retry.',
+      );
+    }
     return {
       run_id: state.run_id,
       run_dir: runDir,
       status: state.status,
       completedStages: state.scenario?.completed_stages || [],
-      reminders: [`Run is in status "${state.status}", not semi-auto-waiting.`],
+      reminders,
     };
   }
 
@@ -727,8 +828,8 @@ export async function watchSemiAutomaticSession({
   const spec = JSON.parse(readFileSync(specPath, 'utf8'));
   const state = JSON.parse(readFileSync(statePath, 'utf8'));
 
-  if (!['semi-auto-waiting', 'semi-auto-running', 'prepared'].includes(state.status)) {
-    throw new Error(`Run status must be semi-auto-waiting or prepared; got ${state.status}`);
+  if (!['semi-auto-waiting', 'semi-auto-running', 'run-failed', 'prepared'].includes(state.status)) {
+    throw new Error(`Run status must be semi-auto-waiting, run-failed, or prepared; got ${state.status}`);
   }
 
   // Convert prepared to semi-auto-waiting if needed.
@@ -744,13 +845,13 @@ export async function watchSemiAutomaticSession({
       state.scenario.completed_stages = [];
     }
     state.process_pid = process.pid;
-    writeFileSync(statePath, JSON.stringify(state, null, 2));
+    writeJsonAtomic(statePath, state);
   }
 
   state.status = 'semi-auto-running';
   state.process_pid = process.pid;
   state.active_window_started_at = new Date(Date.now()).toISOString();
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
+  writeJsonAtomic(statePath, state);
 
   const caseDir = join(projectRoot, 'cases', spec.case_id);
   const scenario = loadRunScenario(runDir, caseDir);
@@ -867,7 +968,7 @@ export async function watchSemiAutomaticSession({
     }
 
     currentState.scenario.current_stage = waitingStageId;
-    writeFileSync(statePath, JSON.stringify(currentState, null, 2));
+    writeJsonAtomic(statePath, currentState);
 
     // Wait for checkpoint.
     const checkpoint = await waitForCheckpoint(waitingStageId, remaining);
@@ -879,10 +980,10 @@ export async function watchSemiAutomaticSession({
 
     // Verify checkpoint gate.
     const stage = scenario.stages.find(s => s.id === waitingStageId);
-    const gate = verifyCheckpointGate(workspaceDir, stage);
+    const gate = verifyCheckpointGate(workspaceDir, stage, { baselineGate: currentState.package_gate || null });
     const gateDir = join(logsDir, 'stages', waitingStageId);
     mkdirSync(gateDir, { recursive: true });
-    writeFileSync(join(gateDir, 'checkpoint-gate.json'), JSON.stringify(gate, null, 2));
+    writeJsonAtomic(join(gateDir, 'checkpoint-gate.json'), gate);
 
     if (gate.status === 'error') {
       stageResults.push({
@@ -900,7 +1001,7 @@ export async function watchSemiAutomaticSession({
     currentState.scenario.completed_stages = [...completedStages];
     currentState.scenario.attempts = currentState.scenario.attempts || {};
     currentState.scenario.attempts[waitingStageId] = (currentState.scenario.attempts[waitingStageId] || 0) + 1;
-    writeFileSync(statePath, JSON.stringify(currentState, null, 2));
+    writeJsonAtomic(statePath, currentState);
 
     // Find next stage.
     const stageIndex = scenario.stages.findIndex(s => s.id === waitingStageId);

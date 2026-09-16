@@ -1768,9 +1768,11 @@ async function resumeSemiAutoCommand(args) {
   if (result.status === 'error') process.exitCode = 1;
 }
 
-function semiAutoStatusCommand(args) {
+async function semiAutoStatusCommand(args) {
   const runDir = resolve(requireOption(args, 'run_dir'));
-  const result = getSemiAutoStatus(runDir);
+  // getSemiAutoStatus is async; without the await the envelope printed
+  // "Semi-auto status for undefined: undefined".
+  const result = await getSemiAutoStatus(runDir);
 
   output(
     result.status === 'unknown' ? 'error' : 'success',

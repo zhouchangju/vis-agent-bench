@@ -1,10 +1,32 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { createWriteStream, readFileSync, writeFileSync } from 'node:fs';
+import { createWriteStream, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // 日志是可回溯证据，不应成为单个 Agent 进程耗尽宿主机磁盘/内存的入口。
 // 16 MiB 足够保留普通 CLI 的完整阶段输出；超过则保留前缀与明确截断证据，并判定该阶段失败。
 const MAX_CAPTURE_BYTES = 16 * 1024 * 1024;
+
+/**
+ * 构建 Baseline 完整性门禁使用的隔离环境：HOME 与 npm cache 指向 rootDir 下的
+ * 专属目录，使门禁结果只依赖 workspace 内容与受控变量，不受操作员本机
+ * npm 配置或 HOME 状态影响。仅透传运行命令所需的最小变量集合。
+ */
+export function validationEnvironment(rootDir, extra = {}) {
+  const isolatedHome = join(rootDir, '.validation-home');
+  const npmCache = join(rootDir, '.validation-npm-cache');
+  mkdirSync(isolatedHome, { recursive: true });
+  mkdirSync(npmCache, { recursive: true });
+  const env = {};
+  for (const key of ['PATH', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'NO_COLOR', 'CI']) {
+    if (process.env[key] != null) env[key] = process.env[key];
+  }
+  return {
+    ...env,
+    HOME: isolatedHome,
+    npm_config_cache: npmCache,
+    ...extra,
+  };
+}
 
 export function detectExecutable(executable, versionArgs = ['--version']) {
   const started = Date.now();
