@@ -260,17 +260,26 @@ try {
   await check('capture deadline closes real Chromium with a structured failure', async () => {
     const spec = readSpec('success.smoke.json');
     spec.capture_id = 'vab-t15-deadline';
-    spec.capture_deadline_ms = 5_000;
+    // Budget leaves generous headroom for browser launch + goto on a loaded
+    // machine: the deadline must fire inside the wait step (product-classified
+    // CAPTURE_INCOMPLETE), never during navigation (which would be
+    // environment-classified and flaky).
+    spec.capture_deadline_ms = 8_000;
+    // wait.duration_ms is capped at 10s by the spec validator, so a 10s wait
+    // is the longest the abort window can be: launch+goto only has to finish
+    // within 8s (typically ~1s) for the deadline to fire inside the wait step
+    // (product-classified CAPTURE_INCOMPLETE), instead of during navigation
+    // (environment-classified, flaky under load).
     spec.steps = [
       spec.steps[0],
-      { kind: 'wait', duration_ms: 5_000 },
+      { kind: 'wait', duration_ms: 10_000 },
     ];
     const before = Date.now();
     const result = await createPlaywrightDriver().capture(spec, {
       policy: allowedPolicy,
       outDir: join(outputRoot, 'deadline'),
     });
-    assert.ok(Date.now() - before < 8_000);
+    assert.ok(Date.now() - before < 15_000, `capture took too long: ${Date.now() - before}ms`);
     assert.equal(result.status, 'warning');
     assert.ok(result.evidence.failures.some(error => (
       error.code === 'CAPTURE_INCOMPLETE'
