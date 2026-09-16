@@ -13,6 +13,7 @@ export {
   aggregateUsage,
   emptyUsage,
   extractUsage,
+  preferTerminalUsageEvents,
 } from './usage.mjs';
 
 export {

@@ -18,6 +18,7 @@ import {
   aggregateUsage,
   emptyUsage,
   extractUsage,
+  preferTerminalUsageEvents,
 } from '../../src/telemetry/usage.mjs';
 import {
   aggregateRunTiming,
@@ -414,6 +415,52 @@ check('extractUsage reads Claude nested message.usage without forcing cost', () 
   assert.equal(u.tokens.input, 50);
   assert.equal(u.cost_usd, null);
   assert.equal(u.provenance, USAGE_PROVENANCE.NATIVE_CLI);
+});
+
+check('extractUsage reads provider cost through normalized event envelopes', () => {
+  // collectRunUsageEvents passes { type, data } envelopes; a Claude-style
+  // terminal event carries cost at data level, not envelope level.
+  const envelope = { type: 'usage.report', data: { total_cost_usd: 0.03, usage: { input_tokens: 5 } } };
+  const usage = aggregateUsage([envelope]);
+  assert.equal(usage.cost_usd, 0.03);
+  assert.equal(usage.provenance, USAGE_PROVENANCE.PROVIDER_API);
+  assert.equal(usage.input_tokens, 5);
+});
+
+check('preferTerminalUsageEvents avoids double-counting cumulative usage', () => {
+  // A Claude-style stream: per-message usage plus a terminal cumulative result.
+  const stream = [
+    { type: 'assistant.message', data: { usage: { input_tokens: 10, output_tokens: 2 } } },
+    { type: 'assistant.message', data: { usage: { input_tokens: 25, output_tokens: 5 } } },
+    { type: 'usage.report', data: { usage: { input_tokens: 25, output_tokens: 5 } } },
+  ];
+  const selected = preferTerminalUsageEvents(stream);
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0].type, 'usage.report');
+  const usage = aggregateUsage(selected);
+  assert.equal(usage.input_tokens, 25, 'terminal event wins; per-message events must not be summed in');
+});
+
+check('preferTerminalUsageEvents falls back to the full stream without terminal events', () => {
+  const stream = [
+    { type: 'assistant.message', data: { usage: { input_tokens: 10 } } },
+    { type: 'assistant.message', data: { usage: { input_tokens: 15 } } },
+  ];
+  const selected = preferTerminalUsageEvents(stream);
+  assert.equal(selected.length, 2);
+  assert.equal(aggregateUsage(selected).input_tokens, 25);
+});
+
+check('preferTerminalUsageEvents falls back when terminal events carry no usage', () => {
+  const stream = [
+    { type: 'assistant.message', data: { usage: { input_tokens: 10 } } },
+    { type: 'usage.report', data: { text: 'done' } },
+  ];
+  // The terminal event exists but proves nothing about usage; per-message
+  // deltas remain the only evidence, so the full stream is kept.
+  const selected = preferTerminalUsageEvents(stream);
+  assert.equal(selected.length, 2);
+  assert.equal(aggregateUsage(selected).input_tokens, 10);
 });
 
 check('extractUsage reads Claude total_cost_usd as provider_api', () => {

@@ -25,7 +25,7 @@ import {
 } from '../src/control-plane/run-observation-collector.mjs';
 import { runGoldenPipeline } from '../src/control-plane/pipeline.mjs';
 import { buildHumanReviewPackage } from '../src/review/human-review-package.mjs';
-import { aggregateUsage, normalizeStdout } from '../src/telemetry/index.mjs';
+import { aggregateUsage, normalizeStdout, preferTerminalUsageEvents } from '../src/telemetry/index.mjs';
 import {
   runSemiAutomaticSession,
   resumeSemiAutomaticSession,
@@ -1193,7 +1193,7 @@ async function run(args) {
       normalized.events.map(event => JSON.stringify(event)).join('\n')
         + (normalized.events.length ? '\n' : ''),
     );
-    const stageUsage = aggregateUsage(normalized.events.map(event => event.data));
+    const stageUsage = aggregateUsage(preferTerminalUsageEvents(normalized.events));
     let effectiveResult = result;
     let checkpointGate = null;
     const agentStatus = explicitAgentStatus(runDir, stage.id, rawStdout);
@@ -1418,14 +1418,18 @@ function collectRunUsageEvents(runDir) {
   for (const file of listFiles(root)) {
     if (!file.path.endsWith('/normalized-events.jsonl')) continue;
     const lines = readFileSync(join(root, file.path), 'utf8').split(/\r?\n/).filter(Boolean);
+    const stageEvents = [];
     for (const line of lines) {
       try {
         const event = JSON.parse(line);
-        if (event?.data && typeof event.data === 'object') events.push(event.data);
+        if (event?.data && typeof event.data === 'object') stageEvents.push(event);
       } catch {
         // Normalized files are evidence; malformed lines remain in place and contribute no usage.
       }
     }
+    // Prefer terminal usage events per stage so providers that repeat
+    // cumulative usage on intermediate messages are not double-counted.
+    events.push(...preferTerminalUsageEvents(stageEvents));
   }
   return events;
 }

@@ -114,6 +114,9 @@ export function extractUsage(event) {
       + (cachedIncludedInInput ? 0 : (cachedTokens ?? 0)) || null)
     : null);
 
+  // Cost may sit at the event top level (raw CLI events) or inside the
+  // normalized envelope's data payload ({ type, data: { total_cost_usd } }).
+  const rawData = event.data && typeof event.data === 'object' ? event.data : null;
   const costUsd = pickFirstFinite([
     usageObj.cost_usd,
     usageObj.costUsd,
@@ -121,6 +124,10 @@ export function extractUsage(event) {
     event.costUsd,
     event.total_cost_usd,
     event.totalCostUsd,
+    rawData?.cost_usd,
+    rawData?.costUsd,
+    rawData?.total_cost_usd,
+    rawData?.totalCostUsd,
   ]) ?? pickFirstStringCostUsd([
     usageObj.cost_usd,
     usageObj.costUsd,
@@ -135,7 +142,9 @@ export function extractUsage(event) {
   // 原始事件里显式带 cost 字段时算 provider_api；否则 native_cli。
   const hasExplicitCost = usageObj.cost_usd != null || usageObj.costUsd != null
     || event.cost_usd != null || event.costUsd != null
-    || event.total_cost_usd != null || event.totalCostUsd != null;
+    || event.total_cost_usd != null || event.totalCostUsd != null
+    || rawData?.cost_usd != null || rawData?.costUsd != null
+    || rawData?.total_cost_usd != null || rawData?.totalCostUsd != null;
   const provenance = hasExplicitCost ? USAGE_PROVENANCE.PROVIDER_API : USAGE_PROVENANCE.NATIVE_CLI;
 
   return {
@@ -232,4 +241,27 @@ export function aggregateUsage(events, options = {}) {
   }
 
   return emptyUsage(USAGE_PROVENANCE.UNAVAILABLE, 'no usage reported by CLI and allowEstimate=false');
+}
+
+/**
+ * Providers that repeat cumulative usage on every intermediate message (plus a
+ * terminal summary) are double-counted if the whole stream is summed. Prefer
+ * terminal usage events when any of them actually carries usage; fall back to
+ * the full stream when the CLI only reports per-message deltas.
+ */
+// 'usage.report' is the normalized type (CLI `result` events); the other names
+// cover callers that pass raw provider events instead of normalized envelopes.
+const TERMINAL_USAGE_EVENT_TYPES = new Set([
+  'usage.report',
+  'result',
+  'turn.completed',
+  'message.end',
+]);
+
+export function preferTerminalUsageEvents(events) {
+  const list = Array.isArray(events) ? events : [];
+  const terminal = list.filter(
+    event => TERMINAL_USAGE_EVENT_TYPES.has(event?.type) && extractUsage(event) != null,
+  );
+  return terminal.length ? terminal : list;
 }
