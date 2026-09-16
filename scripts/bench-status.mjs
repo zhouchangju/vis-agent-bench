@@ -70,13 +70,21 @@ function snapshot(runDir) {
   const spec = readJson(join(runDir, 'run-spec.json'));
   const result = readJson(join(runDir, 'result.json'));
   if (!spec) throw new Error(`无法读取 RunSpec：${join(runDir, 'run-spec.json')}`);
-  const completedStageIds = spec.scenario?.completed_stages?.length
-    ? spec.scenario.completed_stages
+  // Live progress (status / current_stage / completed_stages) lives in
+  // run-state.json, written by bench.mjs during prepare/run; run-spec.json
+  // never carries it. Fall back to the finished result for completed runs.
+  const state = readJson(join(runDir, 'run-state.json'));
+  const scenario = state?.scenario || {};
+  const completedStageIds = scenario.completed_stages?.length
+    ? scenario.completed_stages
     : (result?.stages || [])
       .filter(stage => stage.status === 'success')
       .map(stage => stage.stage_id);
+  const stageIds = scenario.stage_ids?.length
+    ? scenario.stage_ids
+    : (result?.stages || []).map(stage => stage.stage_id);
   const stages = [];
-  for (const stageId of spec.scenario?.stage_ids || []) {
+  for (const stageId of stageIds) {
     const stdout = join(runDir, 'logs', 'stages', stageId, 'stdout.raw');
     const stderr = join(runDir, 'logs', 'stages', stageId, 'stderr.raw');
     const stdoutStat = existsSync(stdout) ? statSync(stdout) : null;
@@ -85,22 +93,22 @@ function snapshot(runDir) {
       id: stageId,
       status: completedStageIds.includes(stageId)
         ? 'completed'
-        : (spec.scenario?.current_stage === stageId ? 'running' : 'pending'),
+        : (scenario.current_stage === stageId ? 'running' : 'pending'),
       stdout_bytes: stdoutStat?.size || 0,
       stderr_bytes: stderrStat?.size || 0,
       updated_at_ms: Math.max(stdoutStat?.mtimeMs || 0, stderrStat?.mtimeMs || 0),
     });
   }
   return {
-    run_id: spec.run_id,
+    run_id: state?.run_id || spec.run_id,
     run_dir: runDir,
     case_id: spec.case_id,
     model: spec.engine?.model || spec.engine?.configured_model,
     engine: spec.engine?.adapter,
-    status: result?.status || spec.status,
-    current_stage: spec.scenario?.current_stage,
+    status: result?.status || state?.status || 'prepared',
+    current_stage: scenario.current_stage,
     completed: completedStageIds.length,
-    total: spec.scenario?.stage_ids?.length || 0,
+    total: stageIds.length,
     workspace: join(runDir, 'workspace'),
     stages,
     result_exists: Boolean(result),
