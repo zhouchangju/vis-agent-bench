@@ -187,6 +187,26 @@ check('claude adapter emits session-id on fresh runs and --resume on subsequent 
   assert.ok(!resumed.args.includes('--max-budget-usd'));
 });
 
+check('claude adapter maps reasoning effort to --effort and omits it when unset', () => {
+  const adapter = getAdapter('claude');
+  const base = {
+    adapter: 'claude',
+    executable: 'claude',
+    model: 'glm-5.3',
+    workspace: '/run/w',
+    outputDir: '/run/w/artifacts',
+    stageId: 'S0',
+    prompt: 'go',
+    session: { id: 'abc-123', started: false },
+    maxCostUsd: 2,
+    allowedTools: ['shell', 'file_read', 'file_write'],
+  };
+  const withEffort = adapter.buildCommand({ ...base, reasoningEffort: 'high' });
+  assert.equal(withEffort.args[withEffort.args.indexOf('--effort') + 1], 'high');
+  const withoutEffort = adapter.buildCommand({ ...base, reasoningEffort: null });
+  assert.ok(!withoutEffort.args.includes('--effort'));
+});
+
 check('pi adapter runs non-interactively with explicit provider and resumes its isolated working-directory session', () => {
   const adapter = getAdapter('pi');
   const fresh = adapter.buildCommand({

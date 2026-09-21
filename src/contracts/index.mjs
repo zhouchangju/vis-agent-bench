@@ -8,6 +8,12 @@ const SOURCE_TYPES = new Set(['observed', 'inferred', 'proposed']);
 const DIFFICULTIES = new Set(['basic', 'intermediate', 'advanced', 'expert']);
 const ADAPTERS = new Set(['codex', 'kimi', 'claude', 'pi', 'codex-cli', 'kimi-code-cli', 'claude-code-cli', 'pi-cli', 'semi-auto', 'semi-automatic']);
 const RESULT_STATUSES = new Set(['success', 'warning', 'error']);
+const REASONING_EFFORT_BY_ADAPTER = Object.freeze({
+  codex: ['low', 'medium', 'high', 'xhigh'],
+  'codex-cli': ['low', 'medium', 'high', 'xhigh'],
+  claude: ['low', 'medium', 'high'],
+  'claude-code-cli': ['low', 'medium', 'high'],
+});
 
 function diagnostic(path, code, message) {
   return { path, code, message };
@@ -224,8 +230,11 @@ function validateEngine(value, errors) {
   if (!ADAPTERS.has(value.adapter)) errors.push(diagnostic('$.engine.adapter', 'ENUM', 'adapter is unsupported.'));
   for (const field of ['executable', 'configured_model', 'provider']) if (!isNonEmptyString(value[field])) errors.push(diagnostic(`$.engine.${field}`, 'STRING', 'Field must be non-empty.'));
   if (value.reasoning_effort != null && !['low', 'medium', 'high', 'xhigh'].includes(value.reasoning_effort)) errors.push(diagnostic('$.engine.reasoning_effort', 'ENUM', 'reasoning_effort must be low, medium, high, xhigh or null.'));
-  if (value.reasoning_effort != null && !['codex', 'codex-cli'].includes(value.adapter)) {
-    errors.push(diagnostic('$.engine.reasoning_effort', 'ENGINE_OPTION_UNSUPPORTED', 'reasoning_effort is supported only by the Codex adapter.'));
+  const adapterEfforts = REASONING_EFFORT_BY_ADAPTER[value.adapter];
+  if (value.reasoning_effort != null && !adapterEfforts) {
+    errors.push(diagnostic('$.engine.reasoning_effort', 'ENGINE_OPTION_UNSUPPORTED', 'reasoning_effort is supported only by the Codex and Claude Code adapters.'));
+  } else if (value.reasoning_effort != null && !adapterEfforts.includes(value.reasoning_effort)) {
+    errors.push(diagnostic('$.engine.reasoning_effort', 'ENUM', `${value.adapter} supports reasoning_effort ${adapterEfforts.join('/')}.`));
   }
   if (value.model_provider != null && !isNonEmptyString(value.model_provider)) {
     errors.push(diagnostic('$.engine.model_provider', 'STRING', 'model_provider must be a non-empty string or null.'));
@@ -331,12 +340,22 @@ export function validateRepositoryContracts(root) {
     errors.push(...result.errors.map(error => ({ ...error, path: `config/run-profile.example.yaml:${error.path}` })));
     artifacts.push('config/run-profile.example.yaml');
   }
+  const modelsRoot = resolve(root, 'config', 'models');
+  const modelProfiles = existsSync(modelsRoot)
+    ? readdirSync(modelsRoot).filter(file => /\.ya?ml$/.test(file)).sort()
+    : [];
+  for (const file of modelProfiles) {
+    const path = join(modelsRoot, file);
+    const result = validateRunSpec(parseYaml(readFileSync(path, 'utf8')));
+    errors.push(...result.errors.map(error => ({ ...error, path: `config/models/${file}:${error.path}` })));
+    artifacts.push(relative(root, path));
+  }
   return errors.length ? validErrorResult(errors, artifacts) : {
     valid: true,
     errors: [],
     result: createResultEnvelope({
       status: 'success',
-      summary: `Validated ${caseIds.length} cases, including ${primaryCount} primary cases, and the example RunSpec.`,
+      summary: `Validated ${caseIds.length} cases, including ${primaryCount} primary cases, the example RunSpec, and ${modelProfiles.length} model profile(s).`,
       next_actions: ['Build sanitized fixtures and executable evaluators for the three primary cases.'],
       artifacts,
     }),

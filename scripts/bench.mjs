@@ -592,7 +592,9 @@ async function doctor() {
 
 function prepare(args, emit = true) {
   const supplied = args._spec_value || (args.spec ? loadRunSpec(args.spec).value : null);
-  const caseId = supplied?.case_id || requireOption(args, 'case');
+  // --case overrides the case pinned in a --spec profile so model presets in
+  // config/models/ stay reusable across benchmark cases.
+  const caseId = args.case || supplied?.case_id || requireOption(args, 'case');
   const engine = adapterId(supplied?.engine?.adapter || requireOption(args, 'engine'));
   const model = supplied?.engine?.configured_model || requireOption(args, 'model');
   getAdapter(engine);
@@ -639,6 +641,12 @@ function prepare(args, emit = true) {
 
   const spec = supplied ? {
     ...structuredClone(supplied),
+    case_id: caseId,
+    // --executable points a checked-in profile at a machine-specific CLI path
+    // without editing the profile, mirroring the --case override above.
+    engine: args.executable
+      ? { ...supplied.engine, executable: args.executable }
+      : { ...supplied.engine },
     isolation: {
       ...supplied.isolation,
       workspace_root: join(runDir, 'workspace'),
@@ -1840,7 +1848,7 @@ async function main() {
       'node scripts/bench.mjs doctor',
       'node scripts/bench.mjs validate --spec <run-spec.yaml>',
       'node scripts/bench.mjs build-fixture --case <id> --run-dir <path>',
-      'node scripts/bench.mjs prepare --spec <run-spec.json>',
+      'node scripts/bench.mjs prepare --spec <run-spec.json> [--case <id>]',
       'node scripts/bench.mjs prepare --case <id> --engine <codex|kimi|claude|pi> --model <id> [--workspace-source <path>]',
       'node scripts/bench.mjs prepare-bundle --bundle <setup-export.json>',
       'node scripts/bench.mjs revise --parent-run <run-id> --feedback <feedback.md> --reference <image.png> [--reference <image2.png>]',

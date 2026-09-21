@@ -1,0 +1,53 @@
+# Claude Code 预设：DeepSeek V4.1 Flash，high effort（映射 claude --effort high）。
+# max_cost_usd 是 Claude CLI 单阶段原生费用上限；正式 Case 建议保持显式设置。
+schema_version: 2
+name: claude-deepseek-v4.1-flash-high
+case_id: narrative-equity-relationship
+
+engine:
+  adapter: claude-code-cli
+  executable: claude
+  configured_model: deepseek-v4.1-flash
+  reasoning_effort: high
+  provider: claude-code-configured-provider
+  credential_ref: secret://claude/default
+
+isolation:
+  mode: file-isolated-development
+  leaderboard_eligible: false
+  network: enabled
+  block_internal_network: false
+  inherited_home_for_auth: true
+  answer_leakage_scan: true
+  workspace_root: .local/runs
+
+permissions:
+  read_internal_source: false
+  read_answer_repository: false
+  hidden_evaluator_visible: false
+  allowed_tools:
+    - shell
+    - file_read
+    - file_write
+    - public_web
+
+budget:
+  wall_time_minutes: 180
+  max_retries: 1
+  max_tokens: null
+  max_cost_usd: 2
+
+scenario:
+  mode: progressive-disclosure
+  baseline_type: current-ai-assisted-workflow
+  session_continuity_required: true
+
+evidence:
+  raw_stdout: true
+  raw_stderr: true
+  normalized_events: true
+  file_snapshots: true
+  git_diff: true
+  screenshots: true
+  redact_secrets: true
+  human_review_required: true

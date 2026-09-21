@@ -121,6 +121,8 @@ config 重申写权限，恢复阶段可能退回只读。CLI Sandbox 是 Worker
 - 流式事件：`--output-format stream-json`
 - Hook 事件：`--include-hook-events`
 - 模型：`--model`
+- Effort 级别：`--effort "<low|medium|high>"`（RunSpec `engine.reasoning_effort`；
+  仅这三档，xhigh 是 Codex 专属）。不设置时沿用 CLI 自身 settings 的 effortLevel。
 - 费用上限：`--max-budget-usd`
 - 结构化最终输出：`--json-schema`
 - 无人值守权限：`--permission-mode auto`
@@ -137,6 +139,7 @@ claude --print \
   --strict-mcp-config \
   --no-chrome \
   --model "$MODEL_ID" \
+  --effort "$EFFORT_LEVEL" \
   --permission-mode auto \
   --output-format stream-json \
   --verbose \

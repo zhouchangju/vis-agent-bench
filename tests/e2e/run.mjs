@@ -201,6 +201,54 @@ try {
     assert.ok(existsSync(join(prepared.run_dir, 'human-review.json')));
   });
 
+  await check('bench prepare honors a model profile with case and executable overrides', () => {
+    const executable = join(outputRoot, 'fake-claude.mjs');
+    writeFileSync(executable, [
+      '#!/usr/bin/env node',
+      'import fs from "node:fs";',
+      'import path from "node:path";',
+      'const version = process.argv.includes("--version");',
+      'if (version) { process.stdout.write("fake-claude 2.9.9\\n"); process.exit(0); }',
+      ...checkpointWriterLines(),
+      'process.stdout.write(JSON.stringify({ type: "system", subtype: "init", session_id: "fake-claude-session1", cwd: "/workspace" }) + "\\n");',
+      'process.stdout.write(JSON.stringify({ type: "result", subtype: "success", total_cost_usd: 0.01, usage: { input_tokens: 4, output_tokens: 5 } }) + "\\n");',
+      '',
+    ].join('\n'));
+    chmodSync(executable, 0o755);
+    const runId = `bench-model-profile-${process.pid}`;
+    const prepare = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'),
+      'prepare',
+      '--spec', 'config/models/claude-glm-5.3-high.yaml',
+      '--case', 'ainvest-market-heatmap-rebuild',
+      '--executable', executable,
+      '--run-id', runId,
+      '--wall-time-minutes', '5',
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.equal(prepare.status, 0, prepare.stderr || prepare.stdout);
+    const prepared = JSON.parse(prepare.stdout);
+    localRunDirs.push(prepared.run_dir);
+    assert.equal(prepared.status, 'success');
+    const spec = JSON.parse(readFileSync(join(prepared.run_dir, 'run-spec.json'), 'utf8'));
+    assert.equal(spec.case_id, 'ainvest-market-heatmap-rebuild');
+    assert.equal(spec.engine.configured_model, 'glm-5.3');
+    assert.equal(spec.engine.reasoning_effort, 'high');
+    assert.equal(spec.engine.executable, executable);
+
+    const run = spawnSync(process.execPath, [
+      join(projectRoot, 'scripts/bench.mjs'),
+      'run',
+      '--run-dir', prepared.run_dir,
+    ], { cwd: projectRoot, encoding: 'utf8' });
+    assert.equal(run.status, 0, run.stderr || run.stdout);
+    const commands = JSON.parse(readFileSync(join(prepared.run_dir, 'logs', 'commands.json'), 'utf8'));
+    assert.ok(commands.length > 0);
+    const first = commands[0];
+    assert.equal(first.executable, executable);
+    assert.equal(first.args[first.args.indexOf('--effort') + 1], 'high');
+    assert.equal(first.args[first.args.indexOf('--model') + 1], 'glm-5.3');
+  });
+
   await check('bench retry preserves failed-attempt evidence and resumes the failed stage', () => {
     const executable = join(outputRoot, 'flaky-codex.mjs');
     writeFileSync(executable, [

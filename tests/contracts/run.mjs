@@ -98,6 +98,17 @@ const checks = [
     value.engine.reasoning_effort = 'xhigh';
     expectInvalid(validateRunSpec(value), 'ENGINE_OPTION_UNSUPPORTED');
   }],
+  ['RunSpec accepts Claude Code reasoning effort within low/medium/high', () => {
+    const value = structuredClone(readYaml('config/models/claude-glm-5.3-high.yaml'));
+    assert.equal(validateRunSpec(value).valid, true);
+    value.engine.reasoning_effort = 'xhigh';
+    expectInvalid(validateRunSpec(value), 'ENUM');
+  }],
+  ['every model profile under config/models/ is a valid RunSpec', () => {
+    const result = validateRepositoryContracts(root);
+    assert.equal(result.valid, true, JSON.stringify(result.errors, null, 2));
+    assert.ok(result.result.artifacts.some(path => path.startsWith('config/models/')));
+  }],
   ['RunSpec accepts Pi model provider only for the Pi adapter', () => {
     const value = structuredClone(readYaml('config/run-profile.example.yaml'));
     value.engine.adapter = 'pi';

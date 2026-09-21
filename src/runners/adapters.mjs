@@ -77,7 +77,8 @@ export function parseSemverVersion(text) {
  *           会话状态：{ id, started, resumeFrom }。
  * @property {number|null} maxCostUsd        可选费用上限。
  * @property {string} emptySkillsDir         Kimi 的空 Skill 目录。
- * @property {string|null} reasoningEffort   Codex 思考强度（low / medium / high / xhigh）。
+ * @property {string|null} reasoningEffort   Codex 思考强度（low / medium / high / xhigh）
+ *                                           或 Claude Code effort（low / medium / high）。
  * @property {string|null} modelProvider     Pi 实际模型 Provider（例如 deepseek）。
  * @property {boolean} networkEnabled        是否请求 Codex workspace-write 公网访问。
  * @property {string[]} imagePaths           初始 Prompt 的图片附件（仅支持的 Adapter 使用）。
@@ -165,6 +166,7 @@ function buildClaudeCommand(ctx) {
     '--include-hook-events',
     '--tools', claudeTools(ctx.allowedTools).join(','),
   ];
+  if (ctx.reasoningEffort) args.push('--effort', ctx.reasoningEffort);
   if (session.started && (session.id || session.resumeFrom)) {
     args.push('--resume', session.id || session.resumeFrom);
   } else if (session.id) {
@@ -293,6 +295,7 @@ const adapters = {
         adapter: 'claude',
         executable: resolveExecutable('claude', spec.engine.executable),
         model: spec.engine.model,
+        reasoningEffort: spec.engine.reasoning_effort || null,
         workspace: join(runDir, 'workspace'),
         outputDir: join(runDir, 'artifacts'),
         stageId,

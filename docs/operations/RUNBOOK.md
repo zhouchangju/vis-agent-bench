@@ -94,7 +94,7 @@ npm run bench:case -- \
 | `--engine <codex\|claude\|kimi\|pi>` | 否 | `claude` | 选择实际 CLI Adapter。当前一键入口支持 Codex、Claude Code、Kimi Code 和 Pi。 |
 | `--model <id>` | 否 | 按引擎推导 | 传给对应 CLI 的模型标识。Codex 默认 `gpt-5.6-sol`；Claude 默认 `deepseek-v4-flash`；Kimi 默认 `kimi-code/k3`；Pi 默认 `deepseek-chat`。 |
 | `--model-provider <id>` | Pi 可选 | `deepseek` | Pi 实际调用的 Provider，映射为 Pi 的 `--provider`，例如 `deepseek`。不要与仅用于报告标记的 `--provider` 混淆。 |
-| `--reasoning-effort <low\|medium\|high\|xhigh>` | Codex 可选 | `medium` | 仅用于 Codex；映射为 `-c model_reasoning_effort=\"…\"`，会写入 RunSpec 和命令日志。 |
+| `--reasoning-effort <low\|medium\|high\|xhigh>` | Codex / Claude 可选 | Codex 为 `medium`；Claude 不传则沿用 CLI 设置 | Codex 映射 `-c model_reasoning_effort=\"…\"`（四档）；Claude Code 映射 `--effort`（仅 low/medium/high）。会写入 RunSpec 和命令日志。 |
 | `--provider <label>` | 否 | 按引擎推导 | 记录用的脱敏 Provider 标签，不是 API endpoint；Codex 默认为 `openai-codex-configured-provider`。 |
 | `--wall-time-minutes <n>` | 否 | Smoke 为 10，正式 Case 为 180 | 整个 Run 的墙钟时间硬上限，不是每阶段上限。超时后终止当前进程并保留证据。 |
 | `--max-stage-cost-usd <n>` | Claude 正式 Case 必填 | Smoke 为 0.50 | Claude CLI 的单阶段原生费用上限；理论 Run 上限为该值乘以阶段数。Codex、Kimi、Pi 不支持该参数。 |
@@ -149,6 +149,50 @@ npm run bench:case -- \
   --wall-time-minutes 180 \
   --dry-run
 ```
+
+## 模型预设目录（config/models/）
+
+待评测的模型组合以 RunSpec 预设形式登记在 `config/models/`，一个文件钉死 engine、模型名、
+effort 与 provider 标签，可直接用于跨模型对比：
+
+| 预设文件 | Engine | 模型 | Effort |
+| --- | --- | --- | --- |
+| `codex-gpt-5.6-luna-xhigh.yaml` | codex | `gpt-5.6-luna` | `xhigh`（最大档） |
+| `codex-gpt-6-astra-low.yaml` | codex | `gpt-6-astra` | `low` |
+| `codex-gpt-6-astra-high.yaml` | codex | `gpt-6-astra` | `high` |
+| `claude-glm-5.3-high.yaml` | claude | `glm-5.3` | `high` |
+| `claude-glm-5.3-flash-high.yaml` | claude | `glm-5.3-flash` | `high` |
+| `claude-deepseek-v4.1-flash-high.yaml` | claude | `deepseek-v4.1-flash` | `high` |
+
+GLM 与 DeepSeek 预设经 Claude Code 的厂商路由调用（本机指向 Anthropic 兼容端点）。模型名必须与
+CLI 实际配置的目录一致；结果归因仍以 stream-json 观测到的实际模型名为准，而不是启动别名
+（见 `docs/architecture/RUNNER_PROTOCOL.md`）。
+
+用预设评测（`--case` 可覆盖预设内固定的 `case_id`，使同一预设可跑不同 Case）：
+
+```bash
+node scripts/bench.mjs validate --spec config/models/codex-gpt-6-astra-high.yaml
+
+node scripts/bench.mjs prepare --spec config/models/codex-gpt-6-astra-high.yaml
+node scripts/bench.mjs run --run-dir <prepare 输出的 run_dir>
+```
+
+等价的一键入口（与预设内容一致时）：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine claude \
+  --model glm-5.3 \
+  --reasoning-effort high \
+  --max-stage-cost-usd 2 \
+  --wall-time-minutes 180 \
+  --dry-run
+```
+
+注意：Codex 预设真实运行仍需 `--acknowledge-no-cost-cap`（一键入口），或经 `prepare --spec`
+时自行确认 —— Codex 没有原生费用上限；Claude 预设的单阶段费用上限来自 RunSpec 的
+`budget.max_cost_usd`（预设值为 2 美元/阶段）。
 
 ## 使用 Kimi K3
 

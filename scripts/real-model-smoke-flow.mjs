@@ -820,12 +820,15 @@ async function main() {
   if (args.model_provider && args.engine !== 'pi') {
     throw new Error('--model-provider 当前仅支持 Pi；例如 --engine pi --model-provider deepseek。');
   }
-  const reasoningEffort = args.engine === 'codex' ? (args.reasoning_effort || 'medium') : null;
-  if (args.reasoning_effort && args.engine !== 'codex') {
-    throw new Error('--reasoning-effort 当前仅支持 Codex；Claude、Kimi 和 Pi 不接受该参数。');
+  const effortLevels = { codex: ['low', 'medium', 'high', 'xhigh'], claude: ['low', 'medium', 'high'] };
+  const reasoningEffort = args.engine === 'codex'
+    ? (args.reasoning_effort || 'medium')
+    : (args.engine === 'claude' ? (args.reasoning_effort || null) : null);
+  if (args.reasoning_effort && !effortLevels[args.engine]) {
+    throw new Error('--reasoning-effort 当前仅支持 Codex 与 Claude；Kimi 和 Pi 不接受该参数。');
   }
-  if (reasoningEffort && !['low', 'medium', 'high', 'xhigh'].includes(reasoningEffort)) {
-    throw new Error('--reasoning-effort 只支持 low、medium、high 或 xhigh。');
+  if (reasoningEffort && !effortLevels[args.engine].includes(reasoningEffort)) {
+    throw new Error(`--reasoning-effort 对 ${args.engine} 只支持 ${effortLevels[args.engine].join('、')}。`);
   }
   const caseId = String(args.case);
   const caseDir = join(projectRoot, 'cases', caseId);

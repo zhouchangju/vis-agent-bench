@@ -103,6 +103,41 @@ try {
   assert.equal(codexEnvelope.resolved_config.provider, 'openai-codex-configured-provider');
   assert.equal(codexEnvelope.resolved_config.permission_mode, 'exec-noninteractive-workspace-write');
 
+  const claudeEffortDryRun = spawnSync(
+    process.execPath,
+    [
+      'scripts/real-model-smoke-flow.mjs',
+      '--case', 'narrative-equity-relationship',
+      '--engine', 'claude',
+      '--model', 'glm-5.3',
+      '--reasoning-effort', 'high',
+      '--max-stage-cost-usd', '2',
+      '--dry-run',
+    ],
+    { cwd: repoRoot, encoding: 'utf8', shell: false },
+  );
+  assert.equal(claudeEffortDryRun.status, 0, claudeEffortDryRun.stderr || claudeEffortDryRun.stdout);
+  const claudeEffortEnvelope = JSON.parse(claudeEffortDryRun.stdout);
+  assert.equal(claudeEffortEnvelope.status, 'success');
+  assert.equal(claudeEffortEnvelope.resolved_config.reasoning_effort, 'high');
+  assert.equal(claudeEffortEnvelope.resolved_config.cost_cap_enforcement, 'native-cli-per-stage');
+
+  const claudeXhighDryRun = spawnSync(
+    process.execPath,
+    [
+      'scripts/real-model-smoke-flow.mjs',
+      '--case', 'narrative-equity-relationship',
+      '--engine', 'claude',
+      '--model', 'glm-5.3',
+      '--reasoning-effort', 'xhigh',
+      '--dry-run',
+    ],
+    { cwd: repoRoot, encoding: 'utf8', shell: false },
+  );
+  const claudeXhighEnvelope = JSON.parse(claudeXhighDryRun.stdout);
+  assert.equal(claudeXhighEnvelope.status, 'error');
+  assert.match(claudeXhighEnvelope.summary, /claude 只支持 low、medium、high/);
+
   const piDryRun = spawnSync(
     process.execPath,
     [
