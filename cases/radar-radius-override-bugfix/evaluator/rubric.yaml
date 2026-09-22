@@ -1,0 +1,13 @@
+weights:
+  scalar_number_retention: 25
+  scalar_string_retention: 25
+  array_format_retention: 20
+  undefined_fallback_accuracy: 20
+  zero_boundary_retention: 10
+gates:
+  p0_min_score: 100
+  critical_failure_cap: 0
+levels:
+  p0: required
+  p1: differentiator
+  p2: production_readiness

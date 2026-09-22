@@ -1,0 +1,11 @@
+version: 1
+clarifications:
+  - topic: radius_type
+    question: "用户侧传入的 radar.radius 可能包含哪些数据格式？"
+    answer: "包含数字标量（如 50）、百分比字符串（如 '75%'）或内外径数组（如 ['20%', '75%']）。"
+  - topic: fallback_rule
+    question: "什么时候才应该使用移动端主题的默认半径？"
+    answer: "仅当用户未显式提供 radar.radius（即 typeof radar.radius === 'undefined'）时使用主题默认值。"
+  - topic: other_properties
+    question: "雷达图其他属性（如 shape、axisLine）是否需要一起重构？"
+    answer: "本次任务专注于修复 radar.radius 的覆盖问题，不扩大改动范围。"

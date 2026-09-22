@@ -10,7 +10,7 @@
     "status": { "enum": ["draft", "active", "backup", "retired"] },
     "suite_role": { "enum": ["primary", "backup"] },
     "source_type": { "enum": ["observed", "inferred", "proposed"] },
-    "difficulty": { "enum": ["basic", "intermediate", "advanced", "expert"] },
+    "difficulty": { "enum": ["basic", "intermediate", "advanced", "expert", "bronze", "silver", "gold", "diamond"] },
     "task_type": { "type": "string", "minLength": 1 },
     "visibility": { "enum": ["internal", "restricted", "public"] },
     "initial_prompt": { "$ref": "#/$defs/relativePath" },

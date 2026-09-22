@@ -1,0 +1,35 @@
+version: 1
+mode: progressive-disclosure
+requirement_truth: ../prompt/requirement.md
+stages:
+  - id: S0
+    name: bug-analysis-and-plan
+    input: initial-brief.md
+    checkpoint:
+      - requirement-ledger.yaml
+    observe:
+      - question_quality
+      - assumptions
+  - id: S1
+    name: fix-and-self-test
+    stakeholder_message: |
+      业务方确认：在 ECharts 与业务移动端雷达图中，`radar.radius` 允许配置为数字标量（如 50）、百分比字符串（如 '75%'）或内外径数组（如 ['20%', '75%']）。
+      请在 `src/dvRadar.js` 中修复 `parseRadarSysRadius` 的判定与合并逻辑，确保当用户明确配置 radius 时保留用户值，仅在 `undefined` 时使用主题默认值。
+      请运行 `npm test` 确认所有测试通过，并保留修改记录。
+    checkpoint:
+      - requirement-ledger.yaml
+      - src/dvRadar.js
+    observe:
+      - checkpoint_completion
+      - first_pass_fitness
+  - id: S2
+    name: edge-cases-and-regression
+    stakeholder_message: |
+      走查反馈：请特别注意边界值 `radar.radius: 0` 以及多个雷达坐标系（`radar` 为对象数组）时的情况。
+      请确保 `0` 值不被 falsy 判断吞掉，多个雷达坐标系各自独立生效，并输出交付记录。
+    checkpoint:
+      - requirement-ledger.yaml
+      - src/dvRadar.js
+    observe:
+      - feedback_retention
+      - test_evidence

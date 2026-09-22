@@ -1,0 +1,9 @@
+{
+  "name": "radar-radius-bugfix-starter",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Starter fixture for radar radius override bugfix",
+  "scripts": {
+    "test": "node --test test/radar.test.js"
+  }
+}

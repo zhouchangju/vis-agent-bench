@@ -5,7 +5,7 @@ import { parse as parseYaml } from 'yaml';
 const CASE_STATUS = new Set(['draft', 'active', 'backup', 'retired']);
 const SUITE_ROLES = new Set(['primary', 'backup']);
 const SOURCE_TYPES = new Set(['observed', 'inferred', 'proposed']);
-const DIFFICULTIES = new Set(['basic', 'intermediate', 'advanced', 'expert']);
+const DIFFICULTIES = new Set(['basic', 'intermediate', 'advanced', 'expert', 'bronze', 'silver', 'gold', 'diamond']);
 const ADAPTERS = new Set(['codex', 'kimi', 'claude', 'pi', 'opencode', 'codex-cli', 'kimi-code-cli', 'claude-code-cli', 'pi-cli', 'opencode-cli', 'semi-auto', 'semi-automatic']);
 const RESULT_STATUSES = new Set(['success', 'warning', 'error']);
 const REASONING_EFFORT_BY_ADAPTER = Object.freeze({

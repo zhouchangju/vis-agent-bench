@@ -1,0 +1,19 @@
+id: radar-radius-override-bugfix
+title: 移动端雷达图半径配置覆盖缺陷排查
+status: draft
+suite_role: backup
+source_type: observed
+difficulty: bronze
+task_type: bug-hunting
+visibility: public
+initial_prompt: scenario/initial-brief.md
+scenario: scenario/stages.yaml
+requirement_truth: prompt/requirement.md
+clarifications: prompt/clarifications.yaml
+acceptance: evaluator/acceptance.md
+rubric: evaluator/rubric.yaml
+fixture: fixture
+provenance: provenance.md
+quality_gate:
+  p0_required: true
+  max_critical_failures: 0
