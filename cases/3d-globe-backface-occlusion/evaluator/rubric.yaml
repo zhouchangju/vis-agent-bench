@@ -1,0 +1,14 @@
+weights:
+  front_back_occlusion: 20
+  horizon_tangent_precision: 20
+  camera_rotation_orbit: 20
+  perspective_scale_dynamics: 15
+  screen_projection_accuracy: 15
+  batch_tooltip_culling_layout: 10
+gates:
+  p0_min_score: 100
+  critical_failure_cap: 0
+levels:
+  p0: required
+  p1: differentiator
+  p2: production_readiness

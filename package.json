@@ -14,7 +14,7 @@
     "test:judge": "node tests/evaluators/judge/run.mjs",
     "test:attestation": "node tests/attestation/run.mjs",
     "test:fixtures": "node tests/fixtures/run.mjs",
-    "test:cases": "node tests/cases/narrative-equity/run.mjs && node tests/cases/macro-map-3d/run.mjs && node tests/cases/ainvest-heatmap/run.mjs && node tests/cases/standard-chart-two-way-tree/run.mjs && node tests/cases/radar-radius-bugfix/run.mjs && node tests/cases/compare-bubble-adaptive-placement/run.mjs",
+    "test:cases": "node tests/cases/narrative-equity/run.mjs && node tests/cases/macro-map-3d/run.mjs && node tests/cases/ainvest-heatmap/run.mjs && node tests/cases/standard-chart-two-way-tree/run.mjs && node tests/cases/radar-radius-bugfix/run.mjs && node tests/cases/compare-bubble-adaptive-placement/run.mjs && node tests/cases/3d-globe-backface-occlusion/run.mjs",
     "test:browser": "node tests/browser-evidence/run.mjs && node tests/browser-evidence/playwright/run.mjs && node tests/browser-evidence-extensions/run.mjs",
     "test:prototype": "node tests/prototype/run.mjs",
     "test:reporting": "node tests/reporting/run.mjs",

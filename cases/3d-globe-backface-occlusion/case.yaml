@@ -1,11 +1,11 @@
-id: ainvest-market-heatmap-rebuild
-title: AInvest Market Heatmap 业务复刻
+id: 3d-globe-backface-occlusion
+title: 3D 球面视锥背面裁剪与屏幕映射引擎
 status: draft
-suite_role: primary
+suite_role: backup
 source_type: observed
-difficulty: gold
-task_type: product-reconstruction
-visibility: internal
+difficulty: diamond
+task_type: greenfield-3d
+visibility: public
 initial_prompt: scenario/initial-brief.md
 scenario: scenario/stages.yaml
 requirement_truth: prompt/requirement.md

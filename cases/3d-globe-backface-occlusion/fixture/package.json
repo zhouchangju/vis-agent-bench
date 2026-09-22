@@ -1,0 +1,9 @@
+{
+  "name": "paradigm-3d-globe-occlusion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/occlusion.test.js"
+  }
+}

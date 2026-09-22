@@ -1,0 +1,14 @@
+version: 1
+clarifications:
+  - topic: coordinate_system
+    question: "世界坐标系是什么朝向？"
+    answer: "标准右手三维直角坐标系：原点位于球心 (0, 0, 0)，Y 轴向上为正，经度 0° 位于 +Z 方向或标准球坐标投影方向，纬度 +90° 为北极 (+Y)。"
+  - topic: occlusion_precision
+    question: "浮层稍微离开球表面（有 altitude 时）如何判定？"
+    answer: "当 altitude = 0 时，精确满足 D_pos > D_edge 判定。当带有微小 altitude 时，可沿用视线切锥距离 D_edge 与视锥深度比较，或检测视线射线与球体的相交状态。"
+  - topic: screen_origin
+    question: "屏幕坐标的原点在何处？"
+    answer: "屏幕像素坐标系遵循 Web 标准：左上角为 (0, 0)，向右为 X 轴正向，向下为 Y 轴正向。"
+  - topic: environment
+    question: "代码需要在实际浏览器中启动 WebGL 画布吗？"
+    answer: "不需要。这是一个独立的 3D 几何、矩阵变换与空间计算纯 ESM 模块，在 Node.js 环境下通过 npm test 运行自测。"

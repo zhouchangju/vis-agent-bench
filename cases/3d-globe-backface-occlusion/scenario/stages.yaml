@@ -1,0 +1,40 @@
+version: 1
+mode: progressive-disclosure
+requirement_truth: ../prompt/requirement.md
+stages:
+  - id: S0
+    name: geometry-derivation-and-ledger
+    input: initial-brief.md
+    checkpoint:
+      - requirement-ledger.yaml
+    observe:
+      - question_quality
+      - assumptions
+  - id: S1
+    name: implement-occlusion-and-projection
+    stakeholder_message: |
+      图形学与算法团队确认几何规范：
+      1. 相机距离球心 $D_{pov} = \|\mathbf{P}_{cam}\|$，视线切点切线极限距离 $D_{edge} = \sqrt{D_{pov}^2 - R^2}$。
+      2. 目标点到相机距离 $D_{pos} = \|\mathbf{P}_{cam} - \mathbf{P}_{target}\|$。对于球面上或接近球面点，当 $D_{pos} > D_{edge}$ 或射线被球体阻挡时判定为背面遮挡，返回 `occluded: true`。
+      3. 实现透视缩放系数 `computePerspectiveScale`，根据 $D_{pos}$ 在近点切面与切点切面之间的比率，在 `perspectiveMinScale` 到 `perspectiveMaxScale` 之间平滑线性插值。
+      4. 实现 `projectSpherePointToScreen`，将可见 3D 向量通过相机 LookAt 矩阵与透视投影变换映射为 NDC 坐标及屏幕物理像素坐标 $(X_{screen}, Y_{screen})$。
+      请在 `src/occlusion.js` 中补齐核心逻辑并通过 `npm test`。
+    checkpoint:
+      - requirement-ledger.yaml
+      - src/occlusion.js
+    observe:
+      - checkpoint_completion
+      - first_pass_fitness
+  - id: S2
+    name: edge-rotations-and-tooltip-layout
+    stakeholder_message: |
+      业务走查与联调反馈：
+      1. 相机在三维空间围绕球体任意旋转（如沿 X 轴、Y 轴或任意斜向角度漫游）时，正背面判定必须依然准确，不可存在死角。
+      2. 实现 `layoutSphereTooltips` 批量浮层排版函数：过滤被遮挡浮层、计算屏幕像素位置、应用动态 scale、并处理屏幕边界 padding 裁剪与垂直方向重叠避让。
+      请完善极端欧拉角与批量排版并确保用例通过。
+    checkpoint:
+      - requirement-ledger.yaml
+      - src/occlusion.js
+    observe:
+      - feedback_retention
+      - test_evidence
