@@ -41,14 +41,13 @@ cases/<case-id>/
 
 ## 首期决策与初期试跑梯队
 
-根据最新分类分级与深度挖掘结果，初期优先采用以下覆盖四级难度的 5 个核心基准任务：
+根据最新分类分级与深度挖掘结果，初期优先采用以下覆盖四级难度的 4 个核心基准任务：
 
 1. **🥉 入门与校准（Bronze）**：`radar-radius-override-bugfix`（移动端雷达图半径配置覆盖缺陷，10 行纯逻辑修复，来自 `standard-chart`）；
-2. **🥈 日常业务主力（Silver）**：
-   - `compare-bubble-adaptive-placement`（双图对比气泡自适应边缘避让算法，来自 `datav-aigc-vis-adapter`）；
-   - `datazoom-pointer-race-lock`（DataZoom 拖拽与坐标轴指示器穿透竞态拦截，来自 `standard-chart`）；
+2. **🥈 日常业务主力（Silver）**：`compare-bubble-adaptive-placement`（双图对比气泡自适应边缘避让算法，来自 `datav-aigc-vis-adapter`）；
 3. **🥇 专家生产级（Gold）**：`ainvest-market-heatmap-rebuild`（AInvest 市场热力图业务复刻）；
 4. **💎 技术底座攻坚（Diamond）**：`3d-globe-backface-occlusion`（3D 球面空间投影与视锥体背面遮挡裁剪引擎，来自 `standard-chart/packages/paradigm-3d-globe` `tooltipLayout.ts`）。
 
-其他挖掘出的任务（时间轴末项标签重叠、蜂群图实体选择、并购重组流向图、万级节点四叉树裁剪、分时图光标对齐等）作为备选池固化在 [GITLAB_OUTER_MINED_CANDIDATES.md](GITLAB_OUTER_MINED_CANDIDATES.md) 中备用。
+其他挖掘出的任务（DataZoom 竞态拦截、时间轴末项标签重叠、蜂群图实体选择、并购重组流向图、万级节点四叉树裁剪、分时图光标对齐等）作为备选池固化在 [GITLAB_OUTER_MINED_CANDIDATES.md](GITLAB_OUTER_MINED_CANDIDATES.md) 中备用。
+
 

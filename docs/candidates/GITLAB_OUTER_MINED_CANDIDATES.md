@@ -4,23 +4,15 @@
 
 ---
 
-## 一、 初期优先试跑任务阵容（The Pilot 5）
+## 一、 初期优先试跑任务阵容（The Core Quad: 4 核心梯度）
 
-依据任务类型与四大难度阶梯（Bronze / Silver / Gold / Diamond），初期确立以下 5 个最具代表性的核心试跑任务：
+依据任务类型与四大难度阶梯（Bronze / Silver / Gold / Diamond），初期确立以下 4 个最具代表性的核心试跑任务：
 
 ```mermaid
-graph TD
-  B["🥉 青铜 (Bronze) · Bug 排查<br/>雷达图半径配置覆盖失效<br/>(standard-chart)"]
-  S1["🥈 白银 (Silver) · 功能避让<br/>双图对比气泡自适应边缘避让<br/>(datav-aigc-vis-adapter)"]
-  S2["🥈 白银 (Silver) · 事件竞态<br/>DataZoom 拖拽与坐标轴指示器穿透<br/>(standard-chart)"]
-  G["🥇 黄金 (Gold) · 商业产品复刻<br/>AInvest 市场热力图 Treemap<br/>(ainvest-matrix-react / online)"]
-  D["💎 钻石 (Diamond) · 空间几何攻坚<br/>3D 地球视锥体背面遮挡裁剪<br/>(standard-chart / paradigm-3d-globe)"]
-
-  B --> S1
-  B --> S2
-  S1 --> G
-  S2 --> G
-  G --> D
+graph LR
+  B["🥉 青铜 (Bronze) · Bug 排查<br/>雷达图半径配置覆盖失效<br/>(standard-chart)"] --> S["🥈 白银 (Silver) · 功能避让<br/>双图对比气泡自适应边缘避让<br/>(datav-aigc-vis-adapter)"]
+  S --> G["🥇 黄金 (Gold) · 商业产品复刻<br/>AInvest 市场热力图 Treemap<br/>(ainvest-matrix-react / online)"]
+  G --> D["💎 钻石 (Diamond) · 空间几何攻坚<br/>3D 地球视锥体背面遮挡裁剪<br/>(standard-chart / paradigm-3d-globe)"]
 ```
 
 ### 1. 🥉 入门与校准（Bronze）：移动端雷达图半径配置覆盖失效
@@ -38,7 +30,7 @@ graph TD
 
 ---
 
-### 2. 🥈 日常业务主力 A（Silver）：双图对比气泡自适应边缘避让
+### 2. 🥈 日常业务主力（Silver）：双图对比气泡自适应边缘避让
 - **任务标识**：`CAND-MINE-SILVER-001`（建议 Case ID：`compare-bubble-adaptive-placement`）
 - **类型**：`feature-dev`（几何计算与组件避让）
 - **真实工程来源**：`datav-aigc-vis-adapter`
@@ -53,22 +45,7 @@ graph TD
 
 ---
 
-### 3. 🥈 日常业务主力 B（Silver）：DataZoom 拖拽手势与坐标轴指示器竞态穿透
-- **任务标识**：`CAND-MINE-SILVER-002`（建议 Case ID：`datazoom-pointer-race-lock`）
-- **类型**：`bug-hunting`（事件流与状态机竞态拦截）
-- **真实工程来源**：`standard-chart`
-  - 文件：`packages/paradigm-chart/src/...`
-  - 源 Commit：`22b2bb56` / `a180b6a9`
-- **业务场景与痛点**：
-  在金融行情 K 线图中使用内置 `dataZoom` 滑动手势/滚轮缩放窗口时，拖拽事件持续向下穿透，引起背景 `axisPointer` 的高亮闪烁和 Tooltip 剧烈抖动；且在缩放到无数据区间时容易触发空指针白屏。
-- **Agent 任务边界**：
-  在交互状态机中建立锁机制：处于 `dataZoom` 交互拖动期间拦截并截断指示器事件派发，并在空数据区间提供防御性空状态降级渲染。
-- **代码规模**：约 50~100 行事件拦截与状态更新。
-- **验收机制**：Playwright 模拟高速拖拽滑动与边界缩放，断言期间无多余 Tooltip 绘制且控制台零异常。
-
----
-
-### 4. 🥇 专家生产级（Gold）：AInvest 市场热力图业务复刻
+### 3. 🥇 专家生产级（Gold）：AInvest 市场热力图业务复刻
 - **任务标识**：`CAND-SHOT-HEATMAP-001`（对应已有 Case：`cases/ainvest-market-heatmap-rebuild`）
 - **类型**：`reconstruction`（已上线商业产品复刻）
 - **真实工程来源**：`ainvest-matrix-react`（`packages/app-heatmap` & 真实线上产品）
@@ -80,7 +57,7 @@ graph TD
 
 ---
 
-### 5. 💎 技术底座攻坚（Diamond）：3D 球面空间投影与视锥体背面遮挡裁剪引擎
+### 4. 💎 技术底座攻坚（Diamond）：3D 球面空间投影与视锥体背面遮挡裁剪引擎
 - **任务标识**：`CAND-MINE-DIAMOND-001`（建议 Case ID：`3d-globe-backface-occlusion`）
 - **类型**：`greenfield-3d` / `perf-tuning`（空间几何与图形管线）
 - **真实工程来源**：`standard-chart/packages/paradigm-3d-globe`
@@ -102,26 +79,16 @@ graph TD
 
 ## 二、 全量挖掘备选池（Backup Inventory）
 
-除上述 5 个初期核心任务外，以下任务保留在备选池中，后续可按需拓展入库：
+除上述 4 个初期核心任务外，以下任务保留在备选池中，后续可按需拓展入库：
 
 | 备选编号 | 任务名称 | 难度 | 类型 | 项目来源 | 核心考核内容 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `CAND-MINE-BK-001` | **时间轴末项标签重叠与自适应脱标** | 🥈 Silver | `bug-hunting` | `standard-chart/packages/paradigm-timeline` (`2287b00a`) | 横向时间轴末尾节点文本过长时与前序重叠，动态移出普通文档流并不撑破容器。 |
-| `CAND-MINE-BK-002` | **蜂群图实体高亮与均值参考线** | 🥇 Gold | `feature-dev` | `standard-chart` (`76358d08`) | 力导散点图增加受控 `selectedIds` 选中态，并动态叠加均值/中位数 SVG 标线。 |
-| `CAND-MINE-BK-003` | **并购重组双向流向与审批胶囊图** | 🥇 Gold | `feature-dev` | `standard-chart/packages/thsc-datav-business-merger-reorganization` | 围绕上市公司展开注入与剥离资产双向流动，配合审批状态胶囊节点。 |
-| `CAND-MINE-BK-004` | **万级节点四叉树视口裁剪与显存防漏** | 💎 Diamond | `perf-tuning` | `standard-chart/packages/business-relation-graphs` | 关系图谱万级点视口 Quadtree 几何剔除，渲染帧率 > 30 FPS 且组件销毁时内存增量 < 5MB。 |
-| `CAND-MINE-BK-005` | **分时图多窗口光标磁吸对齐** | 🥇 Gold | `perf-tuning` | `ainvest-desktop/desktop` | 跨股票走势对比时，鼠标移动通过 EventBus 跨组件微秒级同步并吸附至交易时间戳。 |
-| `CAND-MINE-BK-006` | **暗黑/明亮主题 Token 热切换** | 🥉 Bronze | `feature-dev` | `standard-chart/packages/bussiness-chart-theme` | 不销毁图表实例，通过动态注入 CSS 变量与 Token 矩阵实现实时颜色无损平滑切换。 |
-| `CAND-MINE-BK-007` | **力导图时序平滑锚定算法** | 💎 Diamond | `greenfield-3d` | `narrative-visualization/frontend` | 章节切换时锁定关键人物坐标，局部弹簧力导与贝塞尔插值，避免拓扑突变跳跃。 |
+| `CAND-MINE-BK-002` | **DataZoom 拖拽手势与坐标轴指示器竞态穿透** | 🥈 Silver | `bug-hunting` | `standard-chart` (`22b2bb56`) | 滑动手势拖动时事件穿透引起坐标轴高亮抖动，通过状态机加锁与空区间保护。 |
+| `CAND-MINE-BK-003` | **蜂群图实体高亮与均值参考线** | 🥇 Gold | `feature-dev` | `standard-chart` (`76358d08`) | 力导散点图增加受控 `selectedIds` 选中态，并动态叠加均值/中位数 SVG 标线。 |
+| `CAND-MINE-BK-004` | **并购重组双向流向与审批胶囊图** | 🥇 Gold | `feature-dev` | `standard-chart/packages/thsc-datav-business-merger-reorganization` | 围绕上市公司展开注入与剥离资产双向流动，配合审批状态胶囊节点。 |
+| `CAND-MINE-BK-005` | **万级节点四叉树视口裁剪与显存防漏** | 💎 Diamond | `perf-tuning` | `standard-chart/packages/business-relation-graphs` | 关系图谱万级点视口 Quadtree 几何剔除，渲染帧率 > 30 FPS 且组件销毁时内存增量 < 5MB。 |
+| `CAND-MINE-BK-006` | **分时图多窗口光标磁吸对齐** | 🥇 Gold | `perf-tuning` | `ainvest-desktop/desktop` | 跨股票走势对比时，鼠标移动通过 EventBus 跨组件微秒级同步并吸附至交易时间戳。 |
+| `CAND-MINE-BK-007` | **暗黑/明亮主题 Token 热切换** | 🥉 Bronze | `feature-dev` | `standard-chart/packages/bussiness-chart-theme` | 不销毁图表实例，通过动态注入 CSS 变量与 Token 矩阵实现实时颜色无损平滑切换。 |
+| `CAND-MINE-BK-008` | **力导图时序平滑锚定算法** | 💎 Diamond | `greenfield-3d` | `narrative-visualization/frontend` | 章节切换时锁定关键人物坐标，局部弹簧力导与贝塞尔插值，避免拓扑突变跳跃。 |
 
----
-
-## 三、 推荐导入路线
-
-1. **第一批（验证与校准）**：
-   - 导入 `radar-radius-override-bugfix`（Bronze，验证基准 Agent 的基础代码修复与单测能力）；
-   - 导入 `compare-bubble-adaptive-placement`（Silver，验证几何计算与边界避让）。
-2. **第二批（攻坚与体系化）**：
-   - 导入 `datazoom-pointer-race-lock`（Silver，验证事件状态机与竞态防护）；
-   - 保持现有 `ainvest-market-heatmap-rebuild`（Gold，商业级复刻）；
-   - 导入 `3d-globe-backface-occlusion`（Diamond，建立最高技术难度天花板）。
