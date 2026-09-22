@@ -1,0 +1,11 @@
+version: 1
+clarifications:
+  - topic: default_values
+    question: "padding 和 gap 的默认值是什么？"
+    answer: "padding 默认为 10px，gap 默认为 5px。"
+  - topic: return_signature
+    question: "resolveCompareBubblePosition 的返回值包含哪些字段？"
+    answer: "返回 { visible: boolean, left: number, top: number, side: 'left' | 'right', vertical: 'middle' | 'above' | 'below' }。"
+  - topic: environment
+    question: "这个函数需要运行在浏览器还是纯计算？"
+    answer: "纯数学几何计算模块，不需要 DOM 环境。"

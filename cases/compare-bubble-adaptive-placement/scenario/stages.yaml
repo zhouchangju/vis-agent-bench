@@ -1,0 +1,39 @@
+version: 1
+mode: progressive-disclosure
+requirement_truth: ../prompt/requirement.md
+stages:
+  - id: S0
+    name: geometry-analysis-and-ledger
+    input: initial-brief.md
+    checkpoint:
+      - requirement-ledger.yaml
+    observe:
+      - question_quality
+      - assumptions
+  - id: S1
+    name: implement-placement-and-test
+    stakeholder_message: |
+      业务方确认算法细节：
+      1. 当 `placement === 'auto'` 时，若左侧放得下（`anchorX - clearance - width >= leftBound`），优先放左侧；只有左侧放不下且右侧放得下时才自动翻转至右侧。
+      2. 气泡箭头尖端与锚点圆点外缘相距 `safeGap`，需计入圆点半径 `COMPARE_DOT_RADIUS` 与箭头偏移量 `COMPARE_BUBBLE_ARROW_OFFSET`。
+      3. 计算产出的 `left` 与 `top` 必须被 Clamp 在 `[leftBound, rightBound - width]` 与 `[topBound, bottomBound - height]` 范围内。
+      请在 `src/placement.js` 中实现算法并运行 `npm test` 确认通过。
+    checkpoint:
+      - requirement-ledger.yaml
+      - src/placement.js
+    observe:
+      - checkpoint_completion
+      - first_pass_fitness
+  - id: S2
+    name: edge-cases-and-regression
+    stakeholder_message: |
+      走查反馈：
+      1. 当传入 `guideYs`（两条辅助线高度）且空间狭小时，需支持垂直方向 `above` / `below` 避让，避免遮挡对比辅助线。
+      2. 当容器尺寸过小导致无论如何都放不下时，返回 `{ visible: false }`。
+      请完善极端场景保护并确保自测用例全绿。
+    checkpoint:
+      - requirement-ledger.yaml
+      - src/placement.js
+    observe:
+      - feedback_retention
+      - test_evidence

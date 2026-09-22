@@ -1,0 +1,9 @@
+{
+  "name": "compare-bubble-adaptive-placement-starter",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Starter fixture for compare bubble adaptive placement",
+  "scripts": {
+    "test": "node --test test/placement.test.js"
+  }
+}

@@ -1,0 +1,14 @@
+weights:
+  auto_side_decision: 20
+  explicit_flip_resilience: 20
+  horizontal_clamp_and_gap: 20
+  vertical_guide_avoidance: 20
+  small_viewport_suppression: 10
+  max_width_calculation: 10
+gates:
+  p0_min_score: 100
+  critical_failure_cap: 0
+levels:
+  p0: required
+  p1: differentiator
+  p2: production_readiness

@@ -1,0 +1,19 @@
+id: compare-bubble-adaptive-placement
+title: 双图对比气泡自适应边缘避让算法
+status: draft
+suite_role: backup
+source_type: observed
+difficulty: silver
+task_type: feature-dev
+visibility: public
+initial_prompt: scenario/initial-brief.md
+scenario: scenario/stages.yaml
+requirement_truth: prompt/requirement.md
+clarifications: prompt/clarifications.yaml
+acceptance: evaluator/acceptance.md
+rubric: evaluator/rubric.yaml
+fixture: fixture
+provenance: provenance.md
+quality_gate:
+  p0_required: true
+  max_critical_failures: 0
