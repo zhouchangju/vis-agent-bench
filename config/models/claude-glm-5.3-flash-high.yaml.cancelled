@@ -1,0 +1,14 @@
+# [已取消 / 停用]
+# 该模型此前通过 Claude Code 路由预设，现已取消并迁移至 OpenCode (Z.AI Coding Plan) 原生接入：
+# 对应新配置见：config/models/opencode-zai-glm-5.3-flash-high.yaml
+#
+# # schema_version: 2
+# # name: claude-glm-5.3-flash-high
+# # case_id: narrative-equity-relationship
+# # engine:
+# #   adapter: claude-code-cli
+# #   executable: claude
+# #   configured_model: glm-5.3-flash
+# #   reasoning_effort: high
+# #   provider: claude-code-configured-provider
+# #   credential_ref: secret://claude/default

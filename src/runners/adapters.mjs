@@ -26,6 +26,7 @@ const defaultExecutables = {
   kimi: join(homedir(), '.kimi-code', 'bin', 'kimi'),
   claude: 'claude',
   pi: 'pi',
+  opencode: 'opencode',
 };
 
 /**
@@ -208,6 +209,32 @@ function buildPiCommand(ctx) {
   };
 }
 
+function buildOpencodeCommand(ctx) {
+  const session = ctx.session || {};
+  const args = [
+    'run',
+    '--format', 'json',
+    '--auto',
+    '--dir', ctx.workspace,
+    '--model', ctx.model,
+  ];
+  if (ctx.reasoningEffort) {
+    args.push('--variant', ctx.reasoningEffort);
+  }
+  if (session.started && (session.id || session.resumeFrom)) {
+    args.push('--session', session.id || session.resumeFrom);
+  } else if (session.started) {
+    args.push('--continue');
+  }
+  args.push(ctx.prompt);
+  return {
+    executable: ctx.executable,
+    args,
+    stdin: null,
+    format: 'jsonl',
+  };
+}
+
 function claudeTools(allowed = []) {
   const set = new Set(allowed);
   return [
@@ -331,6 +358,30 @@ const adapters = {
     },
     buildCommand: buildPiCommand,
   },
+  opencode: {
+    id: 'opencode',
+    executable: defaultExecutables.opencode,
+    versionArgs: ['--version'],
+    session_continuity: 'native',
+    parseVersion(output) {
+      return parseSemverVersion(output || '');
+    },
+    build(spec, runDir, stageId, session) {
+      const prompt = readPrompt(runDir, stageId);
+      return buildOpencodeCommand({
+        adapter: 'opencode',
+        executable: resolveExecutable('opencode', spec.engine.executable),
+        model: spec.engine.model,
+        reasoningEffort: spec.engine.reasoning_effort || null,
+        workspace: join(runDir, 'workspace'),
+        outputDir: join(runDir, 'artifacts'),
+        stageId,
+        prompt,
+        session: session || {},
+      });
+    },
+    buildCommand: buildOpencodeCommand,
+  },
 };
 
 export function getAdapter(engine) {
@@ -341,7 +392,7 @@ export function getAdapter(engine) {
 }
 
 export function listAdapters() {
-  return [...['codex', 'kimi', 'claude', 'pi'].map(id => adapters[id]), semiAutomaticAdapter];
+  return [...['codex', 'kimi', 'claude', 'pi', 'opencode'].map(id => adapters[id]), semiAutomaticAdapter];
 }
 
 /**

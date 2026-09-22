@@ -238,8 +238,8 @@ export function findSessionId(text) {
   for (const line of lines) {
     try {
       const event = JSON.parse(line);
-      const id = (event.type === 'session' ? event.id : null)
-        || event.thread_id || event.session_id || event.sessionId
+      const id = (event.type === 'session' ? (event.id || event.session?.id) : null)
+        || event.session?.id || event.thread_id || event.session_id || event.sessionId
         || event.data?.thread_id || event.data?.session_id || event.data?.sessionId;
       if (typeof id === 'string' && id.length > 8) return id;
     } catch {

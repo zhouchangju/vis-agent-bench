@@ -60,3 +60,15 @@
 - [ ] Run 状态；
 - [ ] 证据查看；
 - [ ] 横向对比和版本回归。
+
+## M5：任务分类分级与本地轻量防作弊沙箱 (Wave 8)
+
+- [x] 制定任务分类分级与本地轻量防作弊设计规范 (`docs/design/TASK_TAXONOMY_AND_LOCAL_ISOLATION.md`)；
+- [x] 拆解 Wave 8 多 Agent 子任务编排（VAB-T17 ~ VAB-T22）；
+- [ ] VAB-T17 任务分类与难度分级元数据规范与校验；
+- [ ] VAB-T18 本地轻量隔离与 Fake HOME 沙箱引擎 (免 Docker / macOS `sandbox-exec`)；
+- [ ] VAB-T19 场外独立验收与物理隔离评测 Harness；
+- [ ] VAB-T20 金丝雀探针与越权审计器；
+- [ ] VAB-T21 真实题目采集转换流水线与脚手架 CLI (`scripts/intake-case.mjs`)；
+- [ ] VAB-T22 首批分级典型案例库补齐（Bug 排查与性能调优）。
+

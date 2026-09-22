@@ -1,16 +1,16 @@
-# Claude Code 预设：DeepSeek V4.1 Flash，high effort（映射 claude --effort high）。
-# max_cost_usd 是 Claude CLI 单阶段原生费用上限；正式 Case 建议保持显式设置。
+# OpenCode 预设：Mimo V2.6 Flash Free，high 推理强度（通过 OPENCODE_CONFIG_CONTENT 注入 variant）。
+# 真实运行需 --acknowledge-no-cost-cap（OpenCode 无原生费用上限）。
 schema_version: 2
-name: claude-deepseek-v4.1-flash-high
+name: opencode-mimo-v2.6-flash-free-high
 case_id: narrative-equity-relationship
 
 engine:
-  adapter: claude-code-cli
-  executable: claude
-  configured_model: deepseek-v4.1-flash
+  adapter: opencode-cli
+  executable: opencode
+  configured_model: opencode/mimo-v2.6-flash-free
   reasoning_effort: high
-  provider: claude-code-configured-provider
-  credential_ref: secret://claude/default
+  provider: opencode
+  credential_ref: secret://opencode/default
 
 isolation:
   mode: file-isolated-development
@@ -35,7 +35,7 @@ budget:
   wall_time_minutes: 180
   max_retries: 1
   max_tokens: null
-  max_cost_usd: 2
+  max_cost_usd: null
 
 scenario:
   mode: progressive-disclosure

@@ -30,6 +30,12 @@ flowchart TD
   T06["VAB-T06 浏览器证据与人工评审"]
   T07["VAB-T07 报告生成器"]
   T08["VAB-T08 总集成与 Web 控制面"]
+  T17["VAB-T17 任务分类与难度分级 Schema"]
+  T18["VAB-T18 本地轻量 Fake HOME 沙箱"]
+  T19["VAB-T19 场外独立验收 Harness"]
+  T20["VAB-T20 金丝雀探针与越权审计"]
+  T21["VAB-T21 题目采集 SOP 脚手架 CLI"]
+  T22["VAB-T22 典型分级案例库补齐 (Bug & Perf)"]
 
   T00 --> T01
   T00 --> T02
@@ -44,17 +50,32 @@ flowchart TD
   T05 --> T08
   T06 --> T08
   T07 --> T08
+
+  %% Wave 8: 分类分级与本地轻量防作弊沙箱
+  T00 --> T17
+  T01 --> T18
+  T02 --> T18
+  T04 --> T19
+  T08 --> T19
+  T02 --> T20
+  T07 --> T20
+  T17 --> T21
+  T17 --> T22
+  T21 --> T22
 ```
 
 ## 推荐派发顺序
 
-| Wave | 可派发任务 | 并行性 |
+| Wave | 可派发任务 | 说明与并行性 |
 |---|---|---|
 | 0 | `VAB-T00` | 单独执行，冻结基础契约 |
 | 1 | `VAB-T01`、`VAB-T02`、`VAB-T04`、`VAB-T06`、`VAB-T07` | 五个 worktree 并行 |
 | 2 | `VAB-T03` | 等待 Fixture Framework |
-| 3 | `VAB-T05` | 等待 Equity Fixture 与 Evaluator Core |
-| 4 | `VAB-T08` | 单独集成，不与功能任务并行 |
+| 3 | `VAB-T05`、`VAB-T09`、`VAB-T10`、`VAB-T11` | 3D / Heatmap Fixtures 与 Playwright Driver |
+| 5 | `VAB-T12`、`VAB-T13`、`VAB-T15`、`VAB-T16` | 3D / Heatmap Evaluators 与加固 |
+| 6 | `VAB-T08` | 总集成与 Web 控制面 |
+| 7 | `VAB-T14` | 真实模型端到端 Pilot |
+| 8 | `VAB-T17`、`VAB-T18`、`VAB-T19`、`VAB-T20`、`VAB-T21`、`VAB-T22` | **任务分类分级、本地轻量沙箱、场外验收、防作弊探针与采集工具** |
 
 ## 文件入口
 

@@ -258,3 +258,85 @@ tasks:
       - cases/ainvest-market-heatmap-rebuild/evaluator/**
       - docs/architecture/EVALUATOR_PROTOCOL.md
       - docs/agent-orchestration/evidence/VAB-T16.md
+
+  - id: VAB-T17
+    title: 任务分类与难度分级元数据规范与校验
+    wave: 8
+    status: ready
+    branch: codex/vab-t17-taxonomy-difficulty
+    depends_on: [VAB-T00]
+    prompt: prompts/VAB-T17-TAXONOMY-AND-DIFFICULTY.md
+    allowed_paths:
+      - schemas/case.schema.json
+      - src/contracts/**
+      - scripts/validate-structure.mjs
+      - cases/*/case.yaml
+      - tests/contracts/**
+      - docs/agent-orchestration/evidence/VAB-T17.md
+
+  - id: VAB-T18
+    title: 本地轻量隔离与 Fake HOME 沙箱引擎
+    wave: 8
+    status: ready
+    branch: codex/vab-t18-local-sandbox
+    depends_on: [VAB-T01, VAB-T02]
+    prompt: prompts/VAB-T18-LOCAL-SANDBOX-ENGINE.md
+    allowed_paths:
+      - src/core/file-isolation.mjs
+      - src/runners/adapters.mjs
+      - src/runners/local-sandbox.mjs
+      - tests/runners/**
+      - docs/agent-orchestration/evidence/VAB-T18.md
+
+  - id: VAB-T19
+    title: 场外独立验收与物理隔离评测 Harness
+    wave: 8
+    status: ready
+    branch: codex/vab-t19-out-of-band-evaluator
+    depends_on: [VAB-T04, VAB-T08]
+    prompt: prompts/VAB-T19-OUT-OF-BAND-EVALUATOR.md
+    allowed_paths:
+      - src/evaluators/core/**
+      - scripts/bench.mjs
+      - tests/evaluators/core/**
+      - docs/agent-orchestration/evidence/VAB-T19.md
+
+  - id: VAB-T20
+    title: 金丝雀探针与越权审计器
+    wave: 8
+    status: ready
+    branch: codex/vab-t20-canary-audit
+    depends_on: [VAB-T02, VAB-T07]
+    prompt: prompts/VAB-T20-CANARY-AND-AUDIT.md
+    allowed_paths:
+      - src/core/canary-detector.mjs
+      - src/telemetry/**
+      - src/reporting/**
+      - tests/core/**
+      - docs/agent-orchestration/evidence/VAB-T20.md
+
+  - id: VAB-T21
+    title: 真实题目采集转换流水线与脚手架工具
+    wave: 8
+    status: planned
+    branch: codex/vab-t21-case-intake
+    depends_on: [VAB-T17]
+    prompt: prompts/VAB-T21-CASE-INTAKE-PIPELINE.md
+    allowed_paths:
+      - scripts/intake-case.mjs
+      - templates/case/**
+      - tests/scripts/intake-case.test.mjs
+      - docs/agent-orchestration/evidence/VAB-T21.md
+
+  - id: VAB-T22
+    title: 首批分级典型案例库补齐
+    wave: 8
+    status: planned
+    branch: codex/vab-t22-tier-showcase
+    depends_on: [VAB-T17, VAB-T21]
+    prompt: prompts/VAB-T22-BENCHMARK-TIER-SHOWCASE.md
+    allowed_paths:
+      - cases/chart-resize-race-bugfix/**
+      - cases/canvas-memory-leak-tuning/**
+      - tests/cases/**
+      - docs/agent-orchestration/evidence/VAB-T22.md

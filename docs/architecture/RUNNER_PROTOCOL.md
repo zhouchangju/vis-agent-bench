@@ -81,7 +81,7 @@ Stage Prompt 中注入明确的 gate 失败原因。
 - 事件输出：`--json` JSONL
 - 最终消息：`--output-last-message`
 - 模型：`--model`
-- 思考强度：`-c model_reasoning_effort=\"<low|medium|high|xhigh>\"`
+- 思考强度：`-c model_reasoning_effort=\"<low|medium|high|xhigh|max>\"`
 - 工作目录：`--cd`
 - CLI 内层权限：`--sandbox workspace-write --config 'approval_policy="never"'`
 - 联网：RunSpec 启用时传入
@@ -230,6 +230,35 @@ pi --mode print --approve \
   "$STAGE_PROMPT"
 ```
 
+## OpenCode Adapter
+
+OpenCode 作为现代 Agent CLI 接入，支持统一的非交互批处理与推理强度变体：
+
+- executable：`opencode`（本机已探测 `1.18.30`，位于 `/opt/homebrew/bin/opencode`）；
+- 非交互入口：`opencode run`；
+- 事件输出：`--format json` JSONL；
+- 工作目录：`--dir /workspace`；
+- 无人值守审批：`--auto`；
+- 插件隔离：`--pure` 禁用外部未受控插件；
+- 模型与变体：`--model "$MODEL_ID"`，若配置了思考强度则传入 `--variant "$REASONING_EFFORT"`；
+- 会话连续性：首阶段创建会话，后续阶段传入 `--session "$SESSION_ID"`（或 `--continue`）；
+- 变体注入：对于自身 API 未声明 `high` 变体的模型（如 `opencode/mimo-v2.6-flash-free`），Adapter 启动子进程时会在 `OPENCODE_CONFIG_CONTENT` 中合并注入变体配置，与 `viz-platform` 协调策略保持一致；
+- 凭据隔离：凭据由环境变量（如 `OPENCODE_API_KEY`、`DEEPSEEK_API_KEY`、`ZAI_API_KEY`）或已认证存储提供；
+- 费用上限：无原生单阶段费用上限参数，真实运行必须确认 `--acknowledge-no-cost-cap`。
+
+概念命令：
+
+```bash
+opencode run \
+  --format json \
+  --auto \
+  --pure \
+  --dir /workspace \
+  --model opencode-go/deepseek-v4.1-flash \
+  --variant high \
+  "$STAGE_PROMPT"
+```
+
 ### 无人值守确认协议
 
 需要区分两种确认：
@@ -312,7 +341,7 @@ result.json
 
 | 字段 | 用途 |
 |---|---|
-| `id` | 与 `RunSpec.engine.adapter` 对齐的稳定标识（`codex` / `kimi` / `claude` / `pi`）。 |
+| `id` | 与 `RunSpec.engine.adapter` 对齐的稳定标识（`codex` / `kimi` / `claude` / `pi` / `opencode`）。 |
 | `executable` | 默认可执行路径，可被 `RunSpec.engine.executable` 覆盖。 |
 | `versionArgs` | 探测版本所用的参数，默认 `['--version']`。 |
 | `parseVersion(stdout\|stderr)` | 从版本输出中解析 semver 字符串，找不到时返回 `null`。 |

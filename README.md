@@ -29,6 +29,7 @@ StandardChart 产业链双向树保留为备选 Case；StandardChart TODO / 存�
 - [隔离与防答案泄漏](docs/architecture/ISOLATION_AND_ANTI_CHEATING.md)
 - [CLI Runner 统一协议](docs/architecture/RUNNER_PROTOCOL.md)
 - [需求粒度规范](docs/design/REQUIREMENT_GRANULARITY.md)
+- [任务分类分级与本地轻量隔离规范](docs/design/TASK_TAXONOMY_AND_LOCAL_ISOLATION.md)
 - [迭代式需求收敛协议](docs/design/ITERATIVE_REQUIREMENT_LOOP.md)
 - [人效评估设计](docs/design/EFFICIENCY_EVALUATION.md)
 - [Run 日志规范](docs/design/RUN_LOG_SPEC.md)
@@ -173,7 +174,7 @@ npm run bench:case -- \
 Kimi CLI 没有原生费用上限，必须显式确认这一点；建议先增加 `--dry-run` 做零费用配置检查。
 所有参数的含义和默认值见[评测运行手册](docs/operations/RUNBOOK.md#参数说明)。
 
-使用 Codex 测试 GPT-5.6 Sol，并固定思考强度：
+使用 Codex 测试 GPT-5.6 Sol / Luna，并固定思考强度：
 
 ```bash
 npm run bench:case -- \
@@ -185,7 +186,21 @@ npm run bench:case -- \
   --acknowledge-no-cost-cap
 ```
 
-建议先附加 `--dry-run`；Codex 的思考强度可用 `low`、`medium`、`high`、`xhigh`。
+建议先附加 `--dry-run`；Codex 的思考强度可用 `low`、`medium`、`high`、`xhigh`、`max`（如 `gpt-5.6-luna` 配合 `max`）。
+
+使用 OpenCode 运行模型（支持 OpenCode Go 及 Z.AI Coding Plan 模型）：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine opencode \
+  --model opencode-go/deepseek-v4.1-flash \
+  --reasoning-effort high \
+  --wall-time-minutes 180 \
+  --acknowledge-no-cost-cap
+```
+
+OpenCode 支持原生会话流转与思考强度变体（`minimal`、`low`、`medium`、`high`、`xhigh`、`max`），已预置 `mimo-v2.6-flash-free`、`muse-spark-1.3-contributor-free`、`deepseek-v4.1-flash` 以及 Z.AI 的 `glm-5.3` / `glm-5.3-flash`。
 
 使用 Pi 直连 DeepSeek：
 

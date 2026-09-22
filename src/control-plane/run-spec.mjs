@@ -9,6 +9,7 @@ const ADAPTER_ALIASES = Object.freeze({
   'kimi-code-cli': 'kimi',
   'claude-code-cli': 'claude',
   'pi-cli': 'pi',
+  'opencode-cli': 'opencode',
 });
 
 export function loadRunSpec(path) {

@@ -131,7 +131,55 @@ const ADAPTER_CHILD_ENV = Object.freeze({
     'PI_CODING_AGENT_DIR',
     'PI_CODING_AGENT_SESSION_DIR',
   ],
+  opencode: [
+    'OPENCODE_CONFIG_CONTENT',
+    'DEEPSEEK_API_KEY',
+    'OPENAI_API_KEY',
+    'ZAI_API_KEY',
+    'MOONSHOT_API_KEY',
+    'OPENCODE_API_KEY',
+    'OPENCODE_SERVER_USERNAME',
+    'OPENCODE_SERVER_PASSWORD',
+  ],
 });
+
+function mergeOpencodeConfig(existingRaw) {
+  let base = {};
+  if (existingRaw) {
+    try {
+      base = JSON.parse(existingRaw);
+    } catch {
+      base = {};
+    }
+  }
+  const patch = {
+    provider: {
+      opencode: {
+        models: {
+          'mimo-v2.6-flash-free': {
+            variants: {
+              high: {
+                reasoningEffort: 'high',
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+  function deepMerge(target, source) {
+    for (const key of Object.keys(source)) {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        target[key] = target[key] || {};
+        deepMerge(target[key], source[key]);
+      } else {
+        target[key] = source[key];
+      }
+    }
+  }
+  deepMerge(base, patch);
+  return JSON.stringify(base);
+}
 
 function childEnvironment(adapter, extra = {}) {
   const keys = [...COMMON_CHILD_ENV, ...(ADAPTER_CHILD_ENV[adapter] || [])];
@@ -139,7 +187,11 @@ function childEnvironment(adapter, extra = {}) {
   for (const key of keys) {
     if (process.env[key] != null) env[key] = process.env[key];
   }
-  return { ...env, ...extra };
+  const merged = { ...env, ...extra };
+  if (adapter === 'opencode') {
+    merged.OPENCODE_CONFIG_CONTENT = mergeOpencodeConfig(merged.OPENCODE_CONFIG_CONTENT);
+  }
+  return merged;
 }
 
 function jsonDigest(value) {
@@ -562,8 +614,8 @@ function findSessionId(rawPath) {
   for (const line of lines) {
     try {
       const event = JSON.parse(line);
-      const id = (event.type === 'session' ? event.id : null)
-        || event.thread_id || event.session_id || event.sessionId
+      const id = (event.type === 'session' ? (event.id || event.session?.id) : null)
+        || event.session?.id || event.thread_id || event.session_id || event.sessionId
         || event.data?.thread_id || event.data?.session_id || event.data?.sessionId;
       if (typeof id === 'string' && id.length > 8) return id;
     } catch {

@@ -50,7 +50,7 @@ function specFor(caseId) {
 
 function checkpointWriterLines() {
   return [
-    'let prompt = "";',
+    'let prompt = process.argv.slice(2).join(" ") + " ";',
     'for await (const chunk of process.stdin) prompt += chunk;',
     'const stage = process.env.VIS_AGENT_BENCH_STAGE_ID || "S0";',
     'fs.writeFileSync("requirement-ledger.yaml", "requirements:\\n  - id: fake\\n    priority: must\\n");',
@@ -202,16 +202,16 @@ try {
   });
 
   await check('bench prepare honors a model profile with case and executable overrides', () => {
-    const executable = join(outputRoot, 'fake-claude.mjs');
+    const executable = join(outputRoot, 'fake-opencode.mjs');
     writeFileSync(executable, [
       '#!/usr/bin/env node',
       'import fs from "node:fs";',
       'import path from "node:path";',
       'const version = process.argv.includes("--version");',
-      'if (version) { process.stdout.write("fake-claude 2.9.9\\n"); process.exit(0); }',
+      'if (version) { process.stdout.write("fake-opencode 1.0.0\\n"); process.exit(0); }',
       ...checkpointWriterLines(),
-      'process.stdout.write(JSON.stringify({ type: "system", subtype: "init", session_id: "fake-claude-session1", cwd: "/workspace" }) + "\\n");',
-      'process.stdout.write(JSON.stringify({ type: "result", subtype: "success", total_cost_usd: 0.01, usage: { input_tokens: 4, output_tokens: 5 } }) + "\\n");',
+      'process.stdout.write(JSON.stringify({ type: "session", session: { id: "fake-opencode-session1" } }) + "\\n");',
+      'process.stdout.write(JSON.stringify({ type: "text", content: "done" }) + "\\n");',
       '',
     ].join('\n'));
     chmodSync(executable, 0o755);
@@ -219,7 +219,7 @@ try {
     const prepare = spawnSync(process.execPath, [
       join(projectRoot, 'scripts/bench.mjs'),
       'prepare',
-      '--spec', 'config/models/claude-glm-5.3-high.yaml',
+      '--spec', 'config/models/opencode-zai-glm-5.3-high.yaml',
       '--case', 'ainvest-market-heatmap-rebuild',
       '--executable', executable,
       '--run-id', runId,
@@ -231,7 +231,7 @@ try {
     assert.equal(prepared.status, 'success');
     const spec = JSON.parse(readFileSync(join(prepared.run_dir, 'run-spec.json'), 'utf8'));
     assert.equal(spec.case_id, 'ainvest-market-heatmap-rebuild');
-    assert.equal(spec.engine.configured_model, 'glm-5.3');
+    assert.equal(spec.engine.configured_model, 'zai-coding-plan/glm-5.3');
     assert.equal(spec.engine.reasoning_effort, 'high');
     assert.equal(spec.engine.executable, executable);
 
@@ -245,8 +245,8 @@ try {
     assert.ok(commands.length > 0);
     const first = commands[0];
     assert.equal(first.executable, executable);
-    assert.equal(first.args[first.args.indexOf('--effort') + 1], 'high');
-    assert.equal(first.args[first.args.indexOf('--model') + 1], 'glm-5.3');
+    assert.equal(first.args[first.args.indexOf('--variant') + 1], 'high');
+    assert.equal(first.args[first.args.indexOf('--model') + 1], 'zai-coding-plan/glm-5.3');
   });
 
   await check('bench retry preserves failed-attempt evidence and resumes the failed stage', () => {

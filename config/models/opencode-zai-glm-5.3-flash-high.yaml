@@ -1,16 +1,16 @@
-# Claude Code 预设：GLM-5.3，high effort（映射 claude --effort high）。
-# max_cost_usd 是 Claude CLI 单阶段原生费用上限；正式 Case 建议保持显式设置。
+# OpenCode 预设：GLM-5.3 Flash（Z.AI Coding Plan），high 推理强度。
+# 真实运行需 --acknowledge-no-cost-cap（OpenCode 无原生费用上限）。
 schema_version: 2
-name: claude-glm-5.3-high
+name: opencode-zai-glm-5.3-flash-high
 case_id: narrative-equity-relationship
 
 engine:
-  adapter: claude-code-cli
-  executable: claude
-  configured_model: glm-5.3
+  adapter: opencode-cli
+  executable: opencode
+  configured_model: zai-coding-plan/glm-5.3-flash
   reasoning_effort: high
-  provider: claude-code-configured-provider
-  credential_ref: secret://claude/default
+  provider: zai-coding-plan
+  credential_ref: secret://zai-coding-plan/default
 
 isolation:
   mode: file-isolated-development
@@ -35,7 +35,7 @@ budget:
   wall_time_minutes: 180
   max_retries: 1
   max_tokens: null
-  max_cost_usd: 2
+  max_cost_usd: null
 
 scenario:
   mode: progressive-disclosure

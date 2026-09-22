@@ -248,10 +248,71 @@ check('pi adapter runs non-interactively with explicit provider and resumes its 
   assert.ok(!resumed.args.includes('--session'));
 });
 
-check('parseSemverVersion extracts the first semver-like substring', () => {
+check('opencode adapter builds a fresh-session run command with format json and auto', () => {
+  const adapter = getAdapter('opencode');
+  const command = adapter.buildCommand({
+    adapter: 'opencode',
+    executable: 'opencode',
+    model: 'opencode/mimo-v2.6-flash-free',
+    reasoningEffort: 'high',
+    workspace: '/run/w',
+    outputDir: '/run/w/artifacts',
+    stageId: 'S0',
+    prompt: 'do something',
+    session: { id: null, started: false },
+  });
+  assert.equal(command.executable, 'opencode');
+  assert.equal(command.format, 'jsonl');
+  assert.equal(command.stdin, null);
+  assert.deepEqual(command.args, [
+    'run',
+    '--format', 'json',
+    '--auto',
+    '--dir', '/run/w',
+    '--model', 'opencode/mimo-v2.6-flash-free',
+    '--variant', 'high',
+    'do something',
+  ]);
+});
+
+check('opencode adapter resumes known session id or falls back to --continue', () => {
+  const adapter = getAdapter('opencode');
+  const withSessionId = adapter.buildCommand({
+    adapter: 'opencode',
+    executable: 'opencode',
+    model: 'zai-coding-plan/glm-5.3',
+    reasoningEffort: 'high',
+    workspace: '/run/w',
+    outputDir: '/run/w/artifacts',
+    stageId: 'S1',
+    prompt: 'step 2',
+    session: { id: 'ses_12345678', started: true },
+  });
+  assert.ok(withSessionId.args.includes('--session'));
+  assert.equal(withSessionId.args[withSessionId.args.indexOf('--session') + 1], 'ses_12345678');
+  assert.ok(!withSessionId.args.includes('--continue'));
+
+  const withoutSessionId = adapter.buildCommand({
+    adapter: 'opencode',
+    executable: 'opencode',
+    model: 'zai-coding-plan/glm-5.3',
+    reasoningEffort: null,
+    workspace: '/run/w',
+    outputDir: '/run/w/artifacts',
+    stageId: 'S1',
+    prompt: 'step 2',
+    session: { id: null, started: true },
+  });
+  assert.ok(withoutSessionId.args.includes('--continue'));
+  assert.ok(!withoutSessionId.args.includes('--session'));
+  assert.ok(!withoutSessionId.args.includes('--variant'));
+});
+
+check('parseSemverVersion handles varied version formats and rejects junk', () => {
   assert.equal(parseSemverVersion('codex-cli 0.144.6'), '0.144.6');
-  assert.equal(parseSemverVersion('2.1.177\n'), '2.1.177');
+  assert.equal(parseSemverVersion('2.1.177'), '2.1.177');
   assert.equal(parseSemverVersion('0.27.0'), '0.27.0');
+  assert.equal(parseSemverVersion('1.18.30'), '1.18.30');
   assert.equal(parseSemverVersion('no version here'), null);
   assert.equal(parseSemverVersion(null), null);
 });
@@ -264,14 +325,16 @@ check('adapter.parseVersion delegates to parseSemverVersion', () => {
   }
 });
 
-check('listAdapters returns the four CLI engines plus semi-auto with stable ids', () => {
+check('listAdapters returns the five CLI engines plus semi-auto with stable ids', () => {
   const ids = listAdapters().map(a => a.id);
   assert.ok(ids.includes('codex'));
   assert.ok(ids.includes('kimi'));
   assert.ok(ids.includes('claude'));
   assert.ok(ids.includes('pi'));
+  assert.ok(ids.includes('opencode'));
   assert.ok(ids.includes('semi-auto'));
   assert.equal(getAdapter('codex').session_continuity, 'native');
+  assert.equal(getAdapter('opencode').session_continuity, 'native');
   assert.equal(getAdapter('pi').session_continuity, 'native-working-directory');
   assert.equal(getAdapter('semi-auto').session_continuity, 'manual-checkpoint');
 });

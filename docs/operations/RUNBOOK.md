@@ -91,20 +91,20 @@ npm run bench:case -- \
 | 参数 | 必填情况 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `--case <id>` | 建议显式传入 | `dev-workflow-smoke` | Case 目录名，例如 `narrative-equity-relationship`。 |
-| `--engine <codex\|claude\|kimi\|pi>` | 否 | `claude` | 选择实际 CLI Adapter。当前一键入口支持 Codex、Claude Code、Kimi Code 和 Pi。 |
-| `--model <id>` | 否 | 按引擎推导 | 传给对应 CLI 的模型标识。Codex 默认 `gpt-5.6-sol`；Claude 默认 `deepseek-v4-flash`；Kimi 默认 `kimi-code/k3`；Pi 默认 `deepseek-chat`。 |
+| `--engine <codex\|claude\|kimi\|pi\|opencode>` | 否 | `claude` | 选择实际 CLI Adapter。当前一键入口支持 Codex、Claude Code、Kimi Code、Pi 和 OpenCode。 |
+| `--model <id>` | 否 | 按引擎推导 | 传给对应 CLI 的模型标识。Codex 默认 `gpt-5.6-sol`；Claude 默认 `deepseek-v4-flash`；Kimi 默认 `kimi-code/k3`；Pi 默认 `deepseek-chat`；OpenCode 默认 `opencode-go/deepseek-v4.1-flash`。 |
 | `--model-provider <id>` | Pi 可选 | `deepseek` | Pi 实际调用的 Provider，映射为 Pi 的 `--provider`，例如 `deepseek`。不要与仅用于报告标记的 `--provider` 混淆。 |
-| `--reasoning-effort <low\|medium\|high\|xhigh>` | Codex / Claude 可选 | Codex 为 `medium`；Claude 不传则沿用 CLI 设置 | Codex 映射 `-c model_reasoning_effort=\"…\"`（四档）；Claude Code 映射 `--effort`（仅 low/medium/high）。会写入 RunSpec 和命令日志。 |
+| `--reasoning-effort <minimal\|low\|medium\|high\|xhigh\|max>` | Codex / Claude / OpenCode 可选 | Codex 为 `medium`；Claude/OpenCode 不传则沿用 CLI 设置 | Codex 映射 `-c model_reasoning_effort=\"…\"`（支持 low/medium/high/xhigh/max）；Claude Code 映射 `--effort`（仅 low/medium/high）；OpenCode 映射 `--variant`（支持 minimal/low/medium/high/xhigh/max）。会写入 RunSpec 和命令日志。 |
 | `--provider <label>` | 否 | 按引擎推导 | 记录用的脱敏 Provider 标签，不是 API endpoint；Codex 默认为 `openai-codex-configured-provider`。 |
 | `--wall-time-minutes <n>` | 否 | Smoke 为 10，正式 Case 为 180 | 整个 Run 的墙钟时间硬上限，不是每阶段上限。超时后终止当前进程并保留证据。 |
-| `--max-stage-cost-usd <n>` | Claude 正式 Case 必填 | Smoke 为 0.50 | Claude CLI 的单阶段原生费用上限；理论 Run 上限为该值乘以阶段数。Codex、Kimi、Pi 不支持该参数。 |
-| `--acknowledge-no-cost-cap` | Codex/Kimi/Pi 真实运行必填 | 无 | 明确确认 CLI 没有可由 Harness 强制执行的费用上限；仅用于防误操作，不代表费用为零。 |
+| `--max-stage-cost-usd <n>` | Claude 正式 Case 必填 | Smoke 为 0.50 | Claude CLI 的单阶段原生费用上限；理论 Run 上限为该值乘以阶段数。Codex、Kimi、Pi、OpenCode 不支持该参数。 |
+| `--acknowledge-no-cost-cap` | Codex/Kimi/Pi/OpenCode 真实运行必填 | 无 | 明确确认 CLI 没有可由 Harness 强制执行的费用上限；仅用于防误操作，不代表费用为零。 |
 | `--workspace-source <path>` | 否 | 自动选择 Case Fixture | 覆盖输入工作区。必须是脱敏且不含答案实现的绝对路径。 |
 | `--dry-run` | 否 | 关闭 | 只解析并展示配置，不准备 Run、不调用模型、不产生费用。 |
 
 兼容参数 `--max-cost-usd` 等价于 `--max-stage-cost-usd`，只建议旧脚本继续使用。
 
-## 使用 Codex（GPT-5.6 Sol + 思考强度）
+## 使用 Codex（GPT-5.6 Sol / Luna + 思考强度）
 
 先零费用检查命令和配置：
 
@@ -130,7 +130,7 @@ npm run bench:case -- \
   --acknowledge-no-cost-cap
 ```
 
-`--reasoning-effort` 可用值为 `low`、`medium`、`high`、`xhigh`。它不是 Prompt 文本，而是 Codex
+`--reasoning-effort` 可用值为 `low`、`medium`、`high`、`xhigh`、`max`。它不是 Prompt 文本，而是 Codex
 运行配置：Harness 传递 `-c model_reasoning_effort=\"medium\"`，并在 `run-spec.json` 和
 `logs/commands.json` 留存。Codex 的 `exec` 是非交互入口；它使用 `workspace-write` Sandbox，阶段间
 保留 Session，以便后续 `resume` 延续需求澄清上下文。
@@ -138,35 +138,67 @@ npm run bench:case -- \
 Codex CLI 当前同样没有原生费用硬上限，因此真实运行也必须加入
 `--acknowledge-no-cost-cap`；Harness 会强制墙钟时间，Token/费用仅在 JSONL 事件明确上报时记录。
 
-如需使用 Codex `gpt-5.6-luna` 预设，最大思考强度对应 `xhigh`：
+如需使用 Codex `gpt-5.6-luna` 预设，最大思考强度可传入 `max`（或 `xhigh`）：
 
 ```bash
 npm run bench:case -- \
   --case narrative-equity-relationship \
   --engine codex \
   --model gpt-5.6-luna \
-  --reasoning-effort xhigh \
+  --reasoning-effort max \
   --wall-time-minutes 180 \
   --dry-run
 ```
+
+## 使用 OpenCode
+
+OpenCode 支持非交互运行，自动生成原生 Session 连续性并支持指定模型变体（推理强度）：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine opencode \
+  --model opencode-go/deepseek-v4.1-flash \
+  --reasoning-effort high \
+  --wall-time-minutes 180 \
+  --dry-run
+```
+
+确认后执行真实运行：
+
+```bash
+npm run bench:case -- \
+  --case narrative-equity-relationship \
+  --engine opencode \
+  --model opencode-go/deepseek-v4.1-flash \
+  --reasoning-effort high \
+  --wall-time-minutes 180 \
+  --acknowledge-no-cost-cap
+```
+
+OpenCode 在子进程执行时会自动透传相关的环境变量（如 `OPENCODE_CONFIG_CONTENT`、`OPENCODE_API_KEY` 等），并对特定模型（如 `opencode/mimo-v2.6-flash-free`）自动动态注入 high 变体配置以匹配推理强度要求。
 
 ## 模型预设目录（config/models/）
 
 待评测的模型组合以 RunSpec 预设形式登记在 `config/models/`，一个文件钉死 engine、模型名、
 effort 与 provider 标签，可直接用于跨模型对比：
 
-| 预设文件 | Engine | 模型 | Effort |
-| --- | --- | --- | --- |
-| `codex-gpt-5.6-luna-xhigh.yaml` | codex | `gpt-5.6-luna` | `xhigh`（最大档） |
-| `codex-gpt-6-astra-low.yaml` | codex | `gpt-6-astra` | `low` |
-| `codex-gpt-6-astra-high.yaml` | codex | `gpt-6-astra` | `high` |
-| `claude-glm-5.3-high.yaml` | claude | `glm-5.3` | `high` |
-| `claude-glm-5.3-flash-high.yaml` | claude | `glm-5.3-flash` | `high` |
-| `claude-deepseek-v4.1-flash-high.yaml` | claude | `deepseek-v4.1-flash` | `high` |
+| 预设文件 | Engine | 模型 | Effort | 说明 |
+| --- | --- | --- | --- | --- |
+| `codex-gpt-5.6-luna-max.yaml` | codex | `gpt-5.6-luna` | `max` | Codex Luna 最大思考强度 |
+| `codex-gpt-5.6-luna-xhigh.yaml` | codex | `gpt-5.6-luna` | `xhigh` | Codex Luna xhigh 档 |
+| `codex-gpt-5.6-sol-medium.yaml` | codex | `gpt-5.6-sol` | `medium` | Codex Sol 中等思考强度 |
+| `codex-gpt-6-astra-low.yaml` | codex | `gpt-6-astra` | `low` | Codex Astra 低思考强度 |
+| `codex-gpt-6-astra-high.yaml` | codex | `gpt-6-astra` | `high` | Codex Astra 高思考强度 |
+| `opencode-mimo-v2.6-flash-free-high.yaml` | opencode | `opencode/mimo-v2.6-flash-free` | `high` | OpenCode Mimo Free 高思考档 |
+| `opencode-muse-spark-1.3-contributor-free-high.yaml` | opencode | `opencode/muse-spark-1.3-contributor-free` | `high` | OpenCode Muse Spark Free 高思考档 |
+| `opencode-deepseek-v4.1-flash-high.yaml` | opencode | `opencode-go/deepseek-v4.1-flash` | `high` | OpenCode Go DeepSeek V4.1 Flash |
+| `opencode-zai-glm-5.3-high.yaml` | opencode | `zai-coding-plan/glm-5.3` | `high` | Z.AI Coding Plan GLM-5.3 高思考档 |
+| `opencode-zai-glm-5.3-flash-high.yaml` | opencode | `zai-coding-plan/glm-5.3-flash` | `high` | Z.AI Coding Plan GLM-5.3 Flash |
 
-GLM 与 DeepSeek 预设经 Claude Code 的厂商路由调用（本机指向 Anthropic 兼容端点）。模型名必须与
-CLI 实际配置的目录一致；结果归因仍以 stream-json 观测到的实际模型名为准，而不是启动别名
-（见 `docs/architecture/RUNNER_PROTOCOL.md`）。
+注：此前通过 Claude Code 路由的同名旧预设（`claude-deepseek-v4.1-flash-high`、`claude-glm-5.3-high`、`claude-glm-5.3-flash-high`）已取消并更名为 `.yaml.cancelled`，全面迁移至 OpenCode 原生接入。
+
+GLM 与 DeepSeek 系列模型现已全面统一通过 OpenCode 原生接入（覆盖 OpenCode Go 与 Z.AI Coding Plan，包括 Mimo、Muse Spark、DeepSeek V4.1 Flash 以及 GLM 5.3 / GLM 5.3 Flash）。模型名必须与 OpenCode 实际配置的 Provider/Catalog 目录一致。
 
 用预设评测（`--case` 可覆盖预设内固定的 `case_id`，使同一预设可跑不同 Case）：
 
@@ -182,16 +214,15 @@ node scripts/bench.mjs run --run-dir <prepare 输出的 run_dir>
 ```bash
 npm run bench:case -- \
   --case narrative-equity-relationship \
-  --engine claude \
-  --model glm-5.3 \
+  --engine opencode \
+  --model zai-coding-plan/glm-5.3 \
   --reasoning-effort high \
-  --max-stage-cost-usd 2 \
   --wall-time-minutes 180 \
   --dry-run
 ```
 
-注意：Codex 预设真实运行仍需 `--acknowledge-no-cost-cap`（一键入口），或经 `prepare --spec`
-时自行确认 —— Codex 没有原生费用上限；Claude 预设的单阶段费用上限来自 RunSpec 的
+注意：Codex 与 OpenCode 预设真实运行需 `--acknowledge-no-cost-cap`（一键入口），或经 `prepare --spec`
+时自行确认 —— Codex 与 OpenCode 没有原生费用上限；Claude 预设的单阶段费用上限来自 RunSpec 的
 `budget.max_cost_usd`（预设值为 2 美元/阶段）。
 
 ## 使用 Kimi K3

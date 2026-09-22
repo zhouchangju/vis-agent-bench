@@ -1,0 +1,14 @@
+# [已取消 / 停用]
+# 该模型此前通过 Claude Code 路由预设，现已取消并迁移至 OpenCode 原生接入：
+# 对应新配置见：config/models/opencode-deepseek-v4.1-flash-high.yaml
+#
+# # schema_version: 2
+# # name: claude-deepseek-v4.1-flash-high
+# # case_id: narrative-equity-relationship
+# # engine:
+# #   adapter: claude-code-cli
+# #   executable: claude
+# #   configured_model: deepseek-v4.1-flash
+# #   reasoning_effort: high
+# #   provider: claude-code-configured-provider
+# #   credential_ref: secret://claude/default

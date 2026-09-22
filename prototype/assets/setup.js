@@ -6,7 +6,10 @@ const engineDefaults = {
     model: "gpt-5.6",
     modelProfiles: [
       { id: "gpt-5.6", label: "gpt-5.6 · medium", reasoningEffort: "medium" },
-      { id: "gpt-5.6-luna", label: "gpt-5.6-luna · xhigh（最大）", reasoningEffort: "xhigh" }
+      { id: "gpt-5.6-sol", label: "gpt-5.6-sol · medium", reasoningEffort: "medium" },
+      { id: "gpt-5.6-luna", label: "gpt-5.6-luna · xhigh（最大）", reasoningEffort: "xhigh" },
+      { id: "gpt-5.6-luna-max", label: "gpt-5.6-luna · max", reasoningEffort: "max" },
+      { id: "gpt-6-astra", label: "gpt-6-astra · low", reasoningEffort: "low" }
     ],
     executable: "codex",
     credential: "secret://codex/default"
@@ -44,6 +47,21 @@ const engineDefaults = {
     ],
     executable: "pi",
     credential: "secret://pi/deepseek"
+  },
+  "opencode-cli": {
+    label: "OpenCode ready",
+    status: "info",
+    provider: "opencode-go",
+    model: "opencode-go/deepseek-v4.1-flash",
+    modelProfiles: [
+      { id: "opencode-go/deepseek-v4.1-flash", label: "deepseek-v4.1-flash · high", reasoningEffort: "high" },
+      { id: "opencode/mimo-v2.6-flash-free", label: "mimo-v2.6-flash-free · high", reasoningEffort: "high" },
+      { id: "opencode/muse-spark-1.3-contributor-free", label: "muse-spark-1.3-contributor-free · high", reasoningEffort: "high" },
+      { id: "zai-coding-plan/glm-5.3", label: "z.ai coding plan: glm-5.3 · high", reasoningEffort: "high" },
+      { id: "zai-coding-plan/glm-5.3-flash", label: "z.ai coding plan: glm-5.3-flash · high", reasoningEffort: "high" }
+    ],
+    executable: "opencode",
+    credential: "secret://opencode/default"
   }
 };
 

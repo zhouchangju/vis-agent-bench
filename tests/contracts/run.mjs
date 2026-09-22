@@ -99,10 +99,25 @@ const checks = [
     expectInvalid(validateRunSpec(value), 'ENGINE_OPTION_UNSUPPORTED');
   }],
   ['RunSpec accepts Claude Code reasoning effort within low/medium/high', () => {
-    const value = structuredClone(readYaml('config/models/claude-glm-5.3-high.yaml'));
+    const value = structuredClone(readYaml('config/run-profile.example.yaml'));
+    value.engine.adapter = 'claude';
+    value.engine.reasoning_effort = 'high';
+    value.budget.max_cost_usd = 2;
     assert.equal(validateRunSpec(value).valid, true);
     value.engine.reasoning_effort = 'xhigh';
     expectInvalid(validateRunSpec(value), 'ENUM');
+  }],
+  ['RunSpec accepts OpenCode reasoning effort and rejects invalid effort', () => {
+    const value = structuredClone(readYaml('config/models/opencode-zai-glm-5.3-high.yaml'));
+    assert.equal(validateRunSpec(value).valid, true);
+    value.engine.reasoning_effort = 'max';
+    assert.equal(validateRunSpec(value).valid, true);
+    value.engine.reasoning_effort = 'ultra';
+    expectInvalid(validateRunSpec(value), 'ENUM');
+  }],
+  ['RunSpec accepts Codex reasoning effort including max', () => {
+    const value = structuredClone(readYaml('config/models/codex-gpt-5.6-luna-max.yaml'));
+    assert.equal(validateRunSpec(value).valid, true);
   }],
   ['every model profile under config/models/ is a valid RunSpec', () => {
     const result = validateRepositoryContracts(root);

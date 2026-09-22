@@ -41,13 +41,15 @@ prepare → start_session → send_stage → checkpoint → resume_session → c
 
 ### Case
 
-由四部分组成：
+由五部分组成：
 
 1. 初始模糊业务 Brief；
 2. 分阶段 stakeholder / review packets；
 3. Fixture 与附件；
 4. 内部完整需求真相与验收契约；
 5. 预算、权限和停止条件。
+
+Case 按照六大任务类型（`feature-dev`, `bug-hunting`, `perf-tuning`, `reconstruction`, `greenfield-3d`, `refactor-migrate`）与四大难度等级（`bronze`, `silver`, `gold`, `diamond`）进行结构化治理。详见 [任务分类分级规范](../design/TASK_TAXONOMY_AND_LOCAL_ISOLATION.md)。
 
 ### Evaluator
 
@@ -62,15 +64,19 @@ prepare → start_session → send_stage → checkpoint → resume_session → c
 
 ## 2. 运行隔离
 
-正式运行既要防止修改源仓库，也要防止读取答案仓库。
+正式运行既要防止修改源仓库，也要防止读取答案仓库。针对本地执行与无 Docker 场景，平台提供基于本地文件系统的轻量级隔离与防作弊能力。
 
-可信边界优先级：
+可信边界分层：
 
-1. 容器或专用虚拟机，只挂载 Run 工作区；
-2. 专用低权限系统用户，使用文件 ACL 阻止读取其他仓库；
-3. 仅用于开发调试的本机 CLI Sandbox，不产生正式榜单结果。
-
-Git worktree 和临时目录副本只能隔离修改，不能阻止进程通过绝对路径读取其他代码，因此不能单独用于正式评测。
+1. **容器 / 专用微虚机**：最强隔离，只挂载 Run 工作区；
+2. **本地文件系统轻量隔离（推荐）**：
+   - 独立瞬态工作区（全新 git init，无 remote，无历史 commit）；
+   - 伪造空 HOME（`HOME=.fake_home`）与环境变量白名单净化，阻断主机配置与记忆泄露；
+   - 场外裁判（Out-of-band Evaluator）：断言与参考答案物理上绝不进入被测工作区，交卷后在场外离线执行评分；
+   - macOS 原生内核沙箱（`sandbox-exec` / Apple Seatbelt）：在系统层阻断跨目录文件探测；
+   - 全程 Canary 探针与越权命令审计；
+3. **专用低权限系统用户**：使用文件 ACL 阻止读取其他仓库；
+4. **仅用于开发调试的本机宽松模式**：软隔离，不产生正式榜单结果。
 
 每个 Run 必须有唯一目录：
 
@@ -78,12 +84,13 @@ Git worktree 和临时目录副本只能隔离修改，不能阻止进程通过�
 runs/<run-id>/
 ├── input/
 ├── workspace/
+├── .fake_home/
 ├── logs/stages/<stage-id>/
 ├── artifacts/
 └── result.json
 ```
 
-详细规则见 [隔离与防答案泄漏](ISOLATION_AND_ANTI_CHEATING.md)。
+详细规则见 [隔离与防答案泄漏](ISOLATION_AND_ANTI_CHEATING.md) 与 [任务分类分级与本地轻量隔离规范](../design/TASK_TAXONOMY_AND_LOCAL_ISOLATION.md)。
 
 ## 3. 观测输出契约
 

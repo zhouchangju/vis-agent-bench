@@ -6,13 +6,15 @@ const CASE_STATUS = new Set(['draft', 'active', 'backup', 'retired']);
 const SUITE_ROLES = new Set(['primary', 'backup']);
 const SOURCE_TYPES = new Set(['observed', 'inferred', 'proposed']);
 const DIFFICULTIES = new Set(['basic', 'intermediate', 'advanced', 'expert']);
-const ADAPTERS = new Set(['codex', 'kimi', 'claude', 'pi', 'codex-cli', 'kimi-code-cli', 'claude-code-cli', 'pi-cli', 'semi-auto', 'semi-automatic']);
+const ADAPTERS = new Set(['codex', 'kimi', 'claude', 'pi', 'opencode', 'codex-cli', 'kimi-code-cli', 'claude-code-cli', 'pi-cli', 'opencode-cli', 'semi-auto', 'semi-automatic']);
 const RESULT_STATUSES = new Set(['success', 'warning', 'error']);
 const REASONING_EFFORT_BY_ADAPTER = Object.freeze({
-  codex: ['low', 'medium', 'high', 'xhigh'],
-  'codex-cli': ['low', 'medium', 'high', 'xhigh'],
+  codex: ['low', 'medium', 'high', 'xhigh', 'max'],
+  'codex-cli': ['low', 'medium', 'high', 'xhigh', 'max'],
   claude: ['low', 'medium', 'high'],
   'claude-code-cli': ['low', 'medium', 'high'],
+  opencode: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
+  'opencode-cli': ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
 });
 
 function diagnostic(path, code, message) {
@@ -229,10 +231,10 @@ function validateEngine(value, errors) {
   validateNoUnexpectedFields(value, new Set(['adapter', 'executable', 'configured_model', 'reasoning_effort', 'model_provider', 'provider', 'credential_ref']), '$.engine', errors);
   if (!ADAPTERS.has(value.adapter)) errors.push(diagnostic('$.engine.adapter', 'ENUM', 'adapter is unsupported.'));
   for (const field of ['executable', 'configured_model', 'provider']) if (!isNonEmptyString(value[field])) errors.push(diagnostic(`$.engine.${field}`, 'STRING', 'Field must be non-empty.'));
-  if (value.reasoning_effort != null && !['low', 'medium', 'high', 'xhigh'].includes(value.reasoning_effort)) errors.push(diagnostic('$.engine.reasoning_effort', 'ENUM', 'reasoning_effort must be low, medium, high, xhigh or null.'));
+  if (value.reasoning_effort != null && !['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(value.reasoning_effort)) errors.push(diagnostic('$.engine.reasoning_effort', 'ENUM', 'reasoning_effort must be minimal, low, medium, high, xhigh, max or null.'));
   const adapterEfforts = REASONING_EFFORT_BY_ADAPTER[value.adapter];
   if (value.reasoning_effort != null && !adapterEfforts) {
-    errors.push(diagnostic('$.engine.reasoning_effort', 'ENGINE_OPTION_UNSUPPORTED', 'reasoning_effort is supported only by the Codex and Claude Code adapters.'));
+    errors.push(diagnostic('$.engine.reasoning_effort', 'ENGINE_OPTION_UNSUPPORTED', 'reasoning_effort is supported only by the Codex, Claude Code, and OpenCode adapters.'));
   } else if (value.reasoning_effort != null && !adapterEfforts.includes(value.reasoning_effort)) {
     errors.push(diagnostic('$.engine.reasoning_effort', 'ENUM', `${value.adapter} supports reasoning_effort ${adapterEfforts.join('/')}.`));
   }

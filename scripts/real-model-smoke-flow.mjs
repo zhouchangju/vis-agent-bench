@@ -799,20 +799,22 @@ async function main() {
     }, null, 2)}\n`);
     return;
   }
-  if (!['codex', 'claude', 'kimi', 'pi'].includes(args.engine)) {
-    throw new Error('当前真实模型统一入口支持 --engine codex、--engine claude、--engine kimi 或 --engine pi。');
+  if (!['codex', 'claude', 'kimi', 'pi', 'opencode'].includes(args.engine)) {
+    throw new Error('当前真实模型统一入口支持 --engine codex、--engine claude、--engine kimi、--engine pi 或 --engine opencode。');
   }
   const provider = args.provider || ({
     codex: 'openai-codex-configured-provider',
     kimi: 'kimi-code-managed-provider',
     claude: 'claude-code-configured-provider',
     pi: 'pi-direct-api',
+    opencode: 'opencode-managed-provider',
   }[args.engine]);
   const model = args.model || ({
     codex: 'gpt-5.6-sol',
     kimi: 'kimi-code/k3',
     claude: 'deepseek-v4-flash',
     pi: 'deepseek-chat',
+    opencode: 'opencode-go/deepseek-v4.1-flash',
   }[args.engine]);
   const modelProvider = args.engine === 'pi'
     ? (args.model_provider || 'deepseek')
@@ -820,12 +822,16 @@ async function main() {
   if (args.model_provider && args.engine !== 'pi') {
     throw new Error('--model-provider 当前仅支持 Pi；例如 --engine pi --model-provider deepseek。');
   }
-  const effortLevels = { codex: ['low', 'medium', 'high', 'xhigh'], claude: ['low', 'medium', 'high'] };
+  const effortLevels = {
+    codex: ['low', 'medium', 'high', 'xhigh', 'max'],
+    claude: ['low', 'medium', 'high'],
+    opencode: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
+  };
   const reasoningEffort = args.engine === 'codex'
     ? (args.reasoning_effort || 'medium')
-    : (args.engine === 'claude' ? (args.reasoning_effort || null) : null);
+    : (['claude', 'opencode'].includes(args.engine) ? (args.reasoning_effort || null) : null);
   if (args.reasoning_effort && !effortLevels[args.engine]) {
-    throw new Error('--reasoning-effort 当前仅支持 Codex 与 Claude；Kimi 和 Pi 不接受该参数。');
+    throw new Error('--reasoning-effort 当前仅支持 Codex、Claude 与 OpenCode；Kimi 和 Pi 不接受该参数。');
   }
   if (reasoningEffort && !effortLevels[args.engine].includes(reasoningEffort)) {
     throw new Error(`--reasoning-effort 对 ${args.engine} 只支持 ${effortLevels[args.engine].join('、')}。`);
@@ -853,12 +859,12 @@ async function main() {
   if (args.engine === 'claude' && !isDevelopmentSmoke && maxStageCostUsd == null && !args.dry_run) {
     throw new Error('正式 Case 必须显式设置 --max-stage-cost-usd，避免无人值守运行失控。');
   }
-  if (['kimi', 'codex', 'pi'].includes(args.engine) && args.max_stage_cost_usd != null) {
-    const label = { kimi: 'Kimi Code', codex: 'Codex', pi: 'Pi' }[args.engine];
+  if (['kimi', 'codex', 'pi', 'opencode'].includes(args.engine) && args.max_stage_cost_usd != null) {
+    const label = { kimi: 'Kimi Code', codex: 'Codex', pi: 'Pi', opencode: 'OpenCode' }[args.engine];
     throw new Error(`${label} CLI 不支持原生费用上限，请移除 --max-stage-cost-usd，并显式传入 --acknowledge-no-cost-cap。`);
   }
-  if (['kimi', 'codex', 'pi'].includes(args.engine) && !args.acknowledge_no_cost_cap && !args.dry_run) {
-    const label = { kimi: 'Kimi Code', codex: 'Codex', pi: 'Pi' }[args.engine];
+  if (['kimi', 'codex', 'pi', 'opencode'].includes(args.engine) && !args.acknowledge_no_cost_cap && !args.dry_run) {
+    const label = { kimi: 'Kimi Code', codex: 'Codex', pi: 'Pi', opencode: 'OpenCode' }[args.engine];
     throw new Error(`${label} CLI 不支持原生费用上限；真实运行必须显式传入 --acknowledge-no-cost-cap。`);
   }
   const effectiveMaxStageCostUsd = args.engine === 'claude' ? maxStageCostUsd : null;

@@ -121,24 +121,31 @@ Worker 结束后只导出代码差异、日志和允许的产物。隐藏验收�
 
 不建议直接退回功能出现前的旧提交作为唯一方案，因为多年架构和依赖差异会把评测变成旧代码迁移，偏离当前开发效率问题。
 
-## 本地开发模式
+## 本地轻量隔离模式（Local Lightweight Sandboxing）
 
-可以在本机用 CLI Sandbox 快速调试 Runner，但报告必须显示：
+为避免 Docker 在本地开发环境下的重量级负担（启动开销大、文件系统跨层性能损耗、无头浏览器与 GPU 渲染配置繁琐），平台提供一套零依赖、极轻量的本地文件系统隔离防作弊体系：
 
-`Isolation: development-only / not leaderboard eligible`
+1. **瞬态独立工作区（Detached Workspace）**：
+   - 每次 Run 在 `.local/runs/<run-id>/workspace` 动态生成；
+   - 仅包含脱敏后的起始代码与当前轮 Prompt；
+   - 初始化独立空 Git 仓库（无 remote，无提交图谱历史），与宿主机源码库物理脱钩。
+2. **伪造空 HOME 与环境变量净化（Fake HOME & Stripped Env）**：
+   - 启动 Agent 子进程时，强行重定向 `HOME=.local/runs/<run-id>/.fake_home` 与 `TMPDIR=.local/runs/<run-id>/.tmp`；
+   - 严格净化环境变量，仅保留必须的 `PATH` 与 API Key，抹除一切宿主机 shell 变量与用户个性化记忆；
+   - 阻止 Agent 自动读取宿主机的 `~/.zshrc`、`~/.bash_history`、`~/.claude/`、`~/.gemini/`、`~/.codex/` 等全局配置。
+3. **场外裁判物理隔离（Out-of-band Evaluator）**：
+   - 测试断言、参考答案、评分标准**物理上绝不进入工作区**；
+   - 模拟闭卷考试：Agent 在工作区内搜遍全盘也无法找到评分脚本；
+   - Agent 交付退出后，宿主机评测器才在场外安全挂载被测产物进行离线判定。
+4. **macOS 原生内核沙箱（Apple Seatbelt / `sandbox-exec`）**：
+   - 在 macOS 系统下，自动生成最小安全规则 profile；
+   - 允许读取系统底层库与当前 Run 临时工作区；
+   - 显式内核级拦截对宿主机真实工程目录（如 `/Users/.../git/`）与敏感目录（如 `~/.ssh`）的任何读取尝试，返回 `Permission denied`。
+5. **Canary 探针与越权审计（Canary Tokens & Command Audit）**：
+   - 在未公开资料中埋设特殊 Canary Token。若 Agent 产物中命中 Token，判定越权偷看，标记 `status: invalid-isolation` 并成绩作废；
+   - 实时审计 EventLog 中的 shell 命令，发现 `cd ../../` 或探测主机的行为即时告警。
 
-首期采用文件级软隔离：
+满足上述本地防作弊沙箱预检（Fake HOME + 场外验收 + 探针扫描 + sandbox-exec）的本地运行可标记为：
 
-- `.local/runs/<run-id>/workspace` 为唯一工作目录；
-- 起始工程由 `Fixture Builder` (`src/fixtures/`) 生成并通过三层泄漏扫描；
-- 排除 `.git`、依赖、缓存和构建产物（`src/fixtures/exclusion.mjs` 默认规则 + Case 声明）；
-- Case-specific leakage rules 扫描已知答案文件名、实现特征和 canary 标记（`src/fixtures/leakage.mjs`）；
-- CLI 禁用或替换自动发现的规则、Skills、浏览器和历史 Session；
-- 日志保存精确输入和文件哈希；
-- Manifest 记录完整来源血统和确定摘要。
+`Isolation: local-sandbox-verified`
 
-由于 CLI 进程仍以当前用户身份运行，这种模式不能声称”保证读不到主机其他目录”。它只表示平台没有主动提供答案，且工作目录中未发现答案。
-
-只有通过容器/VM/专用用户预检的 Run 才显示：
-
-`Isolation: verified`
