@@ -1,0 +1,28 @@
+# VAB-T22 Evidence
+
+- Status: DONE
+- Task: 首批分级典型案例库补齐
+- Wave: 8
+- Baseline: `9925aae`
+- Branch: `main`
+- Changed paths:
+  - `cases/radar-radius-override-bugfix/**`
+  - `cases/compare-bubble-adaptive-placement/**`
+  - `cases/ainvest-market-heatmap-rebuild/**`
+  - `cases/3d-globe-backface-occlusion/**`
+  - `tests/cases/radar-radius-bugfix/run.mjs`
+  - `tests/cases/compare-bubble-adaptive-placement/run.mjs`
+  - `tests/cases/3d-globe-backface-occlusion/run.mjs`
+  - `package.json`
+  - this evidence file
+- Acceptance commands and results:
+  - `npm run test:cases` → PASS: 7/7 test suites passed, including narrative-equity, macro-map-3d, ainvest-heatmap, standard-chart-two-way-tree, radar-radius-bugfix, compare-bubble-adaptive-placement, 3d-globe-backface-occlusion.
+  - `scanForAnswerLeakage` → PASS: 0 leakage findings across all fixtures.
+  - Hidden evaluators verified against intentional-failure initial stubs and 100% verified passing reference implementations.
+- Produced artifacts:
+  - 🥉 Bronze: `radar-radius-override-bugfix`（移动端雷达图半径配置覆盖缺陷修复，纯逻辑修剪与标量/数组/0值精确继承）
+  - 🥈 Silver: `compare-bubble-adaptive-placement`（双图对比气泡自适应边缘避让算法，Clamp 边界限位与垂直辅助线防遮挡）
+  - 🥇 Gold: `ainvest-market-heatmap-rebuild`（AInvest 市场热力图 Treemap 业务级复刻）
+  - 💎 Diamond: `3d-globe-backface-occlusion`（3D 球面视锥背面遮挡裁剪引擎，视线极限切点距离公式 $D_{edge}$ 推导与透视投影）
+- Not proven:
+  - 真实第三方大模型（如未插桩的真实商业模型）在受控沙箱中的自主交互表现有待在 Wave 9 (VAB-T23) 跑分中验证。

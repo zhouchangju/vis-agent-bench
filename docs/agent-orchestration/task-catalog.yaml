@@ -262,7 +262,7 @@ tasks:
   - id: VAB-T17
     title: 任务分类与难度分级元数据规范与校验
     wave: 8
-    status: ready
+    status: completed
     branch: codex/vab-t17-taxonomy-difficulty
     depends_on: [VAB-T00]
     prompt: prompts/VAB-T17-TAXONOMY-AND-DIFFICULTY.md
@@ -318,7 +318,7 @@ tasks:
   - id: VAB-T21
     title: 真实题目采集转换流水线与脚手架工具
     wave: 8
-    status: planned
+    status: ready
     branch: codex/vab-t21-case-intake
     depends_on: [VAB-T17]
     prompt: prompts/VAB-T21-CASE-INTAKE-PIPELINE.md
@@ -331,12 +331,28 @@ tasks:
   - id: VAB-T22
     title: 首批分级典型案例库补齐
     wave: 8
-    status: planned
+    status: completed
     branch: codex/vab-t22-tier-showcase
-    depends_on: [VAB-T17, VAB-T21]
+    depends_on: [VAB-T17]
     prompt: prompts/VAB-T22-BENCHMARK-TIER-SHOWCASE.md
     allowed_paths:
-      - cases/chart-resize-race-bugfix/**
-      - cases/canvas-memory-leak-tuning/**
+      - cases/radar-radius-override-bugfix/**
+      - cases/compare-bubble-adaptive-placement/**
+      - cases/ainvest-market-heatmap-rebuild/**
+      - cases/3d-globe-backface-occlusion/**
       - tests/cases/**
       - docs/agent-orchestration/evidence/VAB-T22.md
+
+  - id: VAB-T23
+    title: 真实模型 4 梯度端到端跑分与基准评测
+    wave: 9
+    status: planned
+    branch: codex/vab-t23-tier-benchmark
+    depends_on: [VAB-T18, VAB-T19, VAB-T22]
+    prompt: prompts/VAB-T23-TIER-BENCHMARK-RUN.md
+    allowed_paths:
+      - runs/**
+      - reports/**
+      - tests/benchmark/**
+      - docs/agent-orchestration/evidence/VAB-T23.md
+

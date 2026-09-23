@@ -1,0 +1,22 @@
+# VAB-T17 Evidence
+
+- Status: DONE
+- Task: 任务分类与难度分级元数据规范与校验
+- Wave: 8
+- Baseline: `2ee5fa5`
+- Branch: `main`
+- Changed paths:
+  - `schemas/case.schema.json`
+  - `src/contracts/index.mjs`
+  - `docs/design/TASK_TAXONOMY_AND_LOCAL_ISOLATION.md`
+  - `tests/contracts/run.mjs`
+  - this evidence file
+- Acceptance commands and results:
+  - `npm run test:contracts` → PASS: 15/15 checks passed, including schema self-identification and case difficulty/type validation.
+  - `node scripts/validate-structure.mjs` → PASS: Validated all cases against case.schema.json.
+- Produced artifacts:
+  - 任务分类（6 类）：`bug-hunting`（缺陷排查与热修）、`feature-dev`（业务特性开发）、`reconstruction`（业务与产品重构）、`perf-optimization`（渲染与计算性能优化）、`infra-algo`（基础图表与核心算法）、`greenfield-3d`（高维空间与 3D 可视化）。
+  - 四级难度阶梯（Bronze、Silver、Gold、Diamond）及其准入标准定义与工时/能力画像。
+  - `schemas/case.schema.json` 扩展难度枚举支持 `["bronze", "silver", "gold", "diamond", "basic", "intermediate", "advanced", "expert"]`。
+- Remaining notes:
+  - 所有 Case 元数据必须具备明确的 `task_type` 与 `difficulty` 声明，并在 `case.yaml` 中通过校验。

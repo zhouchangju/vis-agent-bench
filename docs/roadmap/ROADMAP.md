@@ -61,14 +61,42 @@
 - [ ] 证据查看；
 - [ ] 横向对比和版本回归。
 
-## M5：任务分类分级与本地轻量防作弊沙箱 (Wave 8)
+## M5：任务分类分级与核心阶梯案例库 (Wave 8 Phase 1)
 
 - [x] 制定任务分类分级与本地轻量防作弊设计规范 (`docs/design/TASK_TAXONOMY_AND_LOCAL_ISOLATION.md`)；
 - [x] 拆解 Wave 8 多 Agent 子任务编排（VAB-T17 ~ VAB-T22）；
-- [ ] VAB-T17 任务分类与难度分级元数据规范与校验；
-- [ ] VAB-T18 本地轻量隔离与 Fake HOME 沙箱引擎 (免 Docker / macOS `sandbox-exec`)；
-- [ ] VAB-T19 场外独立验收与物理隔离评测 Harness；
-- [ ] VAB-T20 金丝雀探针与越权审计器；
-- [ ] VAB-T21 真实题目采集转换流水线与脚手架 CLI (`scripts/intake-case.mjs`)；
-- [ ] VAB-T22 首批分级典型案例库补齐（Bug 排查与性能调优）。
+- [x] VAB-T17 任务分类与难度分级元数据规范与校验（支持 6 大任务类型与 Bronze/Silver/Gold/Diamond 四级难度阶梯）；
+- [x] VAB-T22 首批分级典型案例库补齐与全流程验证：
+  - [x] 🥉 Bronze（入门与校准）：`cases/radar-radius-override-bugfix`（移动端雷达图半径配置覆盖缺陷修复）；
+  - [x] 🥈 Silver（日常业务主力）：`cases/compare-bubble-adaptive-placement`（双图对比气泡自适应边缘避让算法）；
+  - [x] 🥇 Gold（专家生产级）：`cases/ainvest-market-heatmap-rebuild`（AInvest 市场热力图 Treemap 业务级复刻）；
+  - [x] 💎 Diamond（技术底座攻坚）：`cases/3d-globe-backface-occlusion`（3D 球面视锥背面遮挡裁剪引擎与屏幕映射）；
+  - [x] 4 梯度自动化测试套件全绿闭环（`npm run test:cases`）。
+
+## M6：本地轻量沙箱与防作弊体系 (Wave 8 Phase 2)
+
+- [ ] VAB-T18 本地轻量隔离与 Fake HOME 沙箱引擎 (免 Docker / macOS 原生 `sandbox-exec` 配置文件生成 / 环境变量漂白)；
+- [ ] VAB-T19 场外独立验收与物理隔离评测 Harness (将 workspace 拷贝与 evaluator 物理脱耦，防窥探隐藏测试脚本)；
+- [ ] VAB-T20 金丝雀探针与越权审计器 (工作区边缘与敏感系统路径探针注入，违规窥探立即 0 分熔断)；
+- [ ] 验证沙箱下的完整隔离有效性（阻断跨目录探测真实 GitLab 仓库与历史提交）。
+
+## M7：真实 Agent 4 梯度真机跑分与基准评测 (Wave 9)
+
+- [ ] VAB-T23 真实模型 4 梯度端到端跑分 Harness：
+  - [ ] Codex (GPT-5.6 / 6) 在 Bronze ~ Diamond 上的完整运行与解题率统计；
+  - [ ] OpenCode (DeepSeek / MiMo / GLM) 在 4 梯度上的真实表现横向对比；
+  - [ ] 记录 Token 消耗、时间预算、重试轮数、通过率与质量门禁得分；
+  - [ ] 产出第一份综合性能与效率可视化基准白皮书/评测报告。
+
+## M8：自动化题目摄入与持续题库扩充 (Wave 10)
+
+- [ ] VAB-T21 真实题目采集转换流水线与脚手架 CLI (`scripts/intake-case.mjs`)：
+  - [ ] 交互式/参数化一键创建符合规范的 Case 骨架（case.yaml、scenario、prompt、fixture、evaluator、provenance）；
+  - [ ] 集成自动化敏感信息/答案泄漏静态扫描门禁。
+- [ ] 备选案例池分批入库：
+  - [ ] DataZoom 快速拖拽竞态拦截（Silver: `datazoom-race-condition-guard`）；
+  - [ ] 紧凑时间轴末项标签避让重叠（Silver: `timeline-last-label-overlap`）；
+  - [ ] 蜂群图高频悬浮实体选择算法（Gold: `swarm-entity-selection-algo`）；
+  - [ ] 万级节点四叉树视锥剔除与 LOD 渲染（Diamond: `quadtree-lod-culling`）。
+
 
