@@ -20,3 +20,18 @@ dist/
 
 # Local agent session artifacts (plans, transcripts, etc.).
 .zcode/
+
+# Sandbox and fake home runtime state (Wave 8 local isolation)
+.fake-home/
+.sandbox/
+*.sb
+
+# Temporary files and logs
+*.log
+.temp/
+tmp/
+
+# Test and browser reports
+test-results/
+playwright-report/
+
