@@ -35,10 +35,13 @@ function caseTemplate(item) {
     ].filter(Boolean).join(' · ');
     if (!machineHint) machineHint = '机器证据已加载';
   }
+  const safeId = typeof escapeHtml === 'function' ? escapeHtml(item.id) : item.id;
+  const safeTitle = typeof escapeHtml === 'function' ? escapeHtml(item.title) : item.title;
+  const safeHint = typeof escapeHtml === 'function' ? escapeHtml(machineHint) : machineHint;
   return `
-    <article class="review-case" data-case="${item.id}">
+    <article class="review-case" data-case="${safeId}">
       <header class="review-case-head">
-        <div><h2>${item.title}</h2><p>${item.id} · ${machineHint}</p></div>
+        <div><h2>${safeTitle}</h2><p>${safeId} · ${safeHint}</p></div>
         <span class="status warn case-review-status">pending</span>
       </header>
       <div class="review-form">

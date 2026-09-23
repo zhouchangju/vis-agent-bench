@@ -17,19 +17,34 @@ const requiredFiles = [
   'docs/design/HUMAN_REVIEW_WORKFLOW.md',
   'docs/candidates/README.md',
   'docs/roadmap/ROADMAP.md',
+  'prototype/index.html',
   'prototype/setup.html',
   'prototype/review.html',
   'prototype/report.html',
+  'prototype/runs.html',
+  'prototype/compare.html',
+  'prototype/evidence.html',
+  'prototype/assets/utils.js',
   'schemas/human-review.schema.json',
   'config/privacy/transfer-scan-profile.json',
 ];
 
 const missing = requiredFiles.filter(file => !existsSync(resolve(root, file)));
 
-// JSON-tracked configs must stay parseable (they gate transfers and reviews).
+// JSON-tracked configs and schemas must stay parseable (they gate transfers, reviews, and specs).
 const jsonFiles = [
   'config/privacy/transfer-scan-profile.json',
+  'schemas/case.schema.json',
   'schemas/human-review.schema.json',
+  'schemas/memory-experiment-spec.schema.json',
+  'schemas/memory-feedback.schema.json',
+  'schemas/memory-intervention.schema.json',
+  'schemas/memory-paired-report.schema.json',
+  'schemas/report.schema.json',
+  'schemas/result-envelope.schema.json',
+  'schemas/rubric.schema.json',
+  'schemas/run-spec.schema.json',
+  'schemas/scenario.schema.json',
 ];
 const jsonErrors = [];
 for (const file of jsonFiles) {

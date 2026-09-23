@@ -21,7 +21,7 @@
     "test:revision": "node tests/revision/run.mjs",
     "test:smoke-flow": "node tests/smoke-flow/run.mjs",
     "test:e2e": "node tests/e2e/run.mjs",
-    "test:syntax": "node scripts/validate-structure.mjs && node --check scripts/bench.mjs && node --check scripts/bench-status.mjs && node --check scripts/build-fixture.mjs && node --check scripts/real-model-smoke-flow.mjs && node --check src/core/process-runner.mjs && node --check src/core/run-id.mjs && node --check src/runners/adapters.mjs && node --check src/runners/semi-automatic-adapter.mjs && node --check src/runners/semi-automatic-session.mjs && node --check src/core/file-isolation.mjs && node --check src/evaluators/judge/judge-model.mjs && node --check src/evaluators/judge/integration.mjs && for f in src/fixtures/*.mjs src/control-plane/*.mjs src/evaluators/cases/standard-chart-two-way-tree/*.mjs src/browser-evidence/webgl-inspector.mjs src/browser-evidence/screenshot-diff.mjs src/browser-evidence/perf-collector.mjs; do node --check $f; done && node --check prototype/assets/setup.js && node --check prototype/assets/review.js && node --check prototype/assets/sample-runs.js",
+    "test:syntax": "node scripts/validate-structure.mjs && node scripts/check-syntax.mjs",
     "validate:structure": "node scripts/validate-structure.mjs",
     "bench": "node scripts/bench.mjs",
     "bench:doctor": "node scripts/bench.mjs doctor",

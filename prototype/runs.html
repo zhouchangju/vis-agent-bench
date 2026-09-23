@@ -49,6 +49,7 @@
     <div id="run-list"></div>
   </main>
   <div class="toast" id="toast" role="status"></div>
+  <script src="./assets/utils.js"></script>
   <script src="./assets/sample-runs.js"></script>
   <script>
     var expandedRuns = {};
@@ -67,7 +68,7 @@
       if (status === 'awaiting-evaluation') return '等待评估';
       if (status === 'awaiting-human-review') return '等待人工评审';
       if (status === 'failed') return '异常';
-      return status;
+      return escapeHtml(status);
     }
 
     function stageStatusIcon(status) {
@@ -75,7 +76,7 @@
       if (status === 'running') return '<span style="color:var(--cyan);animation:pulse 1.5s infinite">&#9679;</span>';
       if (status === 'failed') return '<span style="color:var(--red)">&#10008;</span>';
       if (status === 'pending') return '<span style="color:var(--faint)">&#9679;</span>';
-      return status;
+      return escapeHtml(status);
     }
 
     function formatMs(ms) {
@@ -90,12 +91,12 @@
       var parts = [];
       if (usage.input_tokens) parts.push('in:' + (usage.input_tokens / 1000).toFixed(0) + 'k');
       if (usage.output_tokens) parts.push('out:' + (usage.output_tokens / 1000).toFixed(0) + 'k');
-      return parts.join(' ');
+      return escapeHtml(parts.join(' '));
     }
 
     function formatCost(usage) {
       if (!usage || usage.cost_usd == null) return '<span style="color:var(--faint)">未上报</span>';
-      return '$' + usage.cost_usd.toFixed(2);
+      return '$' + Number(usage.cost_usd).toFixed(2);
     }
 
     function renderRunCard(run, index) {
@@ -109,11 +110,11 @@
       card.setAttribute('data-run-id', run.run_id);
 
       card.innerHTML =
-        '<div class="run-card-header" onclick="toggleRun(\'' + run.run_id + '\')">' +
+        '<div class="run-card-header">' +
           '<div class="run-card-summary">' +
-            '<span class="run-id">' + run.run_id + '</span>' +
-            '<h3>' + run.case_name + '</h3>' +
-            '<span class="run-model">' + run.engine + ' / ' + run.model + '</span>' +
+            '<span class="run-id">' + escapeHtml(run.run_id) + '</span>' +
+            '<h3>' + escapeHtml(run.case_name) + '</h3>' +
+            '<span class="run-model">' + escapeHtml(run.engine) + ' / ' + escapeHtml(run.model) + '</span>' +
           '</div>' +
           '<div class="run-card-meta">' +
             '<span class="status ' + statusClass(run.status) + '">' + statusLabel(run.status) + '</span>' +
@@ -125,20 +126,20 @@
         '</div>' +
         '<div class="run-card-body">' +
           '<div class="run-stats-grid">' +
-            '<div class="run-stat"><label>墙钟时间</label><span>' + (run.wall_time_minutes != null ? run.wall_time_minutes + ' min' : '&mdash;') + '</span></div>' +
+            '<div class="run-stat"><label>墙钟时间</label><span>' + (run.wall_time_minutes != null ? Number(run.wall_time_minutes).toFixed(1) + ' min' : '&mdash;') + '</span></div>' +
             '<div class="run-stat"><label>Token 使用</label><span>' + formatTokens(run.usage) + '</span></div>' +
             '<div class="run-stat"><label>费用</label><span>' + formatCost(run.usage) + '</span></div>' +
-            '<div class="run-stat"><label>引擎/模型</label><span>' + run.engine + ' / ' + run.model + '</span></div>' +
+            '<div class="run-stat"><label>引擎/模型</label><span>' + escapeHtml(run.engine) + ' / ' + escapeHtml(run.model) + '</span></div>' +
           '</div>' +
           '<div class="run-stage-table">' +
             '<div class="stage-header"><span>阶段</span><span>标签</span><span>状态</span><span>尝试</span><span>Exit</span><span>耗时</span></div>' +
             run.stages.map(function(stage) {
               return '<div class="stage-row">' +
-                '<span class="stage-id">' + stage.stage_id + '</span>' +
-                '<span>' + (stage.label || '') + '</span>' +
-                '<span>' + stageStatusIcon(stage.status) + ' ' + stage.status + '</span>' +
-                '<span>' + stage.attempts + '</span>' +
-                '<span style="font-family:var(--mono)">' + (stage.exit_code != null ? stage.exit_code : '&mdash;') + '</span>' +
+                '<span class="stage-id">' + escapeHtml(stage.stage_id) + '</span>' +
+                '<span>' + escapeHtml(stage.label || '') + '</span>' +
+                '<span>' + stageStatusIcon(stage.status) + ' ' + escapeHtml(stage.status) + '</span>' +
+                '<span>' + Number(stage.attempts || 0) + '</span>' +
+                '<span style="font-family:var(--mono)">' + (stage.exit_code != null ? escapeHtml(stage.exit_code) : '&mdash;') + '</span>' +
                 '<span style="font-family:var(--mono);font-size:11px">' + formatMs(stage.duration_ms) + '</span>' +
               '</div>';
             }).join('') +
@@ -148,6 +149,10 @@
             '<a class="secondary" href="./review.html" style="display:inline-flex;align-items:center;text-decoration:none">人工评审 &#8594;</a>' +
           '</div>' +
         '</div>';
+
+      card.querySelector('.run-card-header').addEventListener('click', function() {
+        toggleRun(run.run_id);
+      });
 
       return card;
     }

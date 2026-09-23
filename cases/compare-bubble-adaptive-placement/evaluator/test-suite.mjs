@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 export async function runHiddenEvaluator(workspacePath = process.cwd()) {
   const targetModulePath = resolve(workspacePath, 'src/placement.js');
-  const targetUrl = pathToFileURL(targetModulePath).href;
+  const targetUrl = `${pathToFileURL(targetModulePath).href}?t=${Date.now()}`;
 
   let mod;
   try {

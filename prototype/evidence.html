@@ -68,6 +68,7 @@
     </div>
   </main>
   <div class="toast" id="toast" role="status"></div>
+  <script src="./assets/utils.js"></script>
   <script src="./assets/sample-runs.js"></script>
   <script>
     var currentRunId = null;
@@ -87,7 +88,7 @@
       var runs = getAllRuns();
       var html = '快速加载：';
       runs.forEach(function(r) {
-        html += ' <a href="?run=' + encodeURIComponent(r.run_id) + '" style="color:var(--cyan);text-decoration:underline;cursor:pointer">' + r.run_id + '</a> &nbsp;';
+        html += ' <a href="?run=' + encodeURIComponent(r.run_id) + '" style="color:var(--cyan);text-decoration:underline;cursor:pointer">' + escapeHtml(r.run_id) + '</a> &nbsp;';
       });
       links.innerHTML = html;
     }
@@ -121,10 +122,10 @@
       document.getElementById('ev-run-label').textContent = run.case_name + ' / ' + run.engine + ' ' + run.model;
       document.getElementById('ev-run-summary').textContent = 'Case ' + run.case_id + ' · 阶段 ' + run.scenario.completed_stages.length + '/' + run.scenario.stage_ids.length;
       document.getElementById('ev-run-info').innerHTML =
-        '<div><b style="color:var(--muted)">开始时间</b> ' + (run.started_at ? new Date(run.started_at).toLocaleString() : '&mdash;') + '</div>' +
-        '<div><b style="color:var(--muted)">完成时间</b> ' + (run.completed_at ? new Date(run.completed_at).toLocaleString() : '&mdash;') + '</div>' +
-        '<div><b style="color:var(--muted)">隔离模式</b> ' + (run.isolation ? run.isolation.mode : '&mdash;') + '</div>' +
-        '<div><b style="color:var(--muted)">Provider</b> ' + (run.provider || '&mdash;') + '</div>';
+        '<div><b style="color:var(--muted)">开始时间</b> ' + (run.started_at ? escapeHtml(new Date(run.started_at).toLocaleString()) : '&mdash;') + '</div>' +
+        '<div><b style="color:var(--muted)">完成时间</b> ' + (run.completed_at ? escapeHtml(new Date(run.completed_at).toLocaleString()) : '&mdash;') + '</div>' +
+        '<div><b style="color:var(--muted)">隔离模式</b> ' + (run.isolation ? escapeHtml(run.isolation.mode) : '&mdash;') + '</div>' +
+        '<div><b style="color:var(--muted)">Provider</b> ' + (run.provider ? escapeHtml(run.provider) : '&mdash;') + '</div>';
 
       // Render evidence tabs
       var ev = getEvidence(currentRunId);
@@ -177,11 +178,11 @@
       html += '<div class="ev-table-wrap"><table class="matrix"><thead><tr><th>阶段</th><th>可执行文件</th><th>Exit</th><th>耗时</th><th>参数</th></tr></thead><tbody>';
       ev.commands.forEach(function(cmd) {
         html += '<tr>' +
-          '<td style="font-family:var(--mono);color:var(--acid)">' + (cmd.stage_id || '&mdash;') + '</td>' +
-          '<td style="font-family:var(--mono)">' + cmd.executable + '</td>' +
-          '<td>' + exitIcon(cmd.exit_code) + ' ' + (cmd.exit_code != null ? cmd.exit_code : '&mdash;') + '</td>' +
+          '<td style="font-family:var(--mono);color:var(--acid)">' + (cmd.stage_id ? escapeHtml(cmd.stage_id) : '&mdash;') + '</td>' +
+          '<td style="font-family:var(--mono)">' + escapeHtml(cmd.executable || '') + '</td>' +
+          '<td>' + exitIcon(cmd.exit_code) + ' ' + (cmd.exit_code != null ? escapeHtml(cmd.exit_code) : '&mdash;') + '</td>' +
           '<td style="font-family:var(--mono);font-size:11px">' + formatMs(cmd.duration_ms) + '</td>' +
-          '<td style="font-family:var(--mono);font-size:10px;color:var(--muted)">' + (cmd.args || '') + '</td>' +
+          '<td style="font-family:var(--mono);font-size:10px;color:var(--muted)">' + escapeHtml(cmd.args || '') + '</td>' +
         '</tr>';
       });
       html += '</tbody></table></div>';
@@ -201,9 +202,10 @@
       if (b.screenshots && b.screenshots.length > 0) {
         html += '<div class="browser-thumb-grid">';
         b.screenshots.forEach(function(shot) {
+          var safeLabel = escapeHtml(shot.label || '');
           html += '<div class="browser-thumb">' +
-            '<div class="thumb-placeholder">' + shot.label.substr(0,2) + '</div>' +
-            '<div class="thumb-label">' + shot.label + '</div>' +
+            '<div class="thumb-placeholder">' + safeLabel.substr(0,2) + '</div>' +
+            '<div class="thumb-label">' + safeLabel + '</div>' +
             '<div class="thumb-size">' + formatBytes(shot.size_bytes) + '</div>' +
           '</div>';
         });
@@ -218,10 +220,10 @@
         html += '<div class="ev-table-wrap"><table class="matrix"><thead><tr><th>标签</th><th>文件</th><th>大小</th><th>节点数</th></tr></thead><tbody>';
         b.dom_snapshots.forEach(function(snap) {
           html += '<tr>' +
-            '<td>' + snap.label + '</td>' +
-            '<td style="font-family:var(--mono);font-size:11px">' + snap.filename + '</td>' +
+            '<td>' + escapeHtml(snap.label || '') + '</td>' +
+            '<td style="font-family:var(--mono);font-size:11px">' + escapeHtml(snap.filename || '') + '</td>' +
             '<td style="font-family:var(--mono)">' + formatBytes(snap.size_bytes) + '</td>' +
-            '<td style="font-family:var(--mono)">' + (snap.node_count || '&mdash;') + '</td>' +
+            '<td style="font-family:var(--mono)">' + (snap.node_count != null ? Number(snap.node_count) : '&mdash;') + '</td>' +
           '</tr>';
         });
         html += '</tbody></table></div>';
@@ -232,8 +234,8 @@
       // Console summary
       html += '<h3 style="margin-top:24px;font-family:var(--display);font-size:18px">控制台</h3>';
       html += '<div class="ev-stats-grid">' +
-        '<div class="run-stat"><label>Console Errors</label><span style="color:' + (b.console_errors > 0 ? 'var(--red)' : 'var(--acid)') + '">' + (b.console_errors != null ? b.console_errors : 'N/A') + '</span></div>' +
-        '<div class="run-stat"><label>Console Warnings</label><span style="color:' + (b.console_warnings > 0 ? 'var(--amber)' : 'var(--acid)') + '">' + (b.console_warnings != null ? b.console_warnings : 'N/A') + '</span></div>' +
+        '<div class="run-stat"><label>Console Errors</label><span style="color:' + (b.console_errors > 0 ? 'var(--red)' : 'var(--acid)') + '">' + (b.console_errors != null ? Number(b.console_errors) : 'N/A') + '</span></div>' +
+        '<div class="run-stat"><label>Console Warnings</label><span style="color:' + (b.console_warnings > 0 ? 'var(--amber)' : 'var(--acid)') + '">' + (b.console_warnings != null ? Number(b.console_warnings) : 'N/A') + '</span></div>' +
       '</div>';
 
       document.getElementById('tab-browser').innerHTML = html;
@@ -247,13 +249,13 @@
       var d = ev.workspace_diff;
       var html = '<div class="evidence-section-desc">工作区文件变更摘要</div>';
       html += '<div class="ev-stats-grid" style="margin-bottom:18px">' +
-        '<div class="run-stat"><label>文件变更</label><span>' + d.files_changed + '</span></div>' +
-        '<div class="run-stat"><label>新增文件</label><span style="color:var(--acid)">' + d.files_added + '</span></div>' +
-        '<div class="run-stat"><label>删除文件</label><span style="color:var(--red)">' + d.files_deleted + '</span></div>' +
-        '<div class="run-stat"><label>行变更</label><span>+' + d.lines_added + ' / -' + d.lines_deleted + '</span></div>' +
+        '<div class="run-stat"><label>文件变更</label><span>' + Number(d.files_changed || 0) + '</span></div>' +
+        '<div class="run-stat"><label>新增文件</label><span style="color:var(--acid)">' + Number(d.files_added || 0) + '</span></div>' +
+        '<div class="run-stat"><label>删除文件</label><span style="color:var(--red)">' + Number(d.files_deleted || 0) + '</span></div>' +
+        '<div class="run-stat"><label>行变更</label><span>+' + Number(d.lines_added || 0) + ' / -' + Number(d.lines_deleted || 0) + '</span></div>' +
       '</div>';
       html += '<h3 style="font-family:var(--display);font-size:18px">Diff 预览</h3>';
-      html += '<pre class="manifest" style="max-height:420px;white-space:pre-wrap">' + (d.summary || '') + '</pre>';
+      html += '<pre class="manifest" style="max-height:420px;white-space:pre-wrap">' + escapeHtml(d.summary || '') + '</pre>';
       document.getElementById('tab-diff').innerHTML = html;
     }
 
@@ -266,15 +268,15 @@
       var html = '<div class="evidence-section-desc">文件哈希绑定（SHA-256），用于验证证据未被篡改。</div>';
       html += '<div class="run-stats-grid" style="margin-bottom:18px">' +
         '<div class="run-stat"><label>验证状态</label><span style="color:' + (a.verified ? 'var(--acid)' : 'var(--red)') + '">' + (a.verified ? '已验证' : '验证失败') + '</span></div>' +
-        '<div class="run-stat"><label>Bindings</label><span>' + a.bindings.length + '</span></div>' +
+        '<div class="run-stat"><label>Bindings</label><span>' + (a.bindings ? a.bindings.length : 0) + '</span></div>' +
       '</div>';
       html += '<div class="ev-table-wrap"><table class="matrix"><thead><tr><th>阶段</th><th>算法</th><th>哈希</th><th>文件</th></tr></thead><tbody>';
-      a.bindings.forEach(function(b) {
+      (a.bindings || []).forEach(function(b) {
         html += '<tr>' +
-          '<td style="font-family:var(--mono);color:var(--acid)">' + b.stage_id + '</td>' +
-          '<td style="font-family:var(--mono);font-size:11px">' + b.algorithm + '</td>' +
-          '<td style="font-family:var(--mono);font-size:10px;color:var(--muted)">' + b.sha256 + '</td>' +
-          '<td style="font-family:var(--mono);font-size:10px">' + b.file + '</td>' +
+          '<td style="font-family:var(--mono);color:var(--acid)">' + escapeHtml(b.stage_id || '') + '</td>' +
+          '<td style="font-family:var(--mono);font-size:11px">' + escapeHtml(b.algorithm || '') + '</td>' +
+          '<td style="font-family:var(--mono);font-size:10px;color:var(--muted)">' + escapeHtml(b.sha256 || '') + '</td>' +
+          '<td style="font-family:var(--mono);font-size:10px">' + escapeHtml(b.file || '') + '</td>' +
         '</tr>';
       });
       html += '</tbody></table></div>';
@@ -290,7 +292,7 @@
 
       var html = '<div class="empty-state" style="text-align:center;padding:48px 24px">' +
         '<div style="font-size:48px;margin-bottom:16px;color:' + color + '">' + icon + '</div>' +
-        '<h3 style="font-family:var(--display);font-size:22px;margin-bottom:8px">评审状态：' + status + '</h3>';
+        '<h3 style="font-family:var(--display);font-size:22px;margin-bottom:8px">评审状态：' + escapeHtml(status) + '</h3>';
       if (status === 'pending') {
         html += '<p style="color:var(--muted)">尚未进行人工评审。</p>' +
           '<a class="primary" href="./review.html" style="display:inline-flex;align-items:center;text-decoration:none;margin-top:16px">前往人工评审 &#8594;</a>';

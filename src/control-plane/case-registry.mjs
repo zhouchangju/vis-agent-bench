@@ -51,6 +51,72 @@ const CASES = Object.freeze({
     testSample: 'memory-effectiveness',
     suiteRole: 'backup',
   },
+  'radar-radius-override-bugfix': {
+    evaluator: async (options = {}) => {
+      const { runHiddenEvaluator } = await import('../../cases/radar-radius-override-bugfix/evaluator/test-suite.mjs');
+      const raw = await runHiddenEvaluator(options.workspace || process.cwd());
+      const passed = raw.details ? raw.details.filter(d => d.passed).length : 0;
+      const total = raw.details ? raw.details.length : 1;
+      const score = total > 0 ? Math.round((passed / total) * 100) : (raw.status === 'success' ? 100 : 0);
+      return {
+        status: raw.status,
+        summary: raw.summary,
+        scorecard: { total: score, details: raw.details || [] },
+        evidence_trust: { status: 'attested', level: 'high' },
+        details: raw.details,
+        next_actions: raw.next_actions || [],
+        artifacts: raw.artifacts || [],
+      };
+    },
+    starter: 'cases/radar-radius-override-bugfix/fixture',
+    plan: 'cases/radar-radius-override-bugfix/scenario/stages.yaml',
+    testSample: 'radar-radius-bugfix',
+    suiteRole: 'backup',
+  },
+  'compare-bubble-adaptive-placement': {
+    evaluator: async (options = {}) => {
+      const { runHiddenEvaluator } = await import('../../cases/compare-bubble-adaptive-placement/evaluator/test-suite.mjs');
+      const raw = await runHiddenEvaluator(options.workspace || process.cwd());
+      const passed = raw.details ? raw.details.filter(d => d.passed).length : 0;
+      const total = raw.details ? raw.details.length : 1;
+      const score = total > 0 ? Math.round((passed / total) * 100) : (raw.status === 'success' ? 100 : 0);
+      return {
+        status: raw.status,
+        summary: raw.summary,
+        scorecard: { total: score, details: raw.details || [] },
+        evidence_trust: { status: 'attested', level: 'high' },
+        details: raw.details,
+        next_actions: raw.next_actions || [],
+        artifacts: raw.artifacts || [],
+      };
+    },
+    starter: 'cases/compare-bubble-adaptive-placement/fixture',
+    plan: 'cases/compare-bubble-adaptive-placement/scenario/stages.yaml',
+    testSample: 'compare-bubble-placement',
+    suiteRole: 'backup',
+  },
+  '3d-globe-backface-occlusion': {
+    evaluator: async (options = {}) => {
+      const { runHiddenEvaluator } = await import('../../cases/3d-globe-backface-occlusion/evaluator/test-suite.mjs');
+      const raw = await runHiddenEvaluator(options.workspace || process.cwd());
+      const passed = raw.details ? raw.details.filter(d => d.passed).length : 0;
+      const total = raw.details ? raw.details.length : 1;
+      const score = total > 0 ? Math.round((passed / total) * 100) : (raw.status === 'success' ? 100 : 0);
+      return {
+        status: raw.status,
+        summary: raw.summary,
+        scorecard: { total: score, details: raw.details || [] },
+        evidence_trust: { status: 'attested', level: 'high' },
+        details: raw.details,
+        next_actions: raw.next_actions || [],
+        artifacts: raw.artifacts || [],
+      };
+    },
+    starter: 'cases/3d-globe-backface-occlusion/fixture',
+    plan: 'cases/3d-globe-backface-occlusion/scenario/stages.yaml',
+    testSample: '3d-globe-occlusion',
+    suiteRole: 'backup',
+  },
 });
 
 export function getCaseRuntime(projectRoot, caseId) {
